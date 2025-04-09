@@ -1,6 +1,6 @@
-# price.find_product_id.py
+# product/tools/find_product_id.py
 from typing import Optional, List, Set
-from test_data import product_data, ProductData # Import the list and TypedDict
+from test_data import product_data
 
 # --- Tool Function Definition ---
 def find_product_id(product_name_or_desc: str) -> Optional[int]:
@@ -17,10 +17,10 @@ def find_product_id(product_name_or_desc: str) -> Optional[int]:
     data = product_data
     print(f"\n--- Running Tool: find_product_id ---")
     search_term = product_name_or_desc.lower().strip()
-    print(f" Attempting to find product ID for: '{search_term}'")
+    print(f"        Attempting to find product ID for: '{search_term}'")
 
     if not data:
-        print(" Error: Product data list is empty.")
+        print("     Error: Product data list is empty.")
         return None
 
     # Fields to search within
@@ -41,26 +41,26 @@ def find_product_id(product_name_or_desc: str) -> Optional[int]:
         if friendly_name and search_term == friendly_name.lower():
              try:
                  pid = int(item["web_product_id"])
-                 print(f" Found exact match on 'customer_friendly_name': '{search_term}' -> ID {pid}")
+                 print(f"       Found exact match on 'customer_friendly_name': '{search_term}' -> ID {pid}")
                  print(f"--- Tool find_product_id finished (Success) ---\n")
                  return pid
              except (ValueError, KeyError):
-                 print(f" Warning: Found match but 'web_product_id' is invalid for {friendly_name}")
+                 print(f"       Warning: Found match but 'web_product_id' is invalid for {friendly_name}")
                  continue  # Try next item
         if ga_name and search_term == ga_name.lower():
              try:
                  pid = int(item["web_product_id"])
-                 print(f" Found exact match on 'google_analytics_name': '{search_term}' -> ID {pid}")
+                 print(f"       Found exact match on 'google_analytics_name': '{search_term}' -> ID {pid}")
                  print(f"--- Tool find_product_id finished (Success) ---\n")
                  return pid
              except (ValueError, KeyError):
-                 print(f" Warning: Found match but invalid ID for {ga_name}")
+                 print(f"       Warning: Found match but invalid ID for {ga_name}")
                  continue # Try next item
 
     # 2. If no exact match, try partial match across specified fields
     possible_matches: List[tuple[int, int]] = [] # (score, pid)
     search_words: Set[str] = set(s for s in search_term.split() if len(s) > 2) # Ignore short words
-    print(f" Attempting partial match using words: {search_words}")
+    print(f"        Attempting partial match using words: {search_words}")
 
     for item in data:
         text_to_search = ""
@@ -84,20 +84,20 @@ def find_product_id(product_name_or_desc: str) -> Optional[int]:
             try:
                  pid = int(item["web_product_id"])
                  possible_matches.append((match_score, pid))
-                 print(f"  - Potential partial match (score {match_score}) for '{search_term}' in product ID {pid}")
+                 print(f"           Potential partial match (score {match_score}) for '{search_term}' in product ID {pid}")
             except (ValueError, KeyError):
-                print(f" Warning: Potential match but invalid ID for item")
+                print(f"            Warning: Potential match but invalid ID for item")
                 continue
 
     # If we found potential matches, return the one with the highest score
     if possible_matches:
         possible_matches.sort(key=lambda x: x[0], reverse=True) # Sort by score
         best_score, best_pid = possible_matches[0]
-        print(f" Found best partial match (score {best_score}) for '{search_term}' -> ID {best_pid}")
+        print(f"            Found best partial match (score {best_score}) for '{search_term}' -> ID {best_pid}")
         print(f"--- Tool find_product_id finished (Success - Partial Match) ---\n")
         return best_pid
 
     # 3. No matches found
-    print(f" Could not determine product ID for: '{search_term}' from product data.")
+    print(f"        Could not determine product ID for: '{search_term}' from product data.")
     print(f"--- Tool find_product_id finished (Not Found) ---\n")
     return None

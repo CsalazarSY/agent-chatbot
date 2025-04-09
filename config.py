@@ -32,10 +32,3 @@ def validate_api_config():
         raise ValueError("LLM_MODEL_NAME environment variable not set in .env file.")
 
 validate_api_config()
-
-# Note:
-# For local runs using LM Studio these env var should be defined like this
-# Example:
-# LLM_BASE_URL = "http://127.0.0.1:1234/v1"
-# LLM_API_KEY = "lm-studio"
-# LLM_MODEL_NAME = "meta-llama-3.1-8b-instruct"

@@ -1,10 +1,8 @@
-# price_agent.py
+# planner_agent.py
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
-from autogen_core.models import ModelInfo
 
 # Import tools/functions
-from price.tools.find_product_id import find_product_id
 from price.tools.api import get_price
 
 # Import system message string
@@ -26,9 +24,10 @@ def create_price_agent(model_client: OpenAIChatCompletionClient) -> AssistantAge
 
     price_assistant = AssistantAgent(
         name="price_assistant",
+        description="Gets specific price quotes when it has all parameters.",
         system_message=price_assistant_system_message,
         model_client=model_client,
-        tools=[find_product_id, get_price],
+        tools=[get_price],
         reflect_on_tool_use=True
     )
     return price_assistant
