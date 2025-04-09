@@ -3,6 +3,7 @@ import asyncio
 import json
 import traceback
 
+from autogen_agentchat.messages import TextMessage
 # AutoGen imports
 from autogen_core import CancellationToken
 from autogen_agentchat.ui import Console
@@ -25,14 +26,14 @@ async def main():
             model=LLM_MODEL_NAME,
             base_url=LLM_BASE_URL,
             api_key=LLM_API_KEY,
-            temperature=0.1,
+            temperature=0,
             timeout=600,
-            # Crucial for local models needing tool support hint
+            # Crucial for local models needing tool support hint and other platforms that are not OpenAI
             model_info=ModelInfo(
                 vision=False,
                 function_calling=True,  # Explicitly state function calling is expected
                 json_output=False,  # Depending on model, might support True
-                family="unknown",  # Or "llama" if known
+                family="gpt-4o",
                 structured_output=True  # If model supports structured output schemas
             ),
         )
@@ -46,8 +47,9 @@ async def main():
     price_assistant = create_price_agent(model_client)
 
     # --- Define Task ---
-    initial_message_text = "Hi there, what's the cost for 300 white vinyl stickers? the size is 3 by 3 inches"
-    # Could also use: initial_task = TextMessage(content=initial_message_text, source="user")
+    initial_message_text = "Can you give me the price for 158 clear vinyl die-cut stickers? the size is 3x3 inches."
+    initial_task = TextMessage(content=initial_message_text, source="user")
+
     print(f"Initiating task with message: \"{initial_message_text}\"")
     print("\n---------------- Chat Start ------------------\n")
 
@@ -60,7 +62,7 @@ async def main():
         # Console() will print the stream and return the final TaskResult
         task_result = await Console(
             price_assistant.run_stream(
-                task=initial_message_text, # Pass the initial message as the task
+                task=initial_task,
                 cancellation_token=cancellation_token
             )
         )

@@ -19,7 +19,7 @@ async def get_price(
     currency_code: str = DEFAULT_CURRENCY_CODE
 ) -> str:
     """
-    Calls the external pricing API asynchronously to get a price quote.
+    Calls the external pricing API to get a price quote.
 
     Args:
         product_id: The unique ID of the product (e.g., 38 or 51).
@@ -62,9 +62,8 @@ async def get_price(
         return "HANDOFF: Configuration Error - Missing API authentication token."
 
     print(f" <- Calling Pricing API...")
-    print(f"    URL: {api_url}")
-    print(f"    Headers: {{... 'Authorization': 'Bearer [REDACTED]' ...}}")
-    print(f"    Payload: {json.dumps(payload, indent=2)}")
+    print(f"      URL: {api_url}")
+    print(f"      Payload: {json.dumps(payload, indent=2)}")
 
     try:
         # Use httpx for async request
@@ -74,7 +73,7 @@ async def get_price(
             response.raise_for_status()
             response_data = response.json()
 
-        print(f" <- API Response Received (Status: {response.status_code}): {json.dumps(response_data, indent=2)}")
+        print(f"\n<- API Response Received (Status: {response.status_code}): {json.dumps(response_data, indent=2)}")
 
         # Parse response structure
         if response_data and "productPricing" in response_data:

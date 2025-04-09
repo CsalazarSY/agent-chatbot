@@ -74,7 +74,7 @@ def find_product_id(product_name_or_desc: str) -> Optional[int]:
         common_words: Set[str] = search_words.intersection(words_in_product_text)
         match_score = len(common_words)
 
-        # Boost score for matches in more important fields (optional refinement)
+        # Boost score for matches in more important fields
         if item.get("customer_friendly_name") and search_term in item["customer_friendly_name"].lower():
             match_score += 2
         if item.get("google_analytics_name") and search_term in item["google_analytics_name"].lower():
