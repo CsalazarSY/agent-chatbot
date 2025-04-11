@@ -61,9 +61,9 @@ async def get_price(
         print("Error: API_AUTH_TOKEN is empty.")
         return "HANDOFF: Configuration Error - Missing API authentication token."
 
-    print(f" <- Calling Pricing API...")
-    print(f"      URL: {api_url}")
-    print(f"      Payload: {json.dumps(payload, indent=2)}")
+    print(f"<- Calling Pricing API ->")
+    print(f"    URL: {api_url}")
+    print(f"    Payload: {json.dumps(payload, indent=2)}")
 
     try:
         # Use httpx for async request
@@ -73,7 +73,7 @@ async def get_price(
             response.raise_for_status()
             response_data = response.json()
 
-        print(f"\n<- API Response Received (Status: {response.status_code}): {json.dumps(response_data, indent=2)}")
+        print(f"\n<- API Response Received (Status: {response.status_code}) ->\n{json.dumps(response_data, indent=2)}")
 
         # Parse response structure
         if response_data and "productPricing" in response_data:

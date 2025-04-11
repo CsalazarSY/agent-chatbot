@@ -3,7 +3,7 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 # Import system message string
-from planner.system_message import planner_assistant_system_message
+from agents.planner.system_message import planner_assistant_system_message
 
 # --- Agent Creation Function ---
 def create_planner_agent(model_client: OpenAIChatCompletionClient) -> AssistantAgent:

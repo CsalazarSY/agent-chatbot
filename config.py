@@ -13,9 +13,13 @@ API_VERSION = os.getenv("API_VERSION", "v1") # Default to v1 if not set
 DEFAULT_COUNTRY_CODE = os.getenv("DEFAULT_COUNTRY_CODE", "US")
 DEFAULT_CURRENCY_CODE = os.getenv("DEFAULT_CURRENCY_CODE", "USD")
 
+# --- LLM Configuration ---
 LLM_BASE_URL = os.getenv("LLM_BASE_URL")
 LLM_API_KEY = os.getenv("LLM_API_KEY")
 LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME")
+
+# --- HubSpot Configuration ---
+HUBSPOT_API_TOKEN = os.getenv("HUBSPOT_API_TOKEN")
 
 # --- Validation ---
 def validate_api_config():
@@ -30,5 +34,7 @@ def validate_api_config():
         raise ValueError("LLM_API_KEY environment variable not set in .env file.")
     if not LLM_MODEL_NAME:
         raise ValueError("LLM_MODEL_NAME environment variable not set in .env file.")
+    if not HUBSPOT_API_TOKEN:
+        raise ValueError("HUBSPOT_ACCESS_TOKEN environment variable not set in .env file.")
 
 validate_api_config()

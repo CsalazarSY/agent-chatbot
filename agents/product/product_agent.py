@@ -3,10 +3,10 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 # Import tools/functions
-from product.tools.find_product_id import find_product_id
+from agents.product.tools.find_product_id import find_product_id
 
 # Import system message string
-from product.system_message import product_assistant_system_message
+from agents.product.system_message import product_assistant_system_message
 
 # --- Agent Creation Function ---
 def create_product_agent(model_client: OpenAIChatCompletionClient) -> AssistantAgent:
@@ -28,6 +28,6 @@ def create_product_agent(model_client: OpenAIChatCompletionClient) -> AssistantA
         system_message=product_assistant_system_message,
         model_client=model_client,
         tools=[find_product_id],
-        reflect_on_tool_use=False
+        reflect_on_tool_use=True
     )
     return product_assistant

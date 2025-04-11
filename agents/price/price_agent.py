@@ -3,10 +3,10 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 # Import tools/functions
-from price.tools.api import get_price
+from agents.price.tools.api import get_price
 
 # Import system message string
-from price.system_message import price_assistant_system_message
+from agents.price.system_message import price_assistant_system_message
 
 # --- Agent Creation Function ---
 def create_price_agent(model_client: OpenAIChatCompletionClient) -> AssistantAgent:
