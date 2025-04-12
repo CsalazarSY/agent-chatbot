@@ -1,4 +1,4 @@
-# product/tools/find_product_id.py
+# agents/product/tools/find_product_id.py
 from typing import Optional, List, Set
 from test_data import product_data
 

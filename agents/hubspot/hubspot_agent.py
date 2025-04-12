@@ -1,15 +1,15 @@
-# hubspot/hubspot_agent.py
+# agents/hubspot/hubspot_agent.py
 
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
-from agents.hubspot.tools.handoff import initiate_hubspot_handoff
+from agents.hubspot.tools.send_message import send_message_to_thread
 from agents.hubspot.system_message import hubspot_agent_system_message
 
 # --- Agent Creation Function ---
 def create_hubspot_agent(model_client: OpenAIChatCompletionClient) -> AssistantAgent:
     """
-    Creates and configures the HubSpot Handoff Agent.
+    Creates and configures the HubSpot Agent.
 
     Args:
         model_client: An initialized OpenAIChatCompletionClient instance.
@@ -22,10 +22,10 @@ def create_hubspot_agent(model_client: OpenAIChatCompletionClient) -> AssistantA
 
     hubspot_assistant = AssistantAgent(
         name="hubspot_assistant",
-        description="Handles the step of initiating a handoff to a human agent.",
+        description="Handles the communication from the agents to HubSpot API",
         system_message=hubspot_agent_system_message,
         model_client=model_client,
-        tools=[initiate_hubspot_handoff],
+        tools=[send_message_to_thread],
         reflect_on_tool_use=False
     )
     return hubspot_assistant

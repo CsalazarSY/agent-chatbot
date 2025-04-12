@@ -1,6 +1,7 @@
 # config.py
 import os
 from dotenv import load_dotenv
+from hubspot import HubSpot
 
 # Load environment variables from .env file
 load_dotenv()
@@ -20,6 +21,10 @@ LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME")
 
 # --- HubSpot Configuration ---
 HUBSPOT_API_TOKEN = os.getenv("HUBSPOT_API_TOKEN")
+HUBSPOT_DEFAULT_SENDER_ACTOR_ID = os.getenv("HUBSPOT_DEFAULT_SENDER_ACTOR_ID")
+HUBSPOT_DEFAULT_CHANNEL = os.getenv("HUBSPOT_DEFAULT_CHANNEL")
+HUBSPOT_DEFAULT_CHANNEL_ACCOUNT = os.getenv("HUBSPOT_DEFAULT_CHANNEL_ACCOUNT")
+HUBSPOT_DEFAULT_INBOX = os.getenv("HUBSPOT_DEFAULT_INBOX")
 
 # --- Validation ---
 def validate_api_config():
@@ -37,4 +42,12 @@ def validate_api_config():
     if not HUBSPOT_API_TOKEN:
         raise ValueError("HUBSPOT_ACCESS_TOKEN environment variable not set in .env file.")
 
-validate_api_config()
+validate_api_config() # Run validation on import
+
+# --- Initialize HubSpot Client ---
+try:
+    hubspot_client = HubSpot(access_token=HUBSPOT_API_TOKEN)
+except Exception as e:
+    print(f"\n!!! <- Error initializing HubSpot client: {e}")
+    hubspot_client = None
+    raise ValueError(f"Failed to initialize HubSpot client: {e}")

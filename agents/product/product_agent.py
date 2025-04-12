@@ -1,4 +1,4 @@
-# product/product_agent.py
+# agents/product/product_agent.py
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
