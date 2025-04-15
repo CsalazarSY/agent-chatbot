@@ -17,9 +17,6 @@ def create_hubspot_agent(model_client: OpenAIChatCompletionClient) -> AssistantA
     Returns:
         An configured AssistantAgent instance.
     """
-    if not model_client:
-        raise ValueError("model_client must be provided to create_hubspot_agent")
-
     hubspot_assistant = AssistantAgent(
         name="hubspot_assistant",
         description="Handles the communication from the agents to HubSpot API",
