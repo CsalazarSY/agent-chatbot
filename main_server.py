@@ -33,15 +33,19 @@ app = FastAPI(
 origins = [
     "http://localhost:5173",  # Default Vite dev server port
     "http://127.0.0.1:5173",
-    "https://hubsbot.loca.lt/" # Subdomain exposed with localtunnel
+    "http://172.20.20.204:5173/",
+    "http://172.27.160.1:5173/",
+    "http://172.17.0.1:5173/",
+    "https://hubsbot.loca.lt", # Subdomain exposed with localtunnel
+    "https://hubsbot.loca.lt"
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"], # Allow all methods (GET, POST, etc.)
-    allow_headers=["*"], # Allow all headers
+    allow_methods=["*", "GET", "POST", "OPTIONS"], # Allow all methods (GET, POST, etc.)
+    allow_headers=["*", "Content-Type"], # Allow all headers
 )
 
 # --- API Endpoint Definition ---
