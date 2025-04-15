@@ -30,9 +30,9 @@ async def send_message_to_thread(
         A success or failure message string (e.g., "Message successfully sent..." or "HUBSPOT_TOOL_FAILED:...").
     """
     print(f"\n--- Running Tool: send_message_to_thread ---")
-    print(f"    >>> Thread ID: {thread_id}")
     print(f"    >>> Channel ID: {channel_id}")
     print(f"    >>> Account ID: {channel_account_id}")
+    print(f"    >>> Thread ID: {thread_id}")
     print(f"    >>> Actor ID: {sender_actor_id}")
 
     # --- Validate necessary inputs ---
@@ -53,7 +53,7 @@ async def send_message_to_thread(
 
     # --- Determine Message Type (MESSAGE or COMMENT) ---
     message_type = "MESSAGE"  # Default to visible message
-    if "HANDOFF" or "COMMENT" in message_text.upper():
+    if "HANDOFF" in message_text.upper() or "COMMENT" in message_text.upper():
         message_type = "COMMENT"
 
     # --- Build call parameters ---
@@ -77,11 +77,11 @@ async def send_message_to_thread(
             hubspot_client.api_request, # The function to run
             request_data # The arguments for the function
         )
-        print(f"--- Tool initiate_hubspot_handoff finished (Success) ---\n")
-        return f"Message successfully sent to thread {thread_id}."
+        print(f"--- Tool: send_message_to_thread - finished (Success) ---\n")
+        return f"HUBSPOT_TOOL_SUCCESS: Message successfully sent to thread {thread_id}."
 
     except Exception as e: #
-        print(f"Error calling HubSpot API: {e}")
+        print(f"\n Error calling HubSpot API: {e}")
         traceback.print_exc()
-        print(f"--- Tool initiate_hubspot_handoff finished (Error) ---\n")
+        print(f"--- Tool: send_message_to_thread - finished (Error) ---\n")
         return f"HUBSPOT_TOOL_FAILED: Error communicating with HubSpot API: {e}"

@@ -37,7 +37,7 @@ origins = [
     "http://172.27.160.1:5173/",
     "http://172.17.0.1:5173/",
     "https://hubsbot.loca.lt", # Subdomain exposed with localtunnel
-    "https://hubsbot.loca.lt"
+    "http://hubsbot.loca.lt"
 ]
 
 app.add_middleware(
