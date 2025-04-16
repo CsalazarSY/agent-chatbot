@@ -2,6 +2,7 @@
 import asyncio
 import json
 import traceback
+from typing import Optional
 
 # Centralized Agent Service
 from agents.agents_services import agent_service
@@ -10,49 +11,64 @@ from agents.agents_services import agent_service
 # --- --- Main Execution --- --- #
 async def main():
     # --- Define Task ---
-    initial_message_text = input("Enter initial message: ")
+    conversation_id: Optional[str] = None # Initialize conversation ID
     task_result = None
     error_message = None
     
-    try:
-        print("\n>>>>>>>>>>>>>> Chat Start <<<<<<<<<<<<<<")
-        # Call the centralized service method
-        task_result, error_message = await agent_service.run_chat_session(initial_message_text, show_console=True)
-        print("\n>>>>>>>>>>>>>> Chat End <<<<<<<<<<<<<<")
-
-    except asyncio.CancelledError:
-        print("--- Task Cancelled ---")
-        
-    except Exception as e:
-        # AgentService handles internal errors, this catches errors calling it
-        print(f"\n\n!!! ERROR during task invocation: {e}")
-        traceback.print_exc()
-
-    ####### --- Process Task Result --- #######
-    print(f"\n\n\n\n\n <<<----------->>> Task Result Analysis <<<----------->>>")
-    if error_message:
-        print(f"        - Task failed with error: {error_message}")
-    elif task_result:
-        print(f"        - Stop Reason: {task_result.stop_reason}")
-        print(f"        - Number of Messages: {len(task_result.messages)}")
-
-        # Check the final message
-        if task_result.messages:
-            final_message = task_result.messages[-1]
-            # Extract content safely
-            if hasattr(final_message, 'content'):
-                 final_content = final_message.content if isinstance(final_message.content, str) else json.dumps(final_message.content)
-            else:
-                 final_content = f"[{type(final_message).__name__} with no 'content']"
-
-            if task_result.stop_reason is None or "completed" in str(task_result.stop_reason).lower() or "finished" in str(task_result.stop_reason).lower():
-                    print(">>> Task completed successfully. <<<")
-                    print(f"        - Final Message: {final_content}")
+    while True:
+        # Prompt user for input, showing conversation ID if it exists
+        if conversation_id:
+            prompt = f"User (ConvID: {conversation_id}): "
         else:
-            print(">>> No messages found in TaskResult. <<<")
-    else:
-         print(">>> TaskResult was not obtained (task might have failed before completion or service error) <<<")
-    ####### --- End of Task Result Analysis --- #######
+            prompt = "User: "
+        user_input = input(prompt)
+
+        if user_input.lower() == "exit":
+            print("Exiting chat.")
+            break
+
+        try:
+            print("\n>>>>>>>>>>>>>> Agent Turn Start <<<<<<<<<<<<<<")
+            task_result, error_message, returned_conversation_id = await agent_service.run_chat_session(
+                user_input,
+                show_console=True,
+                conversation_id=conversation_id
+            )
+            conversation_id = returned_conversation_id # Update conversation_id for the next loop
+            print("\n>>>>>>>>>>>>>> Agent Turn End <<<<<<<<<<<<<<")
+
+            # --- Process and Display Result --- #
+            print(f"\n<<< Analysis (ConvID: {conversation_id}) >>>")
+            if error_message:
+                print(f"    ERROR: {error_message}")
+            elif task_result:
+                print(f"    Stop Reason: {task_result.stop_reason}")
+                # Display the last message content as the reply
+                if task_result.messages:
+                    final_message = task_result.messages[-1]
+                    if hasattr(final_message, 'content'):
+                        final_content = final_message.content if isinstance(final_message.content, str) else json.dumps(final_message.content)
+                        # Clean up internal tags for display
+                        display_reply = final_content.replace("<UserProxyAgent>", "").strip()
+                        if display_reply.startswith("TASK COMPLETE:"): display_reply = display_reply[len("TASK COMPLETE:"):].strip()
+                        if display_reply.startswith("TASK FAILED:"): display_reply = display_reply[len("TASK FAILED:"):].strip()
+                        print(f"Agent: {display_reply}") # Display the final agent reply
+                    else:
+                        print(f"Agent: [{type(final_message).__name__} with no content]")
+                else:
+                    print("Agent: (No message content returned)")
+            else:
+                 print("    TaskResult was not obtained.")
+
+        except asyncio.CancelledError:
+            print("--- Task Cancelled --- ")
+            break
+
+        except Exception as e:
+            print(f"\n!!! ERROR during agent execution: {e}")
+            traceback.print_exc()
+            # Optionally break or continue after error
+        print("---") # Separator for next input
 
 
 # --- Main Execution --- #

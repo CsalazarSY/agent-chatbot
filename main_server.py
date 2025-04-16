@@ -19,10 +19,11 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     reply: str
+    conversation_id: str
     stop_reason: Optional[str] = None
     error: Optional[str] = None
-    conversation_id: Optional[str] = None
-    
+
+
 # --- FastAPI App Setup ---
 app = FastAPI(
     title="AutoGen Agent API",
@@ -33,11 +34,11 @@ app = FastAPI(
 origins = [
     "http://localhost:5173",  # Default Vite dev server port
     "http://127.0.0.1:5173",
-    "http://172.20.20.204:5173/",
-    "http://172.27.160.1:5173/",
-    "http://172.17.0.1:5173/",
+    "http://172.20.20.204:5173/", 
+    "http://172.27.160.1:5173/", 
+    "http://172.17.0.1:5173/",   
     "https://hubsbot.loca.lt", # Subdomain exposed with localtunnel
-    "http://hubsbot.loca.lt"
+    "http://hubsbot.loca.lt"   # Also allow http for localtunnel if needed
 ]
 
 app.add_middleware(
@@ -52,59 +53,90 @@ app.add_middleware(
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
-    Receives a user message, processes it via the centralized AgentService,
-    and returns the final reply or error.
+    Receives a user message and optional conversation_id, processes it via the
+    centralized AgentService, handles state, and returns the reply with the
+    conversation_id.
     """
-    print(f"\n<-- Received request: {request.message}")
+    print(f"\\n<-- Received request for conversation ID: {request.conversation_id} --")
     print("\n>>>>>>>>>>>>>> Chat Start <<<<<<<<<<<<<<")
-    task_result, error_message = await agent_service.run_chat_session(request.message)
+    # Pass message and conversation_id to the service
+    task_result, error_message, final_conversation_id = await agent_service.run_chat_session(
+        request.message,
+        show_console=False, # Ensure console output is off for API
+        conversation_id=request.conversation_id
+    )
     print("\n>>>>>>>>>>>>>> Chat End <<<<<<<<<<<<<<")
 
     # Handle errors reported by the service or the invocation
     if error_message:
         # Consider logging the error_message server-side
         print(f"!!! Error reported: {error_message}")
-        raise HTTPException(status_code=500, detail=error_message)
+        # If ID was missing, final_conversation_id will be None from the service
+        status_code = 400 if "conversation_id is required" in error_message else 500
+        raise HTTPException(status_code=status_code, detail={"message": error_message, "conversation_id": final_conversation_id})
 
     # Handle cases where the task didn't complete successfully but didn't raise an error
     if not task_result:
         err_detail = "Task finished without a result, but no specific error was reported."
         print(f"!!! {err_detail}")
-        raise HTTPException(status_code=500, detail=err_detail)
+        # Return error but still include the conversation ID if available
+        raise HTTPException(status_code=500, detail={"message": err_detail, "conversation_id": final_conversation_id})
 
     # Process successful result
-    final_reply = "No final message found in result." # Default fallback
-    stop_reason = str(task_result.stop_reason) if task_result.stop_reason else "Unknown"
+    final_reply_content = "No final message found in result." # Default fallback
+    stop_reason = str(task_result.stop_reason) if task_result.stop_reason else "Paused/Awaiting Input" # Adjust default
 
     ####### --- Process Task Result --- #######
-    print(f"\n\n\n\n\n <<<----------->>> Task Result Analysis <<<----------->>>")
+    print(f"\\n\\n <<<----------->>> Task Result Analysis (Conv ID: {final_conversation_id}) <<<----------->>>")
     if error_message:
         print(f"        - Task failed with error: {error_message}")
     elif task_result:
-        print(f"        - Stop Reason: {task_result.stop_reason}")
+        print(f"        - Stop Reason: {stop_reason}") # Use processed stop_reason
         print(f"        - Number of Messages: {len(task_result.messages)}")
 
-        # Check the final message
+        # Extract the last message's content for the reply
         if task_result.messages:
-            final_reply = task_result.messages[-1]
-            # Extract content safely
-            if hasattr(final_reply, 'content'):
-                 final_content = final_reply.content if isinstance(final_reply.content, str) else json.dumps(final_reply.content)
-            else:
-                 final_content = f"[{type(final_reply).__name__} with no 'content']"
+            last_message = task_result.messages[-1] # Get the last message object
+            # Extract content safely, handling different message types
+            if hasattr(last_message, 'content'):
+                 final_reply_content = last_message.content if isinstance(last_message.content, str) else json.dumps(last_message.content)
+                 # Clean up internal tags if they are not meant for the user
+                 if isinstance(final_reply_content, str):
+                     # Remove TASK COMPLETE/FAILED prefixes
+                     if final_reply_content.startswith("TASK COMPLETE:"): final_reply_content = final_reply_content[len("TASK COMPLETE:"):].strip()
+                     if final_reply_content.startswith("TASK FAILED:"): final_reply_content = final_reply_content[len("TASK FAILED:"):].strip()
 
-            if task_result.stop_reason is None or "completed" in str(task_result.stop_reason).lower() or "finished" in str(task_result.stop_reason).lower():
-                    print(">>> Task completed successfully. <<<")
-            
-            print(f"        - Final Message: {final_content}")
+                     # Remove <UserProxyAgent> tag and potential leading/trailing whitespace
+                     final_reply_content = final_reply_content.replace("<UserProxyAgent>", "").strip()
+
+            else:
+                 final_reply_content = f"[{type(last_message).__name__} type message received]" # More informative default
+
+            # Check if the last message indicates the task is truly finished
+            # Note: We check the *original* content before cleanup for these keywords
+            original_content_check = last_message.content if hasattr(last_message, 'content') and isinstance(last_message.content, str) else ""
+            if "TASK COMPLETE" in original_content_check or "TASK FAILED" in original_content_check:
+                 print(">>> Task explicitly marked as COMPLETE or FAILED. <<<")
+
+            print(f"        - Final Message for Reply: {final_reply_content}")
         else:
             print(">>> No messages found in TaskResult. <<<")
+            final_reply_content = "The conversation generated no messages."
     else:
          print(">>> TaskResult was not obtained (task might have failed before completion or service error) <<<")
+         final_reply_content = "An issue occurred, and no result was generated."
+         # Ensure final_conversation_id is handled even in this case
+         if not final_conversation_id: final_conversation_id = request.conversation_id or "unknown"
+
+
     ####### --- End of Task Result Analysis --- #######
 
-    # Use the extracted string content for the response
-    return ChatResponse(reply=final_content, stop_reason=stop_reason)
+    # Return the reply, the conversation ID (crucial for continuing), and stop reason
+    return ChatResponse(
+        reply=final_reply_content,
+        conversation_id=final_conversation_id, # Return the ID used/generated
+        stop_reason=stop_reason
+    )
 
 # --- Run the Server (for local development) ---
 if __name__ == "__main__":

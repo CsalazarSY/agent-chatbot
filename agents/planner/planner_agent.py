@@ -5,6 +5,9 @@ from autogen_ext.models.openai import OpenAIChatCompletionClient
 # Import system message string
 from agents.planner.system_message import planner_assistant_system_message
 
+# --- Agent Name Constant ---
+PLANNER_AGENT_NAME = "planner_assistant"
+
 # --- Agent Creation Function ---
 def create_planner_agent(model_client: OpenAIChatCompletionClient) -> AssistantAgent:
     """
@@ -20,7 +23,7 @@ def create_planner_agent(model_client: OpenAIChatCompletionClient) -> AssistantA
         raise ValueError("model_client must be provided to create_planner_agent")
 
     planner_assistant = AssistantAgent(
-        name="planner_assistant",
+        name=PLANNER_AGENT_NAME,
         description="Workflow manager that coordinates between product lookup, pricing, and user communication",
         system_message=planner_assistant_system_message,
         model_client=model_client,

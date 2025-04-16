@@ -6,6 +6,9 @@ from autogen_ext.models.openai import OpenAIChatCompletionClient
 from agents.hubspot.tools.send_message import send_message_to_thread
 from agents.hubspot.system_message import hubspot_agent_system_message
 
+# --- Agent Name Constant ---
+HUBSPOT_AGENT_NAME = "hubspot_assistant"
+
 # --- Agent Creation Function ---
 def create_hubspot_agent(model_client: OpenAIChatCompletionClient) -> AssistantAgent:
     """
@@ -18,7 +21,7 @@ def create_hubspot_agent(model_client: OpenAIChatCompletionClient) -> AssistantA
         An configured AssistantAgent instance.
     """
     hubspot_assistant = AssistantAgent(
-        name="hubspot_assistant",
+        name=HUBSPOT_AGENT_NAME,
         description="Handles the communication from the agents to HubSpot API",
         system_message=hubspot_agent_system_message,
         model_client=model_client,

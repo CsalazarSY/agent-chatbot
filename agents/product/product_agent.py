@@ -8,6 +8,9 @@ from agents.product.tools.find_product_id import find_product_id
 # Import system message string
 from agents.product.system_message import product_assistant_system_message
 
+# --- Agent Name Constant ---
+PRODUCT_AGENT_NAME = "product_assistant"
+
 # --- Agent Creation Function ---
 def create_product_agent(model_client: OpenAIChatCompletionClient) -> AssistantAgent:
     """
@@ -23,7 +26,7 @@ def create_product_agent(model_client: OpenAIChatCompletionClient) -> AssistantA
         raise ValueError("model_client must be provided to create_product_agent")
 
     product_assistant = AssistantAgent(
-        name="product_assistant",
+        name=PRODUCT_AGENT_NAME,
         description="Finds product IDs based on descriptions. Precision tool for converting product descriptions (or names) to numerical IDs",
         system_message=product_assistant_system_message,
         model_client=model_client,
