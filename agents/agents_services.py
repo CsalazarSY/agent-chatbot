@@ -13,6 +13,7 @@ from autogen_core import CancellationToken
 from autogen_core.models import ModelInfo
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 from autogen_agentchat.ui import Console
+from autogen_core.memory import ListMemory, MemoryContent, MemoryMimeType # Added for memory
 
 # Agents
 from agents.hubspot.hubspot_agent import create_hubspot_agent, HUBSPOT_AGENT_NAME
@@ -38,7 +39,6 @@ class AgentService:
     """
     # --- Class Attributes for Shared State ---
     model_client: ClassVar[Optional[OpenAIChatCompletionClient]] = None
-    agents_dict: ClassVar[Dict[str, AgentType]] = {} # Stores initialized agents
     conversation_states: ClassVar[Dict[str, Any]] = {} # In-memory state store (stores state dicts)
 
     _initialized: ClassVar[bool] = False # Flag for one-time initialization
@@ -68,21 +68,6 @@ class AgentService:
                     structured_output=True
                 ),
             )
-
-            # Create agents using the class-level client
-            planner_assistant = create_planner_agent(AgentService.model_client)
-            price_assistant = create_price_agent(AgentService.model_client)
-            product_agent = create_product_agent(AgentService.model_client)
-            hubspot_agent = create_hubspot_agent(AgentService.model_client)
-
-            # Create agents dictionary using agent names as keys - Stores shared agent instances
-            AgentService.agents_dict = {
-                PLANNER_AGENT_NAME: planner_assistant,
-                PRICE_AGENT_NAME: price_assistant,
-                PRODUCT_AGENT_NAME: product_agent,
-                HUBSPOT_AGENT_NAME: hubspot_agent,
-            }
-
             AgentService._initialized = True
 
         except Exception as e:
@@ -91,7 +76,6 @@ class AgentService:
 
             # Reset state on failure
             AgentService.model_client = None
-            AgentService.agents_dict = {}
             AgentService.conversation_states = {}
             AgentService._initialized = False
             raise e
@@ -162,7 +146,7 @@ class AgentService:
         saved_state_dict: Optional[Dict] = None
 
         try:
-            # --- Ensure Conversation ID --- #
+            # --- Determine Conversation ID & Create Request Context --- #
             if not current_conversation_id:
                 current_conversation_id = str(uuid.uuid4())
                 print(f"<--- Starting new conversation with ID: {current_conversation_id} --->")
@@ -175,12 +159,23 @@ class AgentService:
                     # ID provided, but no state found - treat as new conversation with this ID
                     print(f"<--- New conversation started with provided ID: {current_conversation_id} (no prior state found) --->")
 
+            # Create memory for this request, containing the conversation ID
+            request_memory = ListMemory()
+            await request_memory.add(MemoryContent(content=f"Current_HubSpot_Thread_ID: {current_conversation_id}", mime_type=MemoryMimeType.TEXT))
+            print(f"    - Created request memory with Thread ID: {current_conversation_id}")
+
+            # --- Create Agent Instances for this request --- #
+            planner_assistant = create_planner_agent(AgentService.model_client, memory=[request_memory])
+            hubspot_agent = create_hubspot_agent(AgentService.model_client, memory=[request_memory])
+            price_agent = create_price_agent(AgentService.model_client) # No memory needed
+            product_agent = create_product_agent(AgentService.model_client) # No memory needed
+
             # --- Create GroupChat Instance for this request --- #
             active_participants = [
-                AgentService.agents_dict[PLANNER_AGENT_NAME],
-                AgentService.agents_dict[PRICE_AGENT_NAME],
-                AgentService.agents_dict[PRODUCT_AGENT_NAME],
-                AgentService.agents_dict[HUBSPOT_AGENT_NAME],
+                planner_assistant,
+                price_agent,
+                product_agent,
+                hubspot_agent,
             ]
             group_chat = SelectorGroupChat(
                 participants=active_participants,
@@ -194,12 +189,12 @@ class AgentService:
             if saved_state_dict:
                 try:
                     await group_chat.load_state(saved_state_dict)
-                    print(f"--- State loaded successfully into new chat instance. ---")
+                    print(f"    - State loaded successfully into new chat instance")
                 except Exception as load_err:
                     error_message = f"Error loading state into new chat instance for {current_conversation_id}: {load_err}. Starting fresh."
-                    print(f"!!! {error_message}")
+                    print(f"    - WARN: {error_message}")
                     await group_chat.reset() # Reset the new instance
-                    # Optionally clear the invalid state from storage
+                    # Clear the invalid state from storage
                     AgentService.conversation_states.pop(current_conversation_id, None)
 
             # --- Prepare the next message --- #
@@ -210,8 +205,8 @@ class AgentService:
 
             cancellation_token = CancellationToken()
 
+            # Run the chat - use run() for API flow, run_stream() wrapped in Console for terminal
             if show_console:
-                # Pass task as a list containing the single message
                 task_result = await Console(group_chat.run_stream(task=next_message, cancellation_token=cancellation_token))
             else:
                 # Run the chat. The `next_message` kicks off the next round.
@@ -221,7 +216,6 @@ class AgentService:
             # Save state from the instance we just ran
             final_state_dict = await group_chat.save_state()
             AgentService.conversation_states[current_conversation_id] = final_state_dict
-            print(f"<--- Saved state for conversation ID: {current_conversation_id} --->")
 
         except Exception as e:
             error_message = f"Error during AutoGen task execution: {e}"
