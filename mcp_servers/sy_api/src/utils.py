@@ -23,13 +23,6 @@ def load_sy_api_config():
         # print("Warning: SY_API_AUTH_TOKEN environment variable is not set.")
         pass
 
-    # print("SY API Server Configuration Loaded:") # Commented out for stdio transport
-    # print(f"  Base URL: {config['base_url']}")
-    # print(f"  API Version: {config['api_version']}")
-    # print(f"  Auth Token: {'*' * (len(config['auth_token']) - 4)}{config['auth_token'][-4:]}" if config['auth_token'] else "Not Set")
-    # print(f"  Default Country Code: {config['default_country_code']}")
-    # print(f"  Default Currency Code: {config['default_currency_code']}")
-
     return config
 
 # Load config globally when module is imported

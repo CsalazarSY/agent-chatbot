@@ -2,35 +2,75 @@
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
-# Import tools/functions
-from agents.price.tools.api import get_price
+# Import ALL tool functions
+from agents.price.tools.sy_api import (
+    sy_create_design,
+    sy_get_design_preview,
+    sy_list_orders_by_status_get,
+    sy_list_orders_by_status_post,
+    sy_create_order,
+    sy_create_order_from_designs,
+    sy_get_order_details,
+    sy_cancel_order,
+    sy_get_order_item_statuses,
+    sy_get_order_tracking,
+    sy_list_products,
+    sy_get_price_tiers,
+    sy_get_specific_price,
+    sy_list_countries,
+    sy_verify_login,
+    sy_perform_login
+)
 
-# Import system message string
-from agents.price.system_message import price_assistant_system_message
+# Import the updated system message string
+from agents.price.system_message import sy_api_agent_system_message # Use the new variable nam
+
+# --- Type Hint Imports ---
+from typing import Optional, List, Callable
+from autogen_core.memory import Memory
 
 # --- Agent Name Constant ---
 PRICE_AGENT_NAME = "price_assistant"
 
+# --- Collect all tool functions ---
+all_sy_api_tools: List[Callable] = [
+    sy_create_design,
+    sy_get_design_preview,
+    sy_list_orders_by_status_get,
+    sy_list_orders_by_status_post,
+    sy_create_order,
+    sy_create_order_from_designs,
+    sy_get_order_details,
+    sy_cancel_order,
+    sy_get_order_item_statuses,
+    sy_get_order_tracking,
+    sy_list_products,
+    sy_get_price_tiers,
+    sy_get_specific_price,
+    sy_list_countries,
+    sy_verify_login,
+    sy_perform_login
+]
+
 # --- Agent Creation Function ---
-def create_price_agent(model_client: OpenAIChatCompletionClient) -> AssistantAgent:
+def create_price_agent(model_client: OpenAIChatCompletionClient, memory: Optional[List[Memory]] = None) -> AssistantAgent:
     """
-    Creates and configures the Price Assistant Agent.
+    Creates and configures the SY API Assistant Agent.
 
     Args:
         model_client: An initialized OpenAIChatCompletionClient instance.
+        memory: Optional list of memory objects to attach to the agent.
 
     Returns:
         An configured AssistantAgent instance.
     """
-    if not model_client:
-        raise ValueError("model_client must be provided to create_price_agent")
-
-    price_assistant = AssistantAgent(
-        name=PRICE_AGENT_NAME,
-        description="Gets specific price quotes when it has all parameters.",
-        system_message=price_assistant_system_message,
+    sy_api_assistant = AssistantAgent(
+        name=PRICE_AGENT_NAME, # Keep name for now
+        description="Handles interaction with the StickerYou API for designs, orders, pricing, and user auth.",
+        system_message=sy_api_agent_system_message,
         model_client=model_client,
-        tools=[get_price],
-        reflect_on_tool_use=True
+        memory=memory,
+        tools=all_sy_api_tools,
+        reflect_on_tool_use=False
     )
-    return price_assistant
+    return sy_api_assistant

@@ -16,6 +16,9 @@ from utils import hubspot_config, create_hubspot_client
 # Load environment variables
 load_dotenv()
 
+# Standardized Error Prefix
+ERROR_PREFIX = "HUBSPOT_TOOL_FAILED:"
+
 # --- HubSpot Client Context --- #
 @dataclass
 class HubSpotContext:
@@ -85,7 +88,7 @@ async def hubspot_send_message(
     client = hubspot_context.hubspot_client
     config = hubspot_context.config
 
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client is not initialized."
+    if not client: return f"{ERROR_PREFIX} HubSpot client is not initialized."
 
     # Use provided args or fall back to config defaults
     final_channel_id = channel_id or config.get("default_channel")
@@ -93,12 +96,12 @@ async def hubspot_send_message(
     final_sender_actor_id = sender_actor_id or config.get("default_sender_actor_id")
 
     # --- Input Validation ---
-    if not thread_id or not isinstance(thread_id, str) or thread_id.lower() == 'unknown': return "HUBSPOT_TOOL_FAILED: Valid HubSpot thread ID was not provided."
-    if not final_channel_id or not isinstance(final_channel_id, str): return "HUBSPOT_TOOL_FAILED: Valid HubSpot channel ID was not provided."
-    if not final_channel_account_id or not isinstance(final_channel_account_id, str): return "HUBSPOT_TOOL_FAILED: Valid HubSpot channel account ID was not provided."
-    if not final_sender_actor_id or not isinstance(final_sender_actor_id, str): return "HUBSPOT_TOOL_FAILED: Valid HubSpot sender actor ID was not provided."
+    if not thread_id or not isinstance(thread_id, str) or thread_id.lower() == 'unknown': return f"{ERROR_PREFIX} Valid HubSpot thread ID was not provided."
+    if not final_channel_id or not isinstance(final_channel_id, str): return f"{ERROR_PREFIX} Valid HubSpot channel ID was not provided."
+    if not final_channel_account_id or not isinstance(final_channel_account_id, str): return f"{ERROR_PREFIX} Valid HubSpot channel account ID was not provided."
+    if not final_sender_actor_id or not isinstance(final_sender_actor_id, str): return f"{ERROR_PREFIX} Valid HubSpot sender actor ID was not provided."
     if not final_sender_actor_id.startswith("A-"): pass # Just a warning, proceed
-    if not message_text or not isinstance(message_text, str): return "HUBSPOT_TOOL_FAILED: Valid message text was not provided."
+    if not message_text or not isinstance(message_text, str): return f"{ERROR_PREFIX} Valid message text was not provided."
 
     # --- Determine Message Type ---
     message_type = "MESSAGE"
@@ -121,7 +124,7 @@ async def hubspot_send_message(
 
         if response is None:
             # Unexpected for a POST/create, but handle defensively
-            return f"HUBSPOT_TOOL_FAILED: unexpected response from API call, we dont have enough information to proceed."
+            return f"{ERROR_PREFIX} unexpected response from API call, we dont have enough information to proceed."
 
         # Handle raw Response object
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
@@ -129,21 +132,21 @@ async def hubspot_send_message(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data # Return created message details
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} sending message. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} sending message. Body: {body_str}"
 
         # Handle already parsed dict/list
         elif isinstance(response, dict): return response # Return created message details
 
         # Fallback for other unexpected types
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format sending message. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format sending message. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -152,8 +155,8 @@ async def hubspot_send_message(
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} sending message. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error sending message: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} sending message. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error sending message: {type(e).__name__} - {e}"
 
 # --- Added Tools Below ---
 
@@ -175,8 +178,8 @@ async def hubspot_get_thread_details(
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
-    if not thread_id: return "HUBSPOT_TOOL_FAILED: thread_id is required."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
+    if not thread_id: return f"{ERROR_PREFIX} thread_id is required."
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}"
     query_params = {}
@@ -194,19 +197,19 @@ async def hubspot_get_thread_details(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} getting thread details. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} getting thread details. Body: {body_str}"
 
         elif isinstance(response, dict): return response
 
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format getting thread details. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format getting thread details. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -215,8 +218,8 @@ async def hubspot_get_thread_details(
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} getting thread details. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error getting thread details: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} getting thread details. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error getting thread details: {type(e).__name__} - {e}"
 
 
 @mcp.tool()
@@ -241,8 +244,8 @@ async def hubspot_get_thread_messages(
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
-    if not thread_id: return "HUBSPOT_TOOL_FAILED: thread_id is required."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
+    if not thread_id: return f"{ERROR_PREFIX} thread_id is required."
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}/messages"
     query_params = {}
@@ -262,19 +265,19 @@ async def hubspot_get_thread_messages(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data # API returns a dict like {"results": [], "paging": ...}
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} getting thread messages. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} getting thread messages. Body: {body_str}"
 
         elif isinstance(response, dict): return response
 
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format getting thread messages. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format getting thread messages. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -283,8 +286,8 @@ async def hubspot_get_thread_messages(
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} getting thread messages. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error getting thread messages: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} getting thread messages. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error getting thread messages: {type(e).__name__} - {e}"
 
 
 @mcp.tool()
@@ -315,11 +318,11 @@ async def hubspot_list_threads(
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
 
     # Validation from original tool
-    if associated_contact_id and inbox_id: return "HUBSPOT_TOOL_FAILED: Cannot use both 'inbox_id' and 'associated_contact_id'."
-    if associated_contact_id and not thread_status: return "HUBSPOT_TOOL_FAILED: 'thread_status' is required when filtering by 'associated_contact_id'."
+    if associated_contact_id and inbox_id: return f"{ERROR_PREFIX} Cannot use both 'inbox_id' and 'associated_contact_id'."
+    if associated_contact_id and not thread_status: return f"{ERROR_PREFIX} 'thread_status' is required when filtering by 'associated_contact_id'."
 
     api_path = "/conversations/v3/conversations/threads"
     query_params = {}
@@ -343,19 +346,19 @@ async def hubspot_list_threads(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} listing threads. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} listing threads. Body: {body_str}"
 
         elif isinstance(response, dict): return response
 
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format listing threads. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format listing threads. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -364,8 +367,8 @@ async def hubspot_list_threads(
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} listing threads. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error listing threads: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} listing threads. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error listing threads: {type(e).__name__} - {e}"
 
 
 @mcp.tool()
@@ -390,14 +393,14 @@ async def hubspot_update_thread(
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
 
     # Validation from original tool
-    if not thread_id: return "HUBSPOT_TOOL_FAILED: thread_id is required."
-    if status is None and archived is None: return "HUBSPOT_TOOL_FAILED: Either 'status' or 'archived' must be provided."
-    if status is not None and status not in ["OPEN", "CLOSED"]: return f"HUBSPOT_TOOL_FAILED: Invalid status '{status}'."
-    if archived is not None and not isinstance(archived, bool): return f"HUBSPOT_TOOL_FAILED: 'archived' must be a boolean."
-    if archived is False and not is_currently_archived: return f"HUBSPOT_TOOL_FAILED: To restore (archived=false), set 'is_currently_archived=true'."
+    if not thread_id: return f"{ERROR_PREFIX} thread_id is required."
+    if status is None and archived is None: return f"{ERROR_PREFIX} Either 'status' or 'archived' must be provided."
+    if status is not None and status not in ["OPEN", "CLOSED"]: return f"{ERROR_PREFIX} Invalid status '{status}'."
+    if archived is not None and not isinstance(archived, bool): return f"{ERROR_PREFIX} 'archived' must be a boolean."
+    if archived is False and not is_currently_archived: return f"{ERROR_PREFIX} To restore (archived=false), set 'is_currently_archived=true'."
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}"
     query_params = {}
@@ -419,19 +422,19 @@ async def hubspot_update_thread(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} updating thread. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} updating thread. Body: {body_str}"
 
         elif isinstance(response, dict): return response
 
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format updating thread. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format updating thread. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -440,8 +443,8 @@ async def hubspot_update_thread(
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} updating thread. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error updating thread: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} updating thread. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error updating thread: {type(e).__name__} - {e}"
 
 
 @mcp.tool()
@@ -457,8 +460,8 @@ async def hubspot_archive_thread(ctx: Context, thread_id: str) -> str:
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
-    if not thread_id: return "HUBSPOT_TOOL_FAILED: thread_id is required."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
+    if not thread_id: return f"{ERROR_PREFIX} thread_id is required."
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}"
     request_data = { "method": "DELETE", "path": api_path }
@@ -475,14 +478,14 @@ async def hubspot_archive_thread(ctx: Context, thread_id: str) -> str:
                  # Successful status code but got a Response object? Unexpected for 204.
                  try: body_str = response.text
                  except: body_str = "[Could not retrieve response text]"
-                 return f"HUBSPOT_TOOL_SUCCESS: Archive successful (Status {response.status_code}), but received unexpected response body: {body_str[:100]}..."
+                 return f"{ERROR_PREFIX} Archive successful (Status {response.status_code}), but received unexpected response body: {body_str[:100]}..."
              else:
                  try: body_str = response.text
                  except: body_str = "[Could not retrieve response text]"
-                 return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} archiving thread. Body: {body_str}"
+                 return f"{ERROR_PREFIX} API Error Status {response.status_code} archiving thread. Body: {body_str}"
 
         # Fallback for other unexpected types
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format archiving thread. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format archiving thread. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -493,8 +496,8 @@ async def hubspot_archive_thread(ctx: Context, thread_id: str) -> str:
             except: body_str = "[Could not decode error body]"
             # Check if the error status is 204, which SDK might raise for No Content
             if status_code == 204: return "HUBSPOT_TOOL_SUCCESS: Thread successfully archived (No Content)."
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} archiving thread. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error archiving thread: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} archiving thread. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error archiving thread: {type(e).__name__} - {e}"
 
 
 @mcp.tool()
@@ -510,8 +513,8 @@ async def hubspot_get_actor_details(ctx: Context, actor_id: str) -> Dict[str, An
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
-    if not actor_id: return "HUBSPOT_TOOL_FAILED: actor_id is required."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
+    if not actor_id: return f"{ERROR_PREFIX} actor_id is required."
 
     api_path = f"/conversations/v3/conversations/actors/{actor_id}"
     request_data = { "method": "GET", "path": api_path }
@@ -527,21 +530,21 @@ async def hubspot_get_actor_details(ctx: Context, actor_id: str) -> Dict[str, An
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} getting actor details. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} getting actor details. Body: {body_str}"
 
         # Handle already parsed dict/list
         elif isinstance(response, dict): return response
 
         # Fallback for other unexpected types
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format getting actor details. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format getting actor details. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -550,8 +553,8 @@ async def hubspot_get_actor_details(ctx: Context, actor_id: str) -> Dict[str, An
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} getting actor details. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error getting actor details: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} getting actor details. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error getting actor details: {type(e).__name__} - {e}"
 
 
 @mcp.tool()
@@ -567,8 +570,8 @@ async def hubspot_get_actors_batch(ctx: Context, actor_ids: List[str]) -> Dict[s
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
-    if not actor_ids or not isinstance(actor_ids, list): return "HUBSPOT_TOOL_FAILED: actor_ids must be a non-empty list."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
+    if not actor_ids or not isinstance(actor_ids, list): return f"{ERROR_PREFIX} actor_ids must be a non-empty list."
 
     api_path = "/conversations/v3/conversations/actors/batch/read"
     payload = {"inputs": actor_ids}
@@ -585,19 +588,19 @@ async def hubspot_get_actors_batch(ctx: Context, actor_ids: List[str]) -> Dict[s
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data # Includes status, results, errors etc.
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} getting actors batch. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} getting actors batch. Body: {body_str}"
 
         elif isinstance(response, dict): return response
 
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format getting actors batch. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format getting actors batch. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -606,8 +609,8 @@ async def hubspot_get_actors_batch(ctx: Context, actor_ids: List[str]) -> Dict[s
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} getting actors batch. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error getting actors batch: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} getting actors batch. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error getting actors batch: {type(e).__name__} - {e}"
 
 
 @mcp.tool()
@@ -628,7 +631,7 @@ async def hubspot_list_inboxes(
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
 
     api_path = "/conversations/v3/conversations/inboxes"
     query_params = {}
@@ -647,19 +650,19 @@ async def hubspot_list_inboxes(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} listing inboxes. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} listing inboxes. Body: {body_str}"
 
         elif isinstance(response, dict): return response
 
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format listing inboxes. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format listing inboxes. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -668,8 +671,8 @@ async def hubspot_list_inboxes(
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} listing inboxes. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error listing inboxes: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} listing inboxes. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error listing inboxes: {type(e).__name__} - {e}"
 
 
 @mcp.tool()
@@ -685,8 +688,8 @@ async def hubspot_get_inbox_details(ctx: Context, inbox_id: str) -> Dict[str, An
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
-    if not inbox_id: return "HUBSPOT_TOOL_FAILED: inbox_id is required."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
+    if not inbox_id: return f"{ERROR_PREFIX} inbox_id is required."
 
     api_path = f"/conversations/v3/conversations/inboxes/{inbox_id}"
     request_data = { "method": "GET", "path": api_path }
@@ -701,19 +704,19 @@ async def hubspot_get_inbox_details(ctx: Context, inbox_id: str) -> Dict[str, An
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} getting inbox details. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} getting inbox details. Body: {body_str}"
 
         elif isinstance(response, dict): return response
 
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format getting inbox details. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format getting inbox details. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -722,8 +725,8 @@ async def hubspot_get_inbox_details(ctx: Context, inbox_id: str) -> Dict[str, An
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} getting inbox details. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error getting inbox details: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} getting inbox details. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error getting inbox details: {type(e).__name__} - {e}"
 
 
 @mcp.tool()
@@ -744,7 +747,7 @@ async def hubspot_list_channels(
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
 
     api_path = "/conversations/v3/conversations/channels"
     query_params = {}
@@ -763,19 +766,19 @@ async def hubspot_list_channels(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} listing channels. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} listing channels. Body: {body_str}"
 
         elif isinstance(response, dict): return response
 
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format listing channels. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format listing channels. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -784,8 +787,8 @@ async def hubspot_list_channels(
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} listing channels. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error listing channels: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} listing channels. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error listing channels: {type(e).__name__} - {e}"
 
 
 @mcp.tool()
@@ -801,8 +804,8 @@ async def hubspot_get_channel_details(ctx: Context, channel_id: str) -> Dict[str
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
-    if not channel_id: return "HUBSPOT_TOOL_FAILED: channel_id is required."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
+    if not channel_id: return f"{ERROR_PREFIX} channel_id is required."
 
     api_path = f"/conversations/v3/conversations/channels/{channel_id}"
     request_data = { "method": "GET", "path": api_path }
@@ -817,19 +820,19 @@ async def hubspot_get_channel_details(ctx: Context, channel_id: str) -> Dict[str
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} getting channel details. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} getting channel details. Body: {body_str}"
 
         elif isinstance(response, dict): return response
 
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format getting channel details. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format getting channel details. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -838,8 +841,8 @@ async def hubspot_get_channel_details(ctx: Context, channel_id: str) -> Dict[str
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} getting channel details. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error getting channel details: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} getting channel details. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error getting channel details: {type(e).__name__} - {e}"
 
 
 @mcp.tool()
@@ -864,7 +867,7 @@ async def hubspot_list_channel_accounts(
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
 
     api_path = "/conversations/v3/conversations/channel-accounts"
     query_params = {}
@@ -885,19 +888,19 @@ async def hubspot_list_channel_accounts(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} listing channel accounts. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} listing channel accounts. Body: {body_str}"
 
         elif isinstance(response, dict): return response
 
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format listing channel accounts. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format listing channel accounts. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -906,8 +909,8 @@ async def hubspot_list_channel_accounts(
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} listing channel accounts. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error listing channel accounts: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} listing channel accounts. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error listing channel accounts: {type(e).__name__} - {e}"
 
 
 @mcp.tool()
@@ -926,8 +929,8 @@ async def hubspot_get_channel_account_details(
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
-    if not channel_account_id: return "HUBSPOT_TOOL_FAILED: channel_account_id is required."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
+    if not channel_account_id: return f"{ERROR_PREFIX} channel_account_id is required."
 
     api_path = f"/conversations/v3/conversations/channel-accounts/{channel_account_id}"
     request_data = { "method": "GET", "path": api_path }
@@ -942,19 +945,19 @@ async def hubspot_get_channel_account_details(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} getting channel account details. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} getting channel account details. Body: {body_str}"
 
         elif isinstance(response, dict): return response
 
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format getting channel account details. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format getting channel account details. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -963,8 +966,8 @@ async def hubspot_get_channel_account_details(
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} getting channel account details. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error getting channel account details: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} getting channel account details. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error getting channel account details: {type(e).__name__} - {e}"
 
 
 @mcp.tool()
@@ -985,9 +988,9 @@ async def hubspot_get_message_details(
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
-    if not thread_id: return "HUBSPOT_TOOL_FAILED: thread_id is required."
-    if not message_id: return "HUBSPOT_TOOL_FAILED: message_id is required."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
+    if not thread_id: return f"{ERROR_PREFIX} thread_id is required."
+    if not message_id: return f"{ERROR_PREFIX} message_id is required."
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}/messages/{message_id}"
     request_data = { "method": "GET", "path": api_path }
@@ -1002,19 +1005,19 @@ async def hubspot_get_message_details(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} getting message details. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} getting message details. Body: {body_str}"
 
         elif isinstance(response, dict): return response
 
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format getting message details. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format getting message details. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -1023,8 +1026,8 @@ async def hubspot_get_message_details(
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} getting message details. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error getting message details: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} getting message details. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error getting message details: {type(e).__name__} - {e}"
 
 
 @mcp.tool()
@@ -1045,9 +1048,9 @@ async def hubspot_get_original_message_content(
     """
     hubspot_context: HubSpotContext = ctx.request_context.lifespan_context
     client = hubspot_context.hubspot_client
-    if not client: return "HUBSPOT_TOOL_FAILED: HubSpot client not initialized."
-    if not thread_id: return "HUBSPOT_TOOL_FAILED: thread_id is required."
-    if not message_id: return "HUBSPOT_TOOL_FAILED: message_id is required."
+    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized."
+    if not thread_id: return f"{ERROR_PREFIX} thread_id is required."
+    if not message_id: return f"{ERROR_PREFIX} message_id is required."
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}/messages/{message_id}/original-content"
     request_data = { "method": "GET", "path": api_path }
@@ -1062,19 +1065,19 @@ async def hubspot_get_original_message_content(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"HUBSPOT_TOOL_WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
-                return f"HUBSPOT_TOOL_FAILED: API Error Status {response.status_code} getting original message content. Body: {body_str}"
+                return f"{ERROR_PREFIX} API Error Status {response.status_code} getting original message content. Body: {body_str}"
 
         elif isinstance(response, dict): return response
 
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected success response format getting original message content. Type: {type(response).__name__}"
+        else: return f"{ERROR_PREFIX} Unexpected success response format getting original message content. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -1083,8 +1086,8 @@ async def hubspot_get_original_message_content(
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"HUBSPOT_TOOL_FAILED: API Error Status {status_code} getting original message content. Reason: {error_reason}. Body: {body_str}"
-        else: return f"HUBSPOT_TOOL_FAILED: Unexpected error getting original message content: {type(e).__name__} - {e}"
+            return f"{ERROR_PREFIX} API Error Status {status_code} getting original message content. Reason: {error_reason}. Body: {body_str}"
+        else: return f"{ERROR_PREFIX} Unexpected error getting original message content: {type(e).__name__} - {e}"
 
 # --- End of Added Tools ---
 

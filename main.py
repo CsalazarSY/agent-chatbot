@@ -28,21 +28,20 @@ async def main():
             break
 
         try:
-            print("\n>>>>>>>>>>>>>> Agent Turn Start <<<<<<<<<<<<<<")
+            print("\n")
             task_result, error_message, returned_conversation_id = await agent_service.run_chat_session(
                 user_input,
                 show_console=True,
                 conversation_id=conversation_id
             )
             conversation_id = returned_conversation_id # Update conversation_id for the next loop
-            print("\n>>>>>>>>>>>>>> Agent Turn End <<<<<<<<<<<<<<")
+            print("\n")
 
             # --- Process and Display Result --- #
-            print(f"\n<<< Analysis (ConvID: {conversation_id}) >>>")
             if error_message:
                 print(f"    ERROR: {error_message}")
             elif task_result:
-                print(f"    Stop Reason: {task_result.stop_reason}")
+                # print(f"    - Stop Reason: {task_result.stop_reason}")
                 # Display the last message content as the reply
                 if task_result.messages:
                     final_message = task_result.messages[-1]
@@ -52,7 +51,6 @@ async def main():
                         display_reply = final_content.replace("<UserProxyAgent>", "").strip()
                         if display_reply.startswith("TASK COMPLETE:"): display_reply = display_reply[len("TASK COMPLETE:"):].strip()
                         if display_reply.startswith("TASK FAILED:"): display_reply = display_reply[len("TASK FAILED:"):].strip()
-                        print(f"Agent: {display_reply}") # Display the final agent reply
                     else:
                         print(f"Agent: [{type(final_message).__name__} with no content]")
                 else:
@@ -67,8 +65,6 @@ async def main():
         except Exception as e:
             print(f"\n!!! ERROR during agent execution: {e}")
             traceback.print_exc()
-            # Optionally break or continue after error
-        print("---") # Separator for next input
 
 
 # --- Main Execution --- #
@@ -97,4 +93,4 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"--- Error during final client cleanup: {e} ---")
 
-        print("\n--- Script Finished ---")
+        print("--- Script Finished ---\n\n")

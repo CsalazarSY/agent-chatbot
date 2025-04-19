@@ -1,13 +1,12 @@
 # mcp_servers/sy_api/src/main.py
 import os
 import asyncio
-import traceback
 import httpx
 import json
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Optional, List, Dict
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP, Context
@@ -17,6 +16,8 @@ from utils import sy_api_config
 
 # Load environment variables (redundant if utils loads, but safe)
 load_dotenv()
+
+API_ERROR_PREFIX="SY_TOOL_FAILED:"
 
 # --- SY API Config Context --- #
 @dataclass
@@ -29,184 +30,840 @@ async def sy_api_lifespan(server: FastMCP) -> AsyncIterator[SYApiContext]:
     """Manages the SY API config context."""
     cfg = sy_api_config # Use the config loaded by utils.py
     if not cfg.get("base_url") or not cfg.get("auth_token"):
-        # print("SY API Lifespan Warning: Base URL or Auth Token missing. Tools will likely fail.") 
         pass # Let the tool handle the missing config
     try:
         yield SYApiContext(config=cfg)
     finally:
-        # print("SY API Lifespan: Shutdown complete.") 
+        # print("SY API Lifespan: Shutdown complete.")
         pass
 
 # --- Initialize FastMCP Server --- #
 mcp = FastMCP(
     "mcp-sy-api",
-    description="MCP server for interacting with the SY Pricing API.",
+    description="MCP server for interacting with the StickerYou (SY) API, including pricing, orders, designs and product listing",
     lifespan=sy_api_lifespan,
     host=os.getenv("HOST", "0.0.0.0"), # For SSE
     port=int(os.getenv("PORT", "8052")) # Default port 8052 for SY API server
 )
 
-# --- Tool Definition --- #
-@mcp.tool(name="get_price")
-async def sy_get_price(
+# --- Tools Organized by Category --- #
+
+# --- Designs ---
+
+@mcp.tool()
+async def sy_create_design(
     ctx: Context,
     product_id: int,
     width: float,
     height: float,
-    quantity: int,
-    country_code: Optional[str] = None,
-    currency_code: Optional[str] = None
-) -> str:
-    """Calls the external SY pricing API to get a price quote.
-
-    Args:
-        ctx: The MCP server context containing the SY API config.
-        product_id: The unique ID of the product (e.g., 38 or 51).
-        width: The width of the product.
-        height: The height of the product.
-        quantity: The number of items requested.
-        country_code: Optional. The ISO country code for pricing/shipping. Uses default if None.
-        currency_code: Optional. The ISO currency code for the price. Uses default if None.
-
-    Returns:
-        A string containing the formatted price information or a handoff message.
-        (Handoff message indicates failure or inability to get a specific price).
-    """
-    # print(f"\n--- MCP Tool: get_price --- Called") 
+    image_base64: str,
+) -> Dict | str:
+    """(POST /api/v{version}/Designs/new) Sends a new design to StickerYou."""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    auth_token = config.get("auth_token")
 
-    # Get config values, using defaults from config if args are None
+    if not base_url: return "{API_ERROR_PREFIX} Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
+
+    api_url = f"{base_url}/api/{api_version}/Designs/new"
+    headers = {"Content-Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
+    payload = {"productId": product_id, "width": width, "height": height, "imageBase64": image_base64}
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client: # Increased timeout for potential image upload
+            response = await client.post(api_url, headers=headers, json=payload)
+
+        if response.status_code == 200:
+            try:
+                # Expecting {"success": true, "message": "string"}
+                return response.json()
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response (Status 200)."
+        else:
+            error_body = response.text[:500]
+            if response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401)."
+            elif response.status_code == 400: return f"{API_ERROR_PREFIX}  Bad Request (400). Check design parameters/image format."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out (create design)."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error. Details: {req_err}"
+    except json.JSONDecodeError:
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred. Details: {e}"
+
+
+@mcp.tool()
+async def sy_get_design_preview(
+    ctx: Context,
+    design_id: str,
+) -> Dict | str:
+    """(GET /api/v{version}/Designs/{designId}/preview) Returns a design preview using its Design ID.
+       Note: API docs show an *order* response. Returns the raw response."""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    auth_token = config.get("auth_token")
+
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
+
+    api_url = f"{base_url}/api/{api_version}/Designs/{design_id}/preview"
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(api_url, headers=headers)
+
+        if response.status_code == 200:
+            try:
+                return response.json() # Return whatever the API gives, even if it looks like an order
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response (Status 200)."
+        else:
+            error_body = response.text[:500]
+            if response.status_code == 404: return f"{API_ERROR_PREFIX}  Design not found (404)."
+            elif response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401)."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error. Details: {req_err}"
+    except json.JSONDecodeError:
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred. Details: {e}"
+
+
+# --- Orders ---
+
+@mcp.tool()
+async def sy_list_orders_by_status_get(
+    ctx: Context,
+    status_id: int,
+) -> List[Dict] | str:
+    """(GET /v{version}/Orders/status/list/{status}) Lists orders matching a specific status using a path parameter (GET)."""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    auth_token = config.get("auth_token")
+
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
+
+    api_url = f"{base_url}/v{api_version}/Orders/status/list/{status_id}"
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(api_url, headers=headers)
+
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                if isinstance(data, list): return data
+                else: return f"{API_ERROR_PREFIX}  Unexpected response type: {type(data)}. Expected list."
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response (Status 200)."
+        else:
+            error_body = response.text[:500]
+            if response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401)."
+            elif response.status_code == 400: return f"{API_ERROR_PREFIX}  Bad Request (400). Invalid status ID." # 404 might also be possible if status is invalid
+            elif response.status_code == 404: return f"{API_ERROR_PREFIX}  Invalid Status ID {status_id} provided? (404)."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error. Details: {req_err}"
+    except json.JSONDecodeError:
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred. Details: {e}"
+
+
+@mcp.tool()
+async def sy_list_orders_by_status_post(
+    ctx: Context,
+    status_id: int,
+    take: int = 100,
+    skip: int = 0,
+) -> List[Dict] | str:
+    """(POST /v{version}/Orders/status/list) Lists orders matching a specific status using a request body (POST)."""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    auth_token = config.get("auth_token")
+
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
+
+    api_url = f"{base_url}/v{api_version}/Orders/status/list"
+    headers = {"Content-Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
+    payload = {"take": take, "skip": skip, "status": status_id}
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(api_url, headers=headers, json=payload)
+
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                if isinstance(data, list): return data
+                else: return f"{API_ERROR_PREFIX}  Unexpected response type: {type(data)}. Expected list."
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response (Status 200)."
+        else:
+            error_body = response.text[:500]
+            if response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401)."
+            elif response.status_code == 400: return f"{API_ERROR_PREFIX}  Bad Request (400). Invalid status ID or pagination params."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error. Details: {req_err}"
+    except json.JSONDecodeError:
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred. Details: {e}"
+
+
+@mcp.tool()
+async def sy_create_order(
+    ctx: Context,
+    order_data: Dict,
+) -> Dict | str:
+    """(POST /v{version}/Orders/new) Sends a new order"""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    auth_token = config.get("auth_token")
+
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
+
+    api_url = f"{base_url}/v{api_version}/Orders/new"
+    headers = {"Content-Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(api_url, headers=headers, json=order_data)
+
+        if response.status_code == 200:
+            try:
+                # Expecting {"success": true, "message": "string"}
+                return response.json()
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response (Status 200)."
+        else:
+            error_body = response.text[:500]
+            if response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401)."
+            elif response.status_code == 400: return f"{API_ERROR_PREFIX}  Bad Request (400). Check order data format, product IDs, or artwork URLs."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error. Details: {req_err}"
+    except json.JSONDecodeError:
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred. Details: {e}"
+
+
+@mcp.tool()
+async def sy_create_order_from_designs(
+    ctx: Context,
+    order_data: Dict,
+) -> Dict | str:
+    """(POST /v{version}/Orders/designs/new) Sends a new order with designs"""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    auth_token = config.get("auth_token")
+
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
+
+    api_url = f"{base_url}/v{api_version}/Orders/designs/new"
+    headers = {"Content-Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(api_url, headers=headers, json=order_data)
+
+        if response.status_code == 200:
+            try:
+                 # Expecting {"success": true, "message": "string"}
+                return response.json()
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response (Status 200)."
+        else:
+            error_body = response.text[:500]
+            if response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401)."
+            elif response.status_code == 400: return f"{API_ERROR_PREFIX}  Bad Request (400). Check order data format or design IDs."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error. Details: {req_err}"
+    except json.JSONDecodeError:
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred. Details: {e}"
+
+
+@mcp.tool()
+async def sy_get_order_details(
+    ctx: Context,
+    order_id: str,
+) -> Dict | str:
+    """(GET /v{version}/Orders/{id}) Returns order details by its identifier."""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    auth_token = config.get("auth_token")
+
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
+
+    api_url = f"{base_url}/v{api_version}/Orders/{order_id}"
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(api_url, headers=headers)
+
+        if response.status_code == 200:
+            try:
+                return response.json()
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response (Status 200)."
+        else:
+            error_body = response.text[:500]
+            if response.status_code == 404: return f"{API_ERROR_PREFIX}  Order not found (404)."
+            elif response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401)."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error. Details: {req_err}"
+    except json.JSONDecodeError:
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred. Details: {e}"
+
+
+@mcp.tool()
+async def sy_cancel_order(
+    ctx: Context,
+    order_id: str,
+) -> Dict | str:
+    """(PUT /v{version}/Orders/{id}/cancel) Cancels an order using its identifier."""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    auth_token = config.get("auth_token")
+
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
+
+    api_url = f"{base_url}/v{api_version}/Orders/{order_id}/cancel"
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"} # Content-Type might not be needed for PUT with no body
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.put(api_url, headers=headers)
+
+        if response.status_code == 200:
+            try:
+                # Assuming PUT returns the updated order details
+                return response.json()
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response (Status 200)."
+        else:
+            error_body = response.text[:500]
+            if response.status_code == 404: return f"{API_ERROR_PREFIX}  Order not found (404)."
+            elif response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401)."
+            elif response.status_code == 400: return f"{API_ERROR_PREFIX}  Bad Request (400). Order may already be cancelled or unable to be cancelled."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error. Details: {req_err}"
+    except json.JSONDecodeError:
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred. Details: {e}"
+
+
+@mcp.tool()
+async def sy_get_order_item_statuses(
+    ctx: Context,
+    order_id: str,
+) -> List[Dict] | str:
+    """(GET /v{version}/Orders/{id}/items/status) Gets the status for all items within a specific order."""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    auth_token = config.get("auth_token")
+
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
+
+    api_url = f"{base_url}/v{api_version}/Orders/{order_id}/items/status"
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(api_url, headers=headers)
+
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                if isinstance(data, list):
+                    return data
+                else:
+                    return f"{API_ERROR_PREFIX}  Unexpected response type: {type(data)}. Expected a list."
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response (Status 200)."
+        else:
+            error_body = response.text[:500]
+            if response.status_code == 404: return f"{API_ERROR_PREFIX}  Order not found (404)."
+            elif response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401)."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error. Details: {req_err}"
+    except json.JSONDecodeError:
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred. Details: {e}"
+
+
+@mcp.tool()
+async def sy_get_order_tracking(
+    ctx: Context,
+    order_id: str,
+) -> Dict | str:
+    """(GET /v{version}/Orders/{id}/trackingcode) Retrieves the tracking code for a specific order."""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    auth_token = config.get("auth_token")
+
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
+
+    api_url = f"{base_url}/v{api_version}/Orders/{order_id}/trackingcode"
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(api_url, headers=headers)
+
+        if response.status_code == 200:
+            try:
+                # Assuming JSON response, structure wasn't documented
+                return response.json()
+            except json.JSONDecodeError:
+                 # If it's plain text tracking code? Return as content.
+                 return {"tracking_info": response.text}
+        else:
+            error_body = response.text[:500]
+            if response.status_code == 404: return f"{API_ERROR_PREFIX}  Order not found (404)."
+            elif response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401)."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error. Details: {req_err}"
+    except json.JSONDecodeError:
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred. Details: {e}"
+
+
+# --- Pricing ---
+
+@mcp.tool()
+async def sy_list_products(
+    ctx: Context,
+) -> Dict | str:
+    """(GET /api/v{version}/Pricing/list) Returns a list of available products and their configurable options."""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    auth_token = config.get("auth_token")
+
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
+
+    api_url = f"{base_url}/api/{api_version}/Pricing/list"
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(api_url, headers=headers)
+
+        if response.status_code == 200:
+            try:
+                return response.json()
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response (Status 200)."
+        else:
+            error_body = response.text[:500]
+            if response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401)."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error. Details: {req_err}"
+    except json.JSONDecodeError:
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred. Details: {e}"
+
+
+@mcp.tool()
+async def sy_get_price_tiers(
+    ctx: Context,
+    product_id: int,
+    width: float,
+    height: float,
+    country_code: Optional[str] = None,
+    currency_code: Optional[str] = None,
+    accessory_options: Optional[List[Dict]] = None,
+    quantity: Optional[int] = None,
+) -> Dict | str:
+    """(POST /api/v{version}/Pricing/{productId}/pricings) Returns a list of prices for different quantity tiers for a specific product."""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
     base_url = config.get("base_url")
     api_version = config.get("api_version", "v1")
     auth_token = config.get("auth_token")
     final_country_code = country_code or config.get("default_country_code")
     final_currency_code = currency_code or config.get("default_currency_code")
 
-    # --- Config Validation --- #
-    if not base_url:
-        return "HANDOFF: Configuration Error - Missing API Base URL."
-    if not auth_token:
-        return "HANDOFF: Configuration Error - Missing API authentication token."
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
 
-    # --- Structure variables for the call (adapted from original tool) --- #
-    api_url = f"{base_url}/api/{api_version}/Pricing/{product_id}/pricing"
+    api_url = f"{base_url}/api/{api_version}/Pricing/{product_id}/pricings"
+    headers = {"Content-Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
 
-    # Ensure types are correct before sending payload
     try:
         payload = {
-            "width": float(width),
-            "height": float(height),
-            "countryCode": str(final_country_code),
-            "quantity": int(quantity),
-            "currencyCode": str(final_currency_code),
+            "width": float(width), "height": float(height),
+            "countryCode": str(final_country_code), "currencyCode": str(final_currency_code),
+            "accessoryOptions": accessory_options or [],
         }
+        if quantity is not None: payload["quantity"] = int(quantity)
     except ValueError as e:
-        # print(f"    Error converting parameters for API call: {e}") 
-        return f"HANDOFF: Invalid parameter type (width/height/quantity must be numbers). Error: {e}"
+        return f"{API_ERROR_PREFIX}  Invalid parameter type. Error: {e}"
 
-    headers = {
-        "Content-Type": "application/json", "Accept": "application/json",
-        "Authorization": f"Bearer {auth_token}"
-    }
-
-    # print(f"    <- Calling Pricing API ->") 
-    # print(f"        URL: {api_url}") 
-    # print(f"        Payload: {json.dumps(payload, indent=2)}") 
-
+    response = None
     try:
-        # Use httpx for async request
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(api_url, headers=headers, json=payload)
-            response.raise_for_status() # Raise exception for 4xx/5xx responses
-            response_data = response.json()
 
-        # print(f"\n    <- API Response Received (Status: {response.status_code}) ->\n    {json.dumps(response_data, indent=2)}") 
-
-        # Parse response structure
-        if response_data and "productPricing" in response_data:
-            pricing_info = response_data["productPricing"]
-            if pricing_info is None or pricing_info.get("price") is None:
-                # print("    API response OK, but missing 'price'.") 
-                return "HANDOFF: I checked our pricing list, but couldn't find the specific price details for that configuration. Let me connect you with a team member."
-
-            # Extract the response information
-            price = pricing_info.get("price")
-            currency = pricing_info.get("currency", final_currency_code)
-            unit_measure = pricing_info.get("unitMeasure", "items")
-            price_per_unit = pricing_info.get("pricePerSticker")
-            response_quantity = pricing_info.get("quantity", quantity)
-
-            # Format success response string
-            response_str = f"Okay, the price for {response_quantity} {unit_measure} ({width}x{height}) is {price:.2f} {currency}."
-            if price_per_unit is not None:
-                response_str += f" That is {price_per_unit:.4f} {currency} per {unit_measure.rstrip('s')}."
-
-            # Add shipping info if available
-            if pricing_info.get("shippingMethods") and isinstance(pricing_info["shippingMethods"], list):
-                 response_str += "\n\n Available shipping options:"
-                 for method in pricing_info["shippingMethods"]:
-                      method_name = method.get('name', '?')
-                      method_price = method.get('price')
-                      method_delivery = method.get('deliveryEstimate')
-                      price_str = f"{method_price:.2f} {currency}" if method_price is not None else "N/A"
-                      delivery_str = f"{method_delivery} days" if method_delivery is not None else "N/A"
-                      response_str += f"\n - {method_name}: {price_str} (Est. delivery: {delivery_str})"
-            else:
-                response_str += "\n (Shipping options info not available.)"
-
-            # print(f"--- Tool get_price finished (Success) ---\n") 
-            return response_str
+        if response.status_code == 200:
+            try:
+                return response.json()
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response (Status 200)."
         else:
-            # print("    API success, but 'productPricing' key missing in response.") 
-            # print(f"--- Tool get_price finished (Error - Bad Format) ---\n") 
-            return "HANDOFF: Unexpected response format from pricing system. Transferring..."
+            error_body = response.text[:500]
+            if response.status_code == 404: return f"{API_ERROR_PREFIX}  Resource not found (404)."
+            elif response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401)."
+            elif response.status_code == 400: return f"{API_ERROR_PREFIX}  Bad Request (400)."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"
 
-    # Handle specific exceptions (copied from original tool)
-    except httpx.HTTPStatusError as http_err:
-        status_code = http_err.response.status_code
-        # print(f"    HTTP error: {http_err} - Status: {status_code}") 
-        handoff_message = f"HANDOFF: We encountered a technical issue (Error {status_code}) trying to fetch the price. Please wait while I transfer you to a team member."
-        if status_code == 404: handoff_message = f"HANDOFF: It seems I couldn't find that product (ID: {product_id}) or specific configuration in our system. I'll transfer you to someone who can check."
-        elif status_code == 401: handoff_message = f"HANDOFF: There's an issue with our pricing system authorization. Please wait while I transfer you to a team member."
-        elif status_code == 400: handoff_message = f"HANDOFF: There might have been an issue with the details provided (like size or quantity). To be sure, I'll connect you with a human agent."
-        # print(f"--- Tool get_price finished (Error - HTTP {status_code}) ---\n") 
-        return handoff_message
-
-    except httpx.TimeoutException as timeout_err:
-        # print(f"    Timeout error: {timeout_err}") 
-        # print(f"--- Tool get_price finished (Error - Timeout) ---\n") 
-        return "HANDOFF: The request to the pricing API timed out. I'll connect you with a human agent."
-
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out."
     except httpx.RequestError as req_err:
-        # print(f"    Request error: {req_err}") 
-        # print(f"--- Tool get_price finished (Error - Request) ---\n") 
-        return "HANDOFF: Problem communicating with the pricing API. I'll connect you with a human agent."
-
+        return f"{API_ERROR_PREFIX}  Network or connection error. Details: {req_err}"
     except json.JSONDecodeError:
-        # print(f"    JSON decode error.") 
-        # print(f"--- Tool get_price finished (Error - JSON Decode) ---\n") 
-        return "HANDOFF: I was not able to find the price details for that configuration. I'll transfer you to someone who can check."
-
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON. Status: {status_code}"
     except Exception as e:
-        # print(f"    Unexpected error in get_price: {e}"); # traceback.print_exc() # Avoid printing traceback to stdio
-        # print(f"--- Tool get_price finished (Error - Unexpected) ---\n") 
-        return "HANDOFF: Unexpected error processing price quote. I'll transfer you to someone who can check."
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred. Details: {e}"
+
+
+@mcp.tool(name="get_specific_price")
+async def sy_get_specific_price(
+    ctx: Context,
+    product_id: int,
+    width: float,
+    height: float,
+    quantity: int,
+    country_code: Optional[str] = None,
+    currency_code: Optional[str] = None,
+    accessory_options: Optional[List[Dict]] = None
+) -> Dict | str:
+    """(POST /api/v{version}/Pricing/{productId}/pricing) Calls the SY pricing API for a *specific* quantity of a product."""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    auth_token = config.get("auth_token")
+    final_country_code = country_code or config.get("default_country_code")
+    final_currency_code = currency_code or config.get("default_currency_code")
+
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
+
+    api_url = f"{base_url}/api/{api_version}/Pricing/{product_id}/pricing"
+    headers = {"Content-Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
+
+    try:
+        payload = {
+            "width": float(width), "height": float(height),
+            "countryCode": str(final_country_code), "quantity": int(quantity),
+            "currencyCode": str(final_currency_code), "accessoryOptions": accessory_options or [],
+        }
+    except ValueError as e:
+        return f"{API_ERROR_PREFIX}  Invalid parameter type. Error: {e}"
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(api_url, headers=headers, json=payload)
+
+        if response.status_code == 200:
+            try:
+                return response.json()
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response (Status 200)."
+        else:
+            # Handle specific HTTP errors
+            error_body = response.text[:500]
+            if response.status_code == 404: return f"{API_ERROR_PREFIX}  Resource not found (404)."
+            elif response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401). Check API token."
+            elif response.status_code == 400: return f"{API_ERROR_PREFIX}  Bad Request (400). Check parameters/payload."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error. Details: {req_err}"
+    except json.JSONDecodeError: # Should only happen if error response isn't JSON
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred. Details: {e}"
+
+
+@mcp.tool()
+async def sy_list_countries(
+    ctx: Context,
+) -> Dict | str:
+    """(POST /api/v{version}/Pricing/countries) Returns a list of supported countries for pricing/shipping."""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    auth_token = config.get("auth_token")
+
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
+
+    api_url = f"{base_url}/api/{api_version}/Pricing/countries"
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Using POST as per documentation, though GET seems more conventional
+            response = await client.post(api_url, headers=headers)
+
+        if response.status_code == 200:
+            try:
+                return response.json()
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response (Status 200)."
+        else:
+            error_body = response.text[:500]
+            if response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401)."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error. Details: {req_err}"
+    except json.JSONDecodeError:
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred. Details: {e}"
+
+# --- Users ---
+
+@mcp.tool()
+async def sy_verify_login(
+    ctx: Context,
+) -> Dict | str:
+    """(GET /api/v{version}/users/login) Verifies if the current authentication token is valid."""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    auth_token = config.get("auth_token")
+
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+    if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token for verification."
+
+    api_url = f"{base_url}/api/{api_version}/users/login"
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(api_url, headers=headers)
+
+        if response.status_code == 200:
+            try:
+                # Expecting {"name": "string", "authenticated": true}
+                return response.json()
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response for login verification (Status 200)."
+        else:
+            error_body = response.text[:500]
+            if response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401). Token is invalid or expired."
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code} during login verification. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out during login verification."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error during login verification. Details: {req_err}"
+    except json.JSONDecodeError:
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON during login verification. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred during login verification. Details: {e}"
+
+
+@mcp.tool()
+async def sy_perform_login(
+    ctx: Context,
+    username: str,
+    password: str,
+) -> Dict | str:
+    """(POST /api/v{version}/users/login) Performs user login to obtain an authentication token."""
+    sy_api_context: SYApiContext = ctx.request_context.lifespan_context
+    config = sy_api_context.config
+    base_url = config.get("base_url")
+    api_version = config.get("api_version", "v1")
+    # No auth token needed for login request itself
+
+    if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
+
+    api_url = f"{base_url}/api/{api_version}/users/login"
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    payload = {"userName": username, "password": password}
+
+    response = None
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(api_url, headers=headers, json=payload)
+
+        if response.status_code == 200:
+            try:
+                # Expecting {"token": "...", "expirationMinutes": "..."}
+                return response.json()
+            except json.JSONDecodeError:
+                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response from login (Status 200)."
+        else:
+            error_body = response.text[:500]
+            # Assuming 400/401 for bad credentials, but API might vary
+            if response.status_code == 400: return f"{API_ERROR_PREFIX}  Bad Request (400). Invalid credentials or request format?"
+            elif response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401). Invalid username or password?"
+            elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
+            else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code} during login. Body: {error_body}"
+
+    except httpx.TimeoutException:
+        return "{API_ERROR_PREFIX}  Request timed out during login."
+    except httpx.RequestError as req_err:
+        return f"{API_ERROR_PREFIX}  Network or connection error during login. Details: {req_err}"
+    except json.JSONDecodeError:
+        status_code = response.status_code if response else 'Unknown'
+        return f"{API_ERROR_PREFIX}  Failed to decode error response as JSON during login. Status: {status_code}"
+    except Exception as e:
+        return f"{API_ERROR_PREFIX}  An unexpected error occurred during login. Details: {e}"
 
 # --- Main Execution Block --- #
 async def main():
     transport = os.getenv("TRANSPORT", "stdio").lower()
-    # print(f"Starting SY API MCP Server with {transport} transport...") 
     if transport == 'sse':
         await mcp.run_sse_async()
     elif transport == 'stdio':
         await mcp.run_stdio_async()
     else:
-        # print(f"Error: Invalid TRANSPORT specified: {transport}. Use 'stdio' or 'sse'.") 
-        pass # Or raise an error
+        # Consider raising an error for invalid transport
+        print(f"Error: Invalid TRANSPORT specified: {transport}. Use 'stdio' or 'sse'.")
+        pass
 
 if __name__ == "__main__":
-    # Ensure event loop policy is set for Windows if needed
     if os.name == 'nt':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    asyncio.run(main()) 
+    asyncio.run(main())

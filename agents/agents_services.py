@@ -49,7 +49,7 @@ class AgentService:
         """Initializes the shared class attributes ONCE."""
 
         if AgentService._initialized:
-            print("\n\n!!! AgentService already initialized. Skipping. !!!\n\n")
+            print("\n!!! AgentService already initialized. Skipping. !!!\n")
             return
 
         try:
@@ -91,7 +91,7 @@ class AgentService:
     @staticmethod
     def _get_termination_condition():
         """Helper to define the termination condition."""
-        max_message_termination = MaxMessageTermination(max_messages=30)
+        max_message_termination = MaxMessageTermination(max_messages=40)
         text_termination = TextMentionTermination("TASK FAILED") | TextMentionTermination("TASK COMPLETE") | TextMentionTermination("<UserProxyAgent>")
         # The chat should naturally stop when UserProxyAgent turn comes and it has no input.
         return max_message_termination | text_termination
@@ -130,7 +130,6 @@ class AgentService:
             return None
 
         # Fallback: let LLM decide (should be rare)
-        print(f"Selector: Fallback (Last Source: {last_message.source}) -> {PLANNER_AGENT_NAME}")
         return None
 
     # Start or continue a chat session
@@ -149,11 +148,11 @@ class AgentService:
             # --- Determine Conversation ID & Create Request Context --- #
             if not current_conversation_id:
                 current_conversation_id = str(uuid.uuid4())
-                print(f"<--- Starting new conversation with ID: {current_conversation_id} --->")
+                # print(f"<--- Starting new conversation with ID: {current_conversation_id} --->")
             else:
                 # --- Attempt to Load State --- #
                 if current_conversation_id in AgentService.conversation_states:
-                    print(f"<--- Loading state for conversation ID: {current_conversation_id} --->")
+                    # print(f"<--- Loading state for conversation ID: {current_conversation_id} --->")
                     saved_state_dict = AgentService.conversation_states[current_conversation_id]
                 else:
                     # ID provided, but no state found - treat as new conversation with this ID
@@ -162,7 +161,6 @@ class AgentService:
             # Create memory for this request, containing the conversation ID
             request_memory = ListMemory()
             await request_memory.add(MemoryContent(content=f"Current_HubSpot_Thread_ID: {current_conversation_id}", mime_type=MemoryMimeType.TEXT))
-            print(f"    - Created request memory with Thread ID: {current_conversation_id}")
 
             # --- Create Agent Instances for this request --- #
             planner_assistant = create_planner_agent(AgentService.model_client, memory=[request_memory])
@@ -189,7 +187,6 @@ class AgentService:
             if saved_state_dict:
                 try:
                     await group_chat.load_state(saved_state_dict)
-                    print(f"    - State loaded successfully into new chat instance")
                 except Exception as load_err:
                     error_message = f"Error loading state into new chat instance for {current_conversation_id}: {load_err}. Starting fresh."
                     print(f"    - WARN: {error_message}")
