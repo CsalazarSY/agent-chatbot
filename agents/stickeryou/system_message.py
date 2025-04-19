@@ -25,43 +25,43 @@ sy_api_agent_system_message = f"""
 
    **Designs:**
    - **`sy_create_design(product_id: int, width: float, height: float, image_base64: str) -> Dict | str`**
-     - (POST /Designs/new) Sends a new design. Returns `{{\"success\": bool, \"message\": str}}` or error string.
+     - **Purpose:** Creates a new design entry based on a product, dimensions, and image. Returns details of the created design, including its ID.
    - **`sy_get_design_preview(design_id: str) -> Dict | str`**
-     - (GET /Designs/{{designId}}/preview) Returns a design preview (may be order-like structure).
+     - **Purpose:** Retrieves preview data (often structured like an order) for a previously created design. Returns the preview information.
 
    **Orders:**
    - **`sy_list_orders_by_status_get(status_id: int) -> List[Dict] | str`**
-     - (GET /Orders/status/list/{{status}}) Lists orders by status via path parameter.
+     - **Purpose:** Finds orders matching a specific status ID. Returns a list of order summaries.
    - **`sy_list_orders_by_status_post(status_id: int, take: int = 100, skip: int = 0) -> List[Dict] | str`**
-     - (POST /Orders/status/list) Lists orders by status via request body.
+     - **Purpose:** Finds orders matching a status ID, supporting pagination. Returns a list of order summaries.
    - **`sy_create_order(order_data: Dict) -> Dict | str`**
-     - (POST /Orders/new) Sends a new order. Returns `{{\"success\": bool, \"message\": str}}` or error.
+     - **Purpose:** Submits a new order using detailed order data (including image data). Returns the created order details.
    - **`sy_create_order_from_designs(order_data: Dict) -> Dict | str`**
-     - (POST /Orders/designs/new) Sends a new order with existing design IDs. Returns `{{\"success\": bool, \"message\": str}}` or error.
+     - **Purpose:** Submits a new order using *pre-existing* design IDs. Returns the created order details.
    - **`sy_get_order_details(order_id: str) -> Dict | str`**
-     - (GET /Orders/{{id}}) Returns order details.
+     - **Purpose:** Retrieves the full details of a specific order. Returns the order details.
    - **`sy_cancel_order(order_id: str) -> Dict | str`**
-     - (PUT /Orders/{{id}}/cancel) Cancels an order. May return updated order details.
+     - **Purpose:** Attempts to cancel an existing order. Returns updated order details reflecting the cancellation status.
    - **`sy_get_order_item_statuses(order_id: str) -> List[Dict] | str`**
-     - (GET /Orders/{{id}}/items/status) Gets status for all items in an order.
+     - **Purpose:** Fetches the status for each individual item within an order. Returns a list of item statuses.
    - **`sy_get_order_tracking(order_id: str) -> Dict | str`**
-     - (GET /Orders/{{id}}/trackingcode) Retrieves tracking code(s). May return `{{\"tracking_info\": str}}` if non-JSON.
+     - **Purpose:** Retrieves shipping tracking information for a shipped order. Returns tracking details.
 
    **Pricing:**
    - **`sy_list_products() -> Dict | str`**
-     - (GET /Pricing/list) Returns available products and their options.
+     - **Purpose:** Retrieves all available products and their options. Returns a list of products.
    - **`sy_get_price_tiers(product_id: int, width: float, height: float, country_code: str | None = '{DEFAULT_COUNTRY_CODE}', currency_code: str | None = '{DEFAULT_CURRENCY_CODE}', accessory_options: List[Dict] | None = None, quantity: int | None = None) -> Dict | str`**
-     - (POST /Pricing/{{productId}}/pricings) Returns prices for different quantity tiers.
+     - **Purpose:** Calculates pricing for a product at various quantity tiers. Returns pricing information.
    - **`sy_get_specific_price(product_id: int, width: float, height: float, quantity: int, country_code: str | None = '{DEFAULT_COUNTRY_CODE}', currency_code: str | None = '{DEFAULT_CURRENCY_CODE}', accessory_options: List[Dict] | None = None) -> Dict | str`**
-     - (POST /Pricing/{{productId}}/pricing) Gets price for a *specific* quantity. Returns detailed pricing info including potential shipping.
+     - **Purpose:** Calculates the exact price for a specific quantity of a product. Returns pricing information.
    - **`sy_list_countries() -> Dict | str`**
-     - (POST /Pricing/countries) Returns a list of supported countries.
+     - **Purpose:** Retrieves the list of countries supported for shipping/pricing. Returns a list of countries.
 
    **Users:**
    - **`sy_verify_login() -> Dict | str`**
-     - (GET /users/login) Verifies if the current API token (from config) is valid. Returns `{{\"name\": str, \"authenticated\": bool}}` or error.
+     - **Purpose:** Checks if the currently configured API token is valid. Returns login status.
    - **`sy_perform_login(username: str, password: str) -> Dict | str`**
-     - (POST /users/login) Performs login with credentials. Returns `{{\"token\": str, \"expirationMinutes\": str}}` or error. (Note: Agent does not automatically *use* the new token).
+     - **Purpose:** Attempts to log in to obtain a new API token. Returns token information or an error.
 
 **4. General Workflow Strategy & Scenarios:**
    - **Overall Approach:** Receive request from Planner -> Identify target SY API tool -> Validate REQUIRED parameters for that tool -> Call the specified tool -> Return the EXACT result (JSON dictionary/list or error string starting with 'SY_TOOL_FAILED:').

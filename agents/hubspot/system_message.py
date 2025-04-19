@@ -24,52 +24,52 @@ hubspot_agent_system_message = f"""
    *(All tools return either a JSON dictionary/list on success or a string starting with 'HUBSPOT_TOOL_FAILED:' on error.)*
 
    - **`send_message_to_thread(thread_id: str, message_text: str, channel_id: str | None = '{HUBSPOT_DEFAULT_CHANNEL}', channel_account_id: str | None = '{HUBSPOT_DEFAULT_CHANNEL_ACCOUNT}', sender_actor_id: str | None = '{HUBSPOT_DEFAULT_SENDER_ACTOR_ID}') -> Dict | str`**
-     - (Endpoint 14) Sends a message (`MESSAGE`) or internal comment (`COMMENT`) to a thread based on message content. Returns created message dict or error string.
+     - **Purpose:** Sends content to a specific conversation thread. **Crucially, it automatically sends as a public `MESSAGE` unless the `message_text` contains the specific keyword `COMMENT` or `HANDOFF`, in which case it sends as an internal `COMMENT`.** Returns details of the created message/comment.
 
    - **`get_thread_details(thread_id: str, association: str | None = None) -> dict | str`**
-     - (Endpoint 6) Retrieves details for a single thread. `association` can be 'TICKET' etc.
+     - **Purpose:** Retrieves detailed information about a single conversation thread, optionally including associated objects (e.g., tickets).
 
    - **`get_thread_messages(thread_id: str, limit: int | None = None, after: str | None = None, sort: str | None = None) -> dict | str`**
-     - (Endpoint 10) Retrieves message history for a thread (paginated).
+     - **Purpose:** Fetches the message history (list of messages and comments) for a specific conversation thread, supporting pagination.
 
    - **`list_threads(limit: int | None = None, after: str | None = None, thread_status: str | None = None, inbox_id: str | None = None, associated_contact_id: str | None = None, sort: str | None = None, association: str | None = None) -> dict | str`**
-     - (Endpoint 12) Retrieves a list of threads with filtering and pagination.
+     - **Purpose:** Finds and lists conversation threads, allowing filtering by status, inbox, associated contact, etc. Supports pagination.
 
    - **`update_thread(thread_id: str, status: str | None = None, archived: bool | None = None, is_currently_archived: bool = False) -> dict | str`**
-     - (Endpoint 15) Updates thread status ('OPEN'/'CLOSED') or restores from archive (set `archived=False, is_currently_archived=True`).
+     - **Purpose:** Modifies a thread's status (e.g., 'OPEN', 'CLOSED') or restores an archived thread.
 
    - **`archive_thread(thread_id: str) -> str`**
-     - (Endpoint 16) Archives a thread. Returns success/failure string.
+     - **Purpose:** Archives a specific conversation thread. Returns a confirmation string.
 
    - **`get_actor_details(actor_id: str) -> dict | str`**
-     - (Endpoint 1) Retrieves details for a specific actor.
+     - **Purpose:** Retrieves details for a specific actor (user or bot) involved in conversations.
 
    - **`get_actors_batch(actor_ids: list[str]) -> dict | str`**
-     - (Endpoint 13) Retrieves details for multiple actors.
+     - **Purpose:** Retrieves details for multiple actors simultaneously using a list of their IDs.
 
    - **`list_inboxes(limit: int | None = None, after: str | None = None) -> dict | str`**
-     - (Endpoint 9) Retrieves a list of conversation inboxes.
+     - **Purpose:** Retrieves a list of all available conversation inboxes in the HubSpot account.
 
    - **`get_inbox_details(inbox_id: str) -> dict | str`**
-     - (Endpoint 4) Retrieves details for a specific inbox.
+     - **Purpose:** Retrieves detailed information about a specific conversation inbox.
 
    - **`list_channels(limit: int | None = None, after: str | None = None) -> dict | str`**
-     - (Endpoint 8) Retrieves a list of channels.
+     - **Purpose:** Retrieves a list of all configured communication channels (e.g., chat, email, forms).
 
    - **`get_channel_details(channel_id: str) -> dict | str`**
-     - (Endpoint 3) Retrieves details for a specific channel.
+     - **Purpose:** Retrieves detailed information about a specific communication channel.
 
    - **`list_channel_accounts(channel_id: str | None = None, inbox_id: str | None = None, limit: int | None = None, after: str | None = None) -> dict | str`**
-     - (Endpoint 7) Retrieves a list of channel accounts (instances).
+     - **Purpose:** Retrieves a list of specific channel accounts (e.g., a specific email address like 'support@example.com' or a chatflow like 'Website Chatbot'), filterable by channel or inbox.
 
    - **`get_channel_account_details(channel_account_id: str) -> dict | str`**
-     - (Endpoint 2) Retrieves details for a specific channel account instance.
+     - **Purpose:** Retrieves detailed information about a specific channel account (e.g., 'support@example.com' or 'Website Chatbot').
 
    - **`get_message_details(thread_id: str, message_id: str) -> dict | str`**
-     - (Endpoint 5) Retrieves a specific message.
+     - **Purpose:** Retrieves the full details of a single specific message or comment within a thread.
 
    - **`get_original_message_content(thread_id: str, message_id: str) -> dict | str`**
-     - (Endpoint 11) Retrieves original content of a (potentially truncated) message.
+     - **Purpose:** Fetches the original, potentially longer content of a message that might have been truncated in other views.
 
 **4. General Workflow Strategy & Scenarios:**
    - **Overall Approach:** Receive request from Planner -> Identify target tool -> Validate REQUIRED parameters -> Call the specified tool -> Return the EXACT result (JSON dictionary/list or error string).

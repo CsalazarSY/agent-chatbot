@@ -57,15 +57,12 @@ async def chat_endpoint(request: ChatRequest):
     centralized AgentService, handles state, and returns the reply with the
     conversation_id.
     """
-    print(f"\\n<-- Received request for conversation ID: {request.conversation_id} --")
-    print("\n>>>>>>>>>>>>>> Chat Start <<<<<<<<<<<<<<")
     # Pass message and conversation_id to the service
     task_result, error_message, final_conversation_id = await agent_service.run_chat_session(
         request.message,
         show_console=False, # Ensure console output is off for API
         conversation_id=request.conversation_id
     )
-    print("\n>>>>>>>>>>>>>> Chat End <<<<<<<<<<<<<<")
 
     # Handle errors reported by the service or the invocation
     if error_message:
@@ -87,7 +84,7 @@ async def chat_endpoint(request: ChatRequest):
     stop_reason = str(task_result.stop_reason) if task_result.stop_reason else "Paused/Awaiting Input" # Adjust default
 
     ####### --- Process Task Result --- #######
-    print(f"\\n\\n <<<----------->>> Task Result Analysis (Conv ID: {final_conversation_id}) <<<----------->>>")
+    print(f"\n<<<- Task Result ")
     if error_message:
         print(f"        - Task failed with error: {error_message}")
     elif task_result:
@@ -111,14 +108,6 @@ async def chat_endpoint(request: ChatRequest):
 
             else:
                  final_reply_content = f"[{type(last_message).__name__} type message received]" # More informative default
-
-            # Check if the last message indicates the task is truly finished
-            # Note: We check the *original* content before cleanup for these keywords
-            original_content_check = last_message.content if hasattr(last_message, 'content') and isinstance(last_message.content, str) else ""
-            if "TASK COMPLETE" in original_content_check or "TASK FAILED" in original_content_check:
-                 print(">>> Task explicitly marked as COMPLETE or FAILED. <<<")
-
-            print(f"        - Final Message for Reply: {final_reply_content}")
         else:
             print(">>> No messages found in TaskResult. <<<")
             final_reply_content = "The conversation generated no messages."
@@ -127,7 +116,6 @@ async def chat_endpoint(request: ChatRequest):
          final_reply_content = "An issue occurred, and no result was generated."
          # Ensure final_conversation_id is handled even in this case
          if not final_conversation_id: final_conversation_id = request.conversation_id or "unknown"
-
 
     ####### --- End of Task Result Analysis --- #######
 
