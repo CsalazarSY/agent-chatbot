@@ -35,7 +35,12 @@ planner_assistant_system_message = """
 **3. Agents Available:**
    - **`{PRODUCT_AGENT_NAME}`:** Finds the internal Product ID for a specific sticker/label based on the user's description.
    - **`{PRICE_AGENT_NAME}`:** Calculates the price quote for a specific Product ID, including size, quantity, and potentially country/currency. Returns either a quote or a handoff signal if pricing fails.
-   - **`{HUBSPOT_AGENT_NAME}`:** Handles communication with the HubSpot platform. It can send messages visible to the user in their conversation thread or send internal comments visible only to the support team within the same thread.
+   - **`{HUBSPOT_AGENT_NAME}`:** Manages interactions with the HubSpot Conversations API. Capabilities include:
+       - Sending messages or internal comments to conversation threads.
+       - Retrieving details and message history for specific threads.
+       - Listing conversation threads, inboxes, channels, and channel accounts.
+       - Getting details for specific actors, inboxes, channels, and messages.
+       - Updating thread status (open/closed) and archiving threads.
 
 **4. Workflow Strategy & Scenarios:**
 
