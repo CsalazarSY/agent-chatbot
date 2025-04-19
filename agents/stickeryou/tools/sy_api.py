@@ -520,8 +520,6 @@ async def sy_get_price_tiers(
     except Exception as e:
         return f"{ERROR_PREFIX} An unexpected error occurred. Details: {e}"
 
-
-# Note: Renamed from sy_get_specific_price in MCP to keep consistency if called elsewhere
 async def sy_get_specific_price(
     product_id: int,
     width: float,
