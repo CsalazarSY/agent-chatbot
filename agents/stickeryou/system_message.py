@@ -1,7 +1,6 @@
 # agents/price/system_message.py
 import os
 from dotenv import load_dotenv
-from typing import List, Dict, Optional # For type hints in signatures
 
 # Load environment variables (assuming config is handled elsewhere now)
 load_dotenv()
@@ -68,7 +67,7 @@ sy_api_agent_system_message = f"""
 **4. General Workflow Strategy & Scenarios:**
    - **Overall Approach:** Receive request from Planner -> Identify target SY API tool -> Validate REQUIRED parameters for that tool -> Call the specified tool -> Return the EXACT result (JSON dictionary/list or error string starting with 'SY_TOOL_FAILED:').
    - **Scenario: Execute Any Tool**
-     - Trigger: Receiving a delegation from the Planner Agent like `<price_assistant> : Call [tool_name] with parameters: [parameter_dict]`.
+     - Trigger: Receiving a delegation from the Planner Agent like `<sy_api_assistant> : Call [tool_name] with parameters: [parameter_dict]`.
      - Prerequisites Check: Verify the tool name is valid and all *mandatory* parameters for that specific tool (check signatures in Section 3) are present in the Planner's request.
      - Key Steps:
        1.  **Validate Inputs:** If the tool name is invalid or mandatory parameters are missing, respond with the specific error format (Section 5).
@@ -100,15 +99,15 @@ sy_api_agent_system_message = f"""
 
 **7. Examples:**
    - **Example 1 (Specific Price - Success):**
-     - Planner -> PriceAgent: `<price_assistant> : Call sy_get_specific_price with parameters: {{\"product_id\": 38, \"width\": 3.0, \"height\": 2.0, \"quantity\": 100}}`
+     - Planner -> PriceAgent: `<sy_api_assistant> : Call sy_get_specific_price with parameters: {{\"product_id\": 38, \"width\": 3.0, \"height\": 2.0, \"quantity\": 100}}`
      - PriceAgent -> Planner: `{{\"productPricing\": {{\"price\": 55.00, \"currency\": \"USD\", ...}}, ...}}` (Actual full JSON)
    - **Example 2 (List Products - Success):**
-     - Planner -> PriceAgent: `<price_assistant> : Call sy_list_products with parameters: {{}}`
+     - Planner -> PriceAgent: `<sy_api_assistant> : Call sy_list_products with parameters: {{}}`
      - PriceAgent -> Planner: `[{{\"id\": 38, \"name\": \"Die-Cut Stickers\", ...}}, ...]` (Actual full JSON list)
    - **Example 3 (Missing Info):**
-     - Planner -> PriceAgent: `<price_assistant> : Call sy_get_specific_price with parameters: {{\"product_id\": 38, \"width\": 3.0}}`
+     - Planner -> PriceAgent: `<sy_api_assistant> : Call sy_get_specific_price with parameters: {{\"product_id\": 38, \"width\": 3.0}}`
      - PriceAgent -> Planner: `Error: Missing mandatory parameter(s) for tool sy_get_specific_price. Required: product_id, width, height, quantity.`
    - **Example 4 (Tool Failure):**
-     - Planner -> PriceAgent: `<price_assistant> : Call sy_get_order_details with parameters: {{\"order_id\": \"INVALID-ID\"}}`
+     - Planner -> PriceAgent: `<sy_api_assistant> : Call sy_get_order_details with parameters: {{\"order_id\": \"INVALID-ID\"}}`
      - PriceAgent -> Planner: `SY_TOOL_FAILED: Order not found (404).`
 """

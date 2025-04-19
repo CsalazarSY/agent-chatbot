@@ -18,7 +18,7 @@ from autogen_core.memory import ListMemory, MemoryContent, MemoryMimeType # Adde
 # Agents
 from agents.hubspot.hubspot_agent import create_hubspot_agent, HUBSPOT_AGENT_NAME
 from agents.planner.planner_agent import create_planner_agent, PLANNER_AGENT_NAME
-from agents.price.price_agent import create_price_agent, PRICE_AGENT_NAME
+from agents.stickeryou.sy_api_agent import create_sy_api_agent, SY_API_AGENT_NAME
 from agents.product.product_agent import create_product_agent, PRODUCT_AGENT_NAME
 
 # Config imports
@@ -120,7 +120,7 @@ class AgentService:
             return PLANNER_AGENT_NAME
 
         # If any specialist agent spoke, Planner must process the result.
-        specialist_agents = {PRODUCT_AGENT_NAME, PRICE_AGENT_NAME, HUBSPOT_AGENT_NAME}
+        specialist_agents = {PRODUCT_AGENT_NAME, SY_API_AGENT_NAME, HUBSPOT_AGENT_NAME}
         if last_message.source in specialist_agents:
             return PLANNER_AGENT_NAME
 
@@ -165,13 +165,13 @@ class AgentService:
             # --- Create Agent Instances for this request --- #
             planner_assistant = create_planner_agent(AgentService.model_client, memory=[request_memory])
             hubspot_agent = create_hubspot_agent(AgentService.model_client, memory=[request_memory])
-            price_agent = create_price_agent(AgentService.model_client) # No memory needed
+            sy_api_agent = create_sy_api_agent(AgentService.model_client)
             product_agent = create_product_agent(AgentService.model_client) # No memory needed
 
             # --- Create GroupChat Instance for this request --- #
             active_participants = [
                 planner_assistant,
-                price_agent,
+                sy_api_agent,
                 product_agent,
                 hubspot_agent,
             ]

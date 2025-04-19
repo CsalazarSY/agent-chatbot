@@ -1,9 +1,9 @@
-# agents/price/price_agent.py
+# agents/sy_api/sy_api_agent.py
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 # Import ALL tool functions
-from agents.price.tools.sy_api import (
+from agents.stickeryou.tools.sy_api import (
     sy_create_design,
     sy_get_design_preview,
     sy_list_orders_by_status_get,
@@ -23,14 +23,14 @@ from agents.price.tools.sy_api import (
 )
 
 # Import the updated system message string
-from agents.price.system_message import sy_api_agent_system_message # Use the new variable nam
+from agents.stickeryou.system_message import sy_api_agent_system_message
 
 # --- Type Hint Imports ---
 from typing import Optional, List, Callable
 from autogen_core.memory import Memory
 
 # --- Agent Name Constant ---
-PRICE_AGENT_NAME = "price_assistant"
+SY_API_AGENT_NAME = "sy_api_assistant"
 
 # --- Collect all tool functions ---
 all_sy_api_tools: List[Callable] = [
@@ -53,7 +53,7 @@ all_sy_api_tools: List[Callable] = [
 ]
 
 # --- Agent Creation Function ---
-def create_price_agent(model_client: OpenAIChatCompletionClient, memory: Optional[List[Memory]] = None) -> AssistantAgent:
+def create_sy_api_agent(model_client: OpenAIChatCompletionClient, memory: Optional[List[Memory]] = None) -> AssistantAgent:
     """
     Creates and configures the SY API Assistant Agent.
 
@@ -65,7 +65,7 @@ def create_price_agent(model_client: OpenAIChatCompletionClient, memory: Optiona
         An configured AssistantAgent instance.
     """
     sy_api_assistant = AssistantAgent(
-        name=PRICE_AGENT_NAME, # Keep name for now
+        name=SY_API_AGENT_NAME,
         description="Handles interaction with the StickerYou API for designs, orders, pricing, and user auth.",
         system_message=sy_api_agent_system_message,
         model_client=model_client,
