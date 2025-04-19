@@ -1,4 +1,4 @@
-# agents/price/tools/api.py
+# agents/stickeryou/tools/sy_api.py
 import httpx
 import json
 import traceback

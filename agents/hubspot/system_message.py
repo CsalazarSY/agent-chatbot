@@ -23,8 +23,8 @@ hubspot_agent_system_message = f"""
 **3. Tools Available:**
    *(All tools return either a JSON dictionary/list on success or a string starting with 'HUBSPOT_TOOL_FAILED:' on error.)*
 
-   - **`send_message_to_thread(thread_id: str, message_text: str, channel_id: str | None = '{HUBSPOT_DEFAULT_CHANNEL}', channel_account_id: str | None = '{HUBSPOT_DEFAULT_CHANNEL_ACCOUNT}', sender_actor_id: str | None = '{HUBSPOT_DEFAULT_SENDER_ACTOR_ID}', message_type: str = 'MESSAGE') -> str`**
-     - (Endpoint 14) Sends a message (`MESSAGE`) or internal comment (`COMMENT`) to a thread. Returns success/failure string.
+   - **`send_message_to_thread(thread_id: str, message_text: str, channel_id: str | None = '{HUBSPOT_DEFAULT_CHANNEL}', channel_account_id: str | None = '{HUBSPOT_DEFAULT_CHANNEL_ACCOUNT}', sender_actor_id: str | None = '{HUBSPOT_DEFAULT_SENDER_ACTOR_ID}') -> Dict | str`**
+     - (Endpoint 14) Sends a message (`MESSAGE`) or internal comment (`COMMENT`) to a thread based on message content. Returns created message dict or error string.
 
    - **`get_thread_details(thread_id: str, association: str | None = None) -> dict | str`**
      - (Endpoint 6) Retrieves details for a single thread. `association` can be 'TICKET' etc.
@@ -89,7 +89,7 @@ hubspot_agent_system_message = f"""
 
 **5. Output Format:**
    - **Success (Data):** The EXACT JSON dictionary or list returned by the tool.
-   - **Success (Action Confirmation):** The EXACT success confirmation string returned by the tool (e.g., for `archive_thread` or `send_message_to_thread`).
+   - **Success (Action Confirmation):** The EXACT success confirmation string returned by the tool (e.g., for `archive_thread` or the dict from `send_message_to_thread`).
    - **Failure:** The EXACT "HUBSPOT_TOOL_FAILED:..." string returned by the tool.
    - **Error (Missing Params):** EXACTLY `Error: Missing mandatory parameter(s) for tool [tool_name]. Required: [list_required_params].`
    - **Error (Unknown Tool):** EXACTLY `Error: Unknown tool requested: [requested_tool_name].`

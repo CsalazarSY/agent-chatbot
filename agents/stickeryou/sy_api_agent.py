@@ -1,4 +1,4 @@
-# agents/sy_api/sy_api_agent.py
+# agents/stickeryou/sy_api_agent.py
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 

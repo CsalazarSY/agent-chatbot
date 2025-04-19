@@ -1,4 +1,4 @@
-# agents/price/system_message.py
+# agents/stickeryou/system_message.py
 import os
 from dotenv import load_dotenv
 
@@ -10,7 +10,6 @@ DEFAULT_COUNTRY_CODE = os.getenv("DEFAULT_COUNTRY_CODE", "US")
 DEFAULT_CURRENCY_CODE = os.getenv("DEFAULT_CURRENCY_CODE", "USD")
 
 # --- SY API Agent System Message ---
-# TODO: Rename this agent as requested by user later
 sy_api_agent_system_message = f"""
 **1. Role & Goal:**
    - You are the SY API Agent, responsible for interacting with the StickerYou (SY) API.
