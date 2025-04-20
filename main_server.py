@@ -3,6 +3,7 @@
 import json
 import uvicorn
 from typing import Optional
+from contextlib import asynccontextmanager
 
 # FastAPI imports
 from fastapi import FastAPI, HTTPException
@@ -11,6 +12,8 @@ from pydantic import BaseModel
 
 # Centralized Agent Service
 from agents.agents_services import agent_service
+# Import config to access the refresh function
+import config
 
 # --- Pydantic Models for Request/Response ---
 class ChatRequest(BaseModel):
@@ -25,9 +28,21 @@ class ChatResponse(BaseModel):
 
 
 # --- FastAPI App Setup ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Code to run on startup
+    print("--- Running Application Startup --- ")
+    success = await config.refresh_sy_token()
+    if success:
+        print("Initial SY API token refresh successful.")
+    else:
+        print("Initial SY API token refresh failed. Will attempt on first API call.")
+    yield
+
 app = FastAPI(
     title="AutoGen Agent API",
     description="API endpoint to interact with the multi-agent AutoGen system.",
+    lifespan=lifespan # Add the lifespan context manager
 )
 
 # Configure CORS to allow requests from frontend
@@ -84,12 +99,12 @@ async def chat_endpoint(request: ChatRequest):
     stop_reason = str(task_result.stop_reason) if task_result.stop_reason else "Paused/Awaiting Input" # Adjust default
 
     ####### --- Process Task Result --- #######
-    print(f"\n<<<- Task Result ")
+    print(f"    << Task Result >>")
     if error_message:
         print(f"        - Task failed with error: {error_message}")
     elif task_result:
         print(f"        - Stop Reason: {stop_reason}") # Use processed stop_reason
-        print(f"        - Number of Messages: {len(task_result.messages)}")
+        print(f"        - Number of Messages: {len(task_result.messages)}\n")
 
         # Extract the last message's content for the reply
         if task_result.messages:
@@ -104,6 +119,8 @@ async def chat_endpoint(request: ChatRequest):
                      if final_reply_content.startswith("TASK FAILED:"): final_reply_content = final_reply_content[len("TASK FAILED:"):].strip()
 
                      # Remove <UserProxyAgent> tag and potential leading/trailing whitespace
+                     final_reply_content = final_reply_content.replace("<UserProxyAgent> :", "").strip()
+                     final_reply_content = final_reply_content.replace("<UserProxyAgent>:", "").strip()
                      final_reply_content = final_reply_content.replace("<UserProxyAgent>", "").strip()
 
             else:
