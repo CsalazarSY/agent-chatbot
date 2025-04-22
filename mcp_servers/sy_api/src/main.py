@@ -155,7 +155,13 @@ async def sy_list_orders_by_status_get(
     ctx: Context,
     status_id: int,
 ) -> List[Dict] | str:
-    """(GET /v{version}/Orders/status/list/{status}) Lists orders matching a specific status using a path parameter (GET)."""
+    """(GET /v{version}/Orders/status/list/{status}) Lists orders matching a specific status using a path parameter (GET).
+
+    Args:
+        status_id (int): The status ID to filter orders by. Valid values:
+                         1 (Cancelled), 2 (Error), 10 (New), 20 (Accepted),
+                         30 (InProgress), 40 (OnHold), 50 (Printed), 100 (Shipped).
+    """
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -183,7 +189,7 @@ async def sy_list_orders_by_status_get(
         else:
             error_body = response.text[:500]
             if response.status_code == 401: return f"{API_ERROR_PREFIX}  Unauthorized (401)."
-            elif response.status_code == 400: return f"{API_ERROR_PREFIX}  Bad Request (400). Invalid status ID." # 404 might also be possible if status is invalid
+            elif response.status_code == 400: return f"{API_ERROR_PREFIX}  Bad Request (400). Invalid status ID."
             elif response.status_code == 404: return f"{API_ERROR_PREFIX}  Invalid Status ID {status_id} provided? (404)."
             elif response.status_code >= 500: return f"{API_ERROR_PREFIX}  Server Error ({response.status_code})."
             else: return f"{API_ERROR_PREFIX}  Unexpected HTTP {response.status_code}. Body: {error_body}"

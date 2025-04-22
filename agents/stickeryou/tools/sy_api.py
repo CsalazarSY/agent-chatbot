@@ -142,7 +142,17 @@ async def sy_get_design_preview(
 async def sy_list_orders_by_status_get(
     status_id: int,
 ) -> List[Dict] | str:
-    """(GET /v{version}/Orders/status/list/{status}) Lists orders matching a specific status using a path parameter (GET)."""
+    """List orders by status ID using the GET method.
+
+    Args:
+        status_id (int): The status ID to filter orders by. Valid values:
+                         1 (Cancelled), 2 (Error), 10 (New), 20 (Accepted),
+                         30 (InProgress), 40 (OnHold), 50 (Printed), 100 (Shipped).
+        config (Config): Configuration object containing API details.
+
+    Returns:
+        dict | str: A dictionary containing the list of orders on success, or an error string.
+    """
     api_url = f"{config.API_BASE_URL}/v{config.API_VERSION}/Orders/status/list/{status_id}"
     result = await _make_sy_api_request("GET", api_url)
 

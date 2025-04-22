@@ -31,7 +31,7 @@ sy_api_agent_system_message = f"""
 
    **Orders:**
    - **`sy_list_orders_by_status_get(status_id: int) -> List[Dict] | str`**
-     - **Purpose:** Finds orders matching a specific status ID. Returns a list of order summaries.
+     - **Purpose:** Finds orders matching a specific status ID. The `status_id` accepts: 1 (Cancelled), 2 (Error), 10 (New), 20 (Accepted), 30 (InProgress), 40 (OnHold), 50 (Printed), 100 (Shipped). Returns a list of order summaries.
    - **`sy_list_orders_by_status_post(status_id: int, take: int = 100, skip: int = 0) -> List[Dict] | str`**
      - **Purpose:** Finds orders matching a status ID, supporting pagination. Returns a list of order summaries.
    - **`sy_create_order(order_data: Dict) -> Dict | str`**

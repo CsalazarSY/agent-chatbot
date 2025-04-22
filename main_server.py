@@ -75,7 +75,7 @@ async def chat_endpoint(request: ChatRequest):
     # Pass message and conversation_id to the service
     task_result, error_message, final_conversation_id = await agent_service.run_chat_session(
         request.message,
-        show_console=False, # Ensure console output is off for API
+        show_console=True,
         conversation_id=request.conversation_id
     )
 
@@ -103,7 +103,7 @@ async def chat_endpoint(request: ChatRequest):
     if error_message:
         print(f"        - Task failed with error: {error_message}")
     elif task_result:
-        print(f"        - Stop Reason: {stop_reason}") # Use processed stop_reason
+        print(f"        - Stop Reason: {stop_reason}")
         print(f"        - Number of Messages: {len(task_result.messages)}\n")
 
         # Extract the last message's content for the reply
