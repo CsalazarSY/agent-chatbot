@@ -29,6 +29,7 @@ DEFAULT_CURRENCY_CODE = os.getenv("DEFAULT_CURRENCY_CODE", "USD")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL")
 LLM_API_KEY = os.getenv("LLM_API_KEY")
 LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME")
+LLM_MODEL_FAMILY = os.getenv("LLM_MODEL_FAMILY")
 
 # --- HubSpot Configuration ---
 HUBSPOT_API_TOKEN = os.getenv("HUBSPOT_API_TOKEN")
@@ -48,7 +49,7 @@ async def refresh_sy_token() -> bool:
     """
     global SY_API_AUTH_TOKEN_DYNAMIC # Declare intent to modify the global variable
 
-    print("Attempting to refresh SY API token...")
+    print("...Attempting to refresh SY API token...")
     if not SY_API_USERNAME or not SY_API_PASSWORD:
         print("Error: SY_API_USERNAME or SY_API_PASSWORD not set in environment variables.")
         return False

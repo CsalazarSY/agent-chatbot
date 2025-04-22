@@ -22,7 +22,7 @@ from agents.stickeryou.sy_api_agent import create_sy_api_agent, SY_API_AGENT_NAM
 from agents.product.product_agent import create_product_agent, PRODUCT_AGENT_NAME
 
 # Config imports
-from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_NAME
+from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_FAMILY, LLM_MODEL_NAME
 
 # Define AgentType alias for clarity
 AgentType = Union[AssistantAgent, UserProxyAgent]
@@ -64,7 +64,7 @@ class AgentService:
                     vision=False,
                     function_calling=True,
                     json_output=False,
-                    family="gpt-4o",
+                    family=LLM_MODEL_FAMILY,
                     structured_output=True
                 ),
             )
