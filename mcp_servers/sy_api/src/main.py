@@ -58,7 +58,7 @@ async def sy_create_design(
     height: float,
     image_base64: str,
 ) -> Dict | str:
-    """(POST /api/v{version}/Designs/new) Sends a new design to StickerYou."""
+    """(POST /api/{version}/Designs/new) Sends a new design to StickerYou."""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -106,8 +106,9 @@ async def sy_get_design_preview(
     ctx: Context,
     design_id: str,
 ) -> Dict | str:
-    """(GET /api/v{version}/Designs/{designId}/preview) Returns a design preview using its Design ID.
-       Note: API docs show an *order* response. Returns the raw response."""
+    """(GET /api/{version}/Designs/{designId}/preview)
+        Returns a design preview using its Design ID.
+    """
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -155,13 +156,19 @@ async def sy_list_orders_by_status_get(
     ctx: Context,
     status_id: int,
 ) -> List[Dict] | str:
-    """(GET /v{version}/Orders/status/list/{status}) Lists orders matching a specific status using a path parameter (GET).
+    """
+    (GET /{version}/Orders/status/list/{status})
+    List orders by status ID using the GET method.
 
     Args:
         status_id (int): The status ID to filter orders by. Valid values:
                          1 (Cancelled), 2 (Error), 10 (New), 20 (Accepted),
                          30 (InProgress), 40 (OnHold), 50 (Printed), 100 (Shipped).
-    """
+        config (Config): Configuration object containing API details.
+    
+     Returns:
+        dict | str: A dictionary containing the list of orders on success, or an error string.
+   """
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -171,7 +178,7 @@ async def sy_list_orders_by_status_get(
     if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
     if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
 
-    api_url = f"{base_url}/v{api_version}/Orders/status/list/{status_id}"
+    api_url = f"{base_url}/{api_version}/Orders/status/list/{status_id}"
     headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
 
     response = None
@@ -212,7 +219,7 @@ async def sy_list_orders_by_status_post(
     take: int = 100,
     skip: int = 0,
 ) -> List[Dict] | str:
-    """(POST /v{version}/Orders/status/list) Lists orders matching a specific status using a request body (POST)."""
+    """(POST /{version}/Orders/status/list) Lists orders matching a specific status using a request body (POST)."""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -222,7 +229,7 @@ async def sy_list_orders_by_status_post(
     if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
     if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
 
-    api_url = f"{base_url}/v{api_version}/Orders/status/list"
+    api_url = f"{base_url}/{api_version}/Orders/status/list"
     headers = {"Content-Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
     payload = {"take": take, "skip": skip, "status": status_id}
 
@@ -261,7 +268,7 @@ async def sy_create_order(
     ctx: Context,
     order_data: Dict,
 ) -> Dict | str:
-    """(POST /v{version}/Orders/new) Sends a new order"""
+    """(POST /{version}/Orders/new) Sends a new order"""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -271,7 +278,7 @@ async def sy_create_order(
     if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
     if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
 
-    api_url = f"{base_url}/v{api_version}/Orders/new"
+    api_url = f"{base_url}/{api_version}/Orders/new"
     headers = {"Content-Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
 
     response = None
@@ -308,7 +315,7 @@ async def sy_create_order_from_designs(
     ctx: Context,
     order_data: Dict,
 ) -> Dict | str:
-    """(POST /v{version}/Orders/designs/new) Sends a new order with designs"""
+    """(POST /{version}/Orders/designs/new) Sends a new order with designs"""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -318,7 +325,7 @@ async def sy_create_order_from_designs(
     if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
     if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
 
-    api_url = f"{base_url}/v{api_version}/Orders/designs/new"
+    api_url = f"{base_url}/{api_version}/Orders/designs/new"
     headers = {"Content-Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
 
     response = None
@@ -355,7 +362,7 @@ async def sy_get_order_details(
     ctx: Context,
     order_id: str,
 ) -> Dict | str:
-    """(GET /v{version}/Orders/{id}) Returns order details by its identifier."""
+    """(GET /{version}/Orders/{id}) Returns order details by its identifier."""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -365,7 +372,7 @@ async def sy_get_order_details(
     if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
     if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
 
-    api_url = f"{base_url}/v{api_version}/Orders/{order_id}"
+    api_url = f"{base_url}/{api_version}/Orders/{order_id}"
     headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
 
     response = None
@@ -401,7 +408,7 @@ async def sy_cancel_order(
     ctx: Context,
     order_id: str,
 ) -> Dict | str:
-    """(PUT /v{version}/Orders/{id}/cancel) Cancels an order using its identifier."""
+    """(PUT /{version}/Orders/{id}/cancel) Cancels an order using its identifier."""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -411,7 +418,7 @@ async def sy_cancel_order(
     if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
     if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
 
-    api_url = f"{base_url}/v{api_version}/Orders/{order_id}/cancel"
+    api_url = f"{base_url}/{api_version}/Orders/{order_id}/cancel"
     headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"} # Content-Type might not be needed for PUT with no body
 
     response = None
@@ -449,7 +456,7 @@ async def sy_get_order_item_statuses(
     ctx: Context,
     order_id: str,
 ) -> List[Dict] | str:
-    """(GET /v{version}/Orders/{id}/items/status) Gets the status for all items within a specific order."""
+    """(GET /{version}/Orders/{id}/items/status) Gets the status for all items within a specific order."""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -459,7 +466,7 @@ async def sy_get_order_item_statuses(
     if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
     if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
 
-    api_url = f"{base_url}/v{api_version}/Orders/{order_id}/items/status"
+    api_url = f"{base_url}/{api_version}/Orders/{order_id}/items/status"
     headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
 
     response = None
@@ -499,7 +506,7 @@ async def sy_get_order_tracking(
     ctx: Context,
     order_id: str,
 ) -> Dict | str:
-    """(GET /v{version}/Orders/{id}/trackingcode) Retrieves the tracking code for a specific order."""
+    """(GET /{version}/Orders/{id}/trackingcode) Retrieves the tracking code for a specific order."""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -509,7 +516,7 @@ async def sy_get_order_tracking(
     if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
     if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token."
 
-    api_url = f"{base_url}/v{api_version}/Orders/{order_id}/trackingcode"
+    api_url = f"{base_url}/{api_version}/Orders/{order_id}/trackingcode"
     headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
 
     response = None
@@ -548,7 +555,7 @@ async def sy_get_order_tracking(
 async def sy_list_products(
     ctx: Context,
 ) -> Dict | str:
-    """(GET /api/v{version}/Pricing/list) Returns a list of available products and their configurable options."""
+    """(GET /api/{version}/Pricing/list) Returns a list of available products and their configurable options."""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -599,7 +606,7 @@ async def sy_get_price_tiers(
     accessory_options: Optional[List[Dict]] = None,
     quantity: Optional[int] = None,
 ) -> Dict | str:
-    """(POST /api/v{version}/Pricing/{productId}/pricings) Returns a list of prices for different quantity tiers for a specific product."""
+    """(POST /api/{version}/Pricing/{productId}/pricings) Returns a list of prices for different quantity tiers for a specific product."""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -616,8 +623,10 @@ async def sy_get_price_tiers(
 
     try:
         payload = {
-            "width": float(width), "height": float(height),
-            "countryCode": str(final_country_code), "currencyCode": str(final_currency_code),
+            "width": float(width), 
+            "height": float(height),
+            "countryCode": str(final_country_code), 
+            "currencyCode": str(final_currency_code),
             "accessoryOptions": accessory_options or [],
         }
         if quantity is not None: payload["quantity"] = int(quantity)
@@ -664,7 +673,7 @@ async def sy_get_specific_price(
     currency_code: Optional[str] = None,
     accessory_options: Optional[List[Dict]] = None
 ) -> Dict | str:
-    """(POST /api/v{version}/Pricing/{productId}/pricing) Calls the SY pricing API for a *specific* quantity of a product."""
+    """(POST /api/{version}/Pricing/{productId}/pricing) Calls the SY pricing API for a *specific* quantity of a product."""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -681,9 +690,12 @@ async def sy_get_specific_price(
 
     try:
         payload = {
-            "width": float(width), "height": float(height),
-            "countryCode": str(final_country_code), "quantity": int(quantity),
-            "currencyCode": str(final_currency_code), "accessoryOptions": accessory_options or [],
+            "width": float(width), 
+            "height": float(height),
+            "countryCode": str(final_country_code), 
+            "quantity": int(quantity),
+            "currencyCode": str(final_currency_code), 
+            "accessoryOptions": accessory_options or [],
         }
     except ValueError as e:
         return f"{API_ERROR_PREFIX}  Invalid parameter type. Error: {e}"
@@ -722,7 +734,7 @@ async def sy_get_specific_price(
 async def sy_list_countries(
     ctx: Context,
 ) -> Dict | str:
-    """(POST /api/v{version}/Pricing/countries) Returns a list of supported countries for pricing/shipping."""
+    """(POST /api/{version}/Pricing/countries) Returns a list of supported countries for pricing/shipping."""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -768,7 +780,7 @@ async def sy_list_countries(
 async def sy_verify_login(
     ctx: Context,
 ) -> Dict | str:
-    """(GET /api/v{version}/users/login) Verifies if the current authentication token is valid."""
+    """(GET /users/login) Verifies if the current authentication token is valid."""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
@@ -778,7 +790,7 @@ async def sy_verify_login(
     if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
     if not auth_token: return "{API_ERROR_PREFIX}  Configuration Error - Missing API authentication token for verification."
 
-    api_url = f"{base_url}/api/{api_version}/users/login"
+    api_url = f"{base_url}/users/login"
     headers = {"Accept": "application/json", "Authorization": f"Bearer {auth_token}"}
 
     response = None
@@ -815,16 +827,15 @@ async def sy_perform_login(
     username: str,
     password: str,
 ) -> Dict | str:
-    """(POST /api/v{version}/users/login) Performs user login to obtain an authentication token."""
+    """(POST /users/login) Performs user login to obtain an authentication token."""
     sy_api_context: SYApiContext = ctx.request_context.lifespan_context
     config = sy_api_context.config
     base_url = config.get("base_url")
-    api_version = config.get("api_version", "v1")
     # No auth token needed for login request itself
 
     if not base_url: return "{API_ERROR_PREFIX}  Configuration Error - Missing API Base URL."
 
-    api_url = f"{base_url}/api/{api_version}/users/login"
+    api_url = f"{base_url}/users/login"
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
     payload = {"userName": username, "password": password}
 
@@ -838,7 +849,7 @@ async def sy_perform_login(
                 # Expecting {"token": "...", "expirationMinutes": "..."}
                 return response.json()
             except json.JSONDecodeError:
-                return f"{API_ERROR_PREFIX}  Failed to decode successful JSON response from login (Status 200)."
+                return f"{API_ERROR_PREFIX} Failed to decode successful JSON response from login (Status 200)."
         else:
             error_body = response.text[:500]
             # Assuming 400/401 for bad credentials, but API might vary

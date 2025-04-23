@@ -1,13 +1,10 @@
 # config.py
 import os
-import asyncio
-import httpx
-import json # Added for potential use in refresh_sy_token error handling
 from dotenv import load_dotenv
 from hubspot import HubSpot
 
 # Import the login function and constants needed for it
-from agents.stickeryou.tools.sy_api import sy_perform_login, ERROR_PREFIX
+from agents.stickeryou.tools.sy_api import sy_perform_login, API_ERROR_PREFIX
 
 # Load environment variables from .env file
 load_dotenv()
@@ -63,7 +60,7 @@ async def refresh_sy_token() -> bool:
             expiry = result.get("expirationMinutes", "N/A")
             print(f"Successfully refreshed SY API token. Expires in: {expiry} minutes.")
             return True
-        elif isinstance(result, str) and result.startswith(ERROR_PREFIX):
+        elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
             print(f"Error refreshing SY API token: {result}")
             SY_API_AUTH_TOKEN_DYNAMIC = None # Clear potentially stale token
             return False

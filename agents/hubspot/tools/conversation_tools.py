@@ -23,7 +23,7 @@ async def send_message_to_thread(
     channel_account_id: Optional[str] = None,
     sender_actor_id: Optional[str] = None,
 ) -> str | Dict[str, Any]: # Allow returning dict on success
-    """(Endpoint 14) Sends a message or comment to a HubSpot conversation thread.
+    """Sends a message or comment to a HubSpot conversation thread.
 
     If the message_text contains 'HANDOFF' or 'COMMENT' (case-insensitive), it sends the message
     as an internal COMMENT, otherwise it sends it as a regular MESSAGE.
@@ -57,13 +57,9 @@ async def send_message_to_thread(
 
     # --- Input Validation ---
     if not thread_id or not isinstance(thread_id, str) or thread_id.lower() == 'unknown': return f"{ERROR_PREFIX} Valid HubSpot thread ID was not provided."
-
     if not final_channel_id or not isinstance(final_channel_id, str): return f"{ERROR_PREFIX} Valid HubSpot channel ID was not provided."
-
     if not final_channel_account_id or not isinstance(final_channel_account_id, str): return f"{ERROR_PREFIX} Valid HubSpot channel account ID was not provided."
-
     if not final_sender_actor_id or not isinstance(final_sender_actor_id, str): return f"{ERROR_PREFIX} Valid HubSpot sender actor ID was not provided."
-
     if not final_sender_actor_id.startswith("A-"): print("Warning: sender_actor_id does not start with 'A-'") # Just a warning, proceed
     if not message_text or not isinstance(message_text, str): return f"{ERROR_PREFIX} Valid message text was not provided."
 
@@ -82,8 +78,6 @@ async def send_message_to_thread(
         "senderActorId": final_sender_actor_id,
         "channelId": final_channel_id,
         "channelAccountId": final_channel_account_id
-        # Note: Recipients might need adjustment based on actual API requirements
-        # "recipients": [{"actorId": final_sender_actor_id}] # Example recipient
     }
     request_data = { "method": "POST", "path": api_path, "body": payload }
 
@@ -130,21 +124,17 @@ async def send_message_to_thread(
 
         else: return f"{ERROR_PREFIX} Unexpected error sending message: {type(e).__name__} - {e}"
 
-
 async def get_thread_details(
     thread_id: str,
     association: Optional[str] = None
 ) -> Dict[str, Any] | str:
-    """(Endpoint 6) Retrieves details for a single conversation thread.
+    """Retrieves details for a single conversation thread.
 
     Args:
-
         thread_id: The unique ID of the thread.
-
         association: Optional. Specify an association type (e.g., 'TICKET') to include associated object IDs.
 
     Returns:
-
         A dictionary containing thread details on success, or an error string.
 
     """
@@ -208,7 +198,7 @@ async def get_thread_messages(
     after: Optional[str] = None,
     sort: Optional[str] = None
 ) -> Dict[str, Any] | str:
-    """(Endpoint 10) Retrieves message history for a thread.
+    """Retrieves message history for a thread.
 
     Args:
 
@@ -292,7 +282,7 @@ async def list_threads(
     sort: Optional[str] = None,
     association: Optional[str] = None
 ) -> Dict[str, Any] | str:
-    """(Endpoint 12) Retrieves a list of conversation threads with filtering and pagination.
+    """Retrieves a list of conversation threads with filtering and pagination.
 
     Args:
 
@@ -389,7 +379,7 @@ async def update_thread(
     archived: Optional[bool] = None,
     is_currently_archived: bool = False
 ) -> Dict[str, Any] | str:
-    """(Endpoint 15) Updates a thread's status or restores it from archive.
+    """Updates a thread's status or restores it from archive.
 
     Args:
 
@@ -475,7 +465,7 @@ async def update_thread(
 
 
 async def archive_thread(thread_id: str) -> str:
-    """(Endpoint 16) Archives a single conversation thread.
+    """Archives a single conversation thread.
 
     Args:
 
@@ -533,7 +523,7 @@ async def archive_thread(thread_id: str) -> str:
 
 
 async def get_actor_details(actor_id: str) -> Dict[str, Any] | str:
-    """(Endpoint 1) Retrieves details for a specific actor.
+    """Retrieves details for a specific actor.
 
     Args:
 
@@ -598,7 +588,7 @@ async def get_actor_details(actor_id: str) -> Dict[str, Any] | str:
 
 
 async def get_actors_batch(actor_ids: List[str]) -> Dict[str, Any] | str:
-    """(Endpoint 13) Retrieves details for multiple actors in a batch.
+    """Retrieves details for multiple actors in a batch.
 
     Args:
 
@@ -667,7 +657,7 @@ async def list_inboxes(
     limit: Optional[int] = None,
     after: Optional[str] = None
 ) -> Dict[str, Any] | str:
-    """(Endpoint 9) Retrieves a list of conversation inboxes.
+    """Retrieves a list of conversation inboxes.
 
     Args:
 
@@ -735,7 +725,7 @@ async def list_inboxes(
 
 
 async def get_inbox_details(inbox_id: str) -> Dict[str, Any] | str:
-    """(Endpoint 4) Retrieves details for a specific inbox.
+    """Retrieves details for a specific inbox.
 
     Args:
 
@@ -800,7 +790,7 @@ async def list_channels(
     limit: Optional[int] = None,
     after: Optional[str] = None
 ) -> Dict[str, Any] | str:
-    """(Endpoint 8) Retrieves a list of channels connected to inboxes.
+    """Retrieves a list of channels connected to inboxes.
 
     Args:
 
@@ -868,7 +858,7 @@ async def list_channels(
 
 
 async def get_channel_details(channel_id: str) -> Dict[str, Any] | str:
-    """(Endpoint 3) Retrieves details for a specific channel.
+    """Retrieves details for a specific channel.
 
     Args:
 
@@ -935,7 +925,7 @@ async def list_channel_accounts(
     limit: Optional[int] = None,
     after: Optional[str] = None
 ) -> Dict[str, Any] | str:
-    """(Endpoint 7) Retrieves a list of channel accounts (instances of channels).
+    """Retrieves a list of channel accounts (instances of channels).
 
     Args:
 
@@ -1011,7 +1001,7 @@ async def list_channel_accounts(
 
 
 async def get_channel_account_details(channel_account_id: str) -> Dict[str, Any] | str:
-    """(Endpoint 2) Retrieves details for a specific channel account instance.
+    """Retrieves details for a specific channel account instance.
 
     Args:
 
@@ -1076,7 +1066,7 @@ async def get_message_details(
     thread_id: str,
     message_id: str
 ) -> Dict[str, Any] | str:
-    """(Endpoint 5) Retrieves a specific message within a given thread.
+    """Retrieves a specific message within a given thread.
 
     Args:
 
@@ -1145,7 +1135,7 @@ async def get_original_message_content(
     thread_id: str,
     message_id: str
 ) -> Dict[str, Any] | str:
-    """(Endpoint 11) Retrieves the original text/richText content of a potentially truncated message.
+    """Retrieves the original text/richText content of a potentially truncated message.
 
     Args:
 

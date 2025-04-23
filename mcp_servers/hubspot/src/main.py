@@ -35,7 +35,6 @@ async def hubspot_lifespan(server: FastMCP) -> AsyncIterator[HubSpotContext]:
         try:
             client = create_hubspot_client(cfg["api_token"])
         except ValueError as e:
-            # print(f"HubSpot Lifespan Error: {e}")
             pass # Client remains None, tools should handle this
     else:
         # print("HubSpot Lifespan Warning: HUBSPOT_API_TOKEN not found. HubSpot tools will fail.")
@@ -45,7 +44,6 @@ async def hubspot_lifespan(server: FastMCP) -> AsyncIterator[HubSpotContext]:
         yield HubSpotContext(hubspot_client=client, config=cfg)
     finally:
         # No explicit cleanup needed for the HubSpot client instance
-        # print("HubSpot Lifespan: Shutdown complete.")
         pass
 
 # --- Initialize FastMCP Server --- #
@@ -68,7 +66,7 @@ async def hubspot_send_message(
     channel_account_id: Optional[str] = None,
     sender_actor_id: Optional[str] = None,
 ) -> str | Dict[str, Any]: # Allow returning dict on success
-    """(Endpoint 14) Sends a message or comment to a HubSpot conversation thread.
+    """Sends a message or comment to a HubSpot conversation thread.
 
     If the message_text contains 'HANDOFF' or 'COMMENT' (case-insensitive), it sends the message
     as an internal COMMENT, otherwise it sends it as a regular MESSAGE.
@@ -100,7 +98,7 @@ async def hubspot_send_message(
     if not final_channel_id or not isinstance(final_channel_id, str): return f"{ERROR_PREFIX} Valid HubSpot channel ID was not provided."
     if not final_channel_account_id or not isinstance(final_channel_account_id, str): return f"{ERROR_PREFIX} Valid HubSpot channel account ID was not provided."
     if not final_sender_actor_id or not isinstance(final_sender_actor_id, str): return f"{ERROR_PREFIX} Valid HubSpot sender actor ID was not provided."
-    if not final_sender_actor_id.startswith("A-"): pass # Just a warning, proceed
+    if not final_sender_actor_id.startswith("A-"): return "Warning: sender_actor_id does not start with 'A-'" # Just a warning, proceed
     if not message_text or not isinstance(message_text, str): return f"{ERROR_PREFIX} Valid message text was not provided."
 
     # --- Determine Message Type ---
@@ -132,11 +130,11 @@ async def hubspot_send_message(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data # Return created message details
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
@@ -158,15 +156,13 @@ async def hubspot_send_message(
             return f"{ERROR_PREFIX} API Error Status {status_code} sending message. Reason: {error_reason}. Body: {body_str}"
         else: return f"{ERROR_PREFIX} Unexpected error sending message: {type(e).__name__} - {e}"
 
-# --- Added Tools Below ---
-
 @mcp.tool()
 async def hubspot_get_thread_details(
     ctx: Context,
     thread_id: str,
     association: Optional[str] = None
 ) -> Dict[str, Any] | str:
-    """(Endpoint 6) Retrieves details for a single conversation thread.
+    """Retrieves details for a single conversation thread.
 
     Args:
         ctx: The MCP server context.
@@ -197,11 +193,11 @@ async def hubspot_get_thread_details(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
@@ -230,7 +226,7 @@ async def hubspot_get_thread_messages(
     after: Optional[str] = None,
     sort: Optional[str] = None
 ) -> Dict[str, Any] | str:
-    """(Endpoint 10) Retrieves message history for a thread.
+    """Retrieves message history for a thread.
 
     Args:
         ctx: The MCP server context.
@@ -265,11 +261,11 @@ async def hubspot_get_thread_messages(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data # API returns a dict like {"results": [], "paging": ...}
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
@@ -301,7 +297,7 @@ async def hubspot_list_threads(
     sort: Optional[str] = None,
     association: Optional[str] = None
 ) -> Dict[str, Any] | str:
-    """(Endpoint 12) Retrieves a list of conversation threads with filtering and pagination.
+    """Retrieves a list of conversation threads with filtering and pagination.
 
     Args:
         ctx: The MCP server context.
@@ -346,11 +342,11 @@ async def hubspot_list_threads(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
@@ -379,7 +375,7 @@ async def hubspot_update_thread(
     archived: Optional[bool] = None,
     is_currently_archived: bool = False
 ) -> Dict[str, Any] | str:
-    """(Endpoint 15) Updates a thread's status or restores it from archive.
+    """Updates a thread's status or restores it from archive.
 
     Args:
         ctx: The MCP server context.
@@ -422,11 +418,11 @@ async def hubspot_update_thread(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
@@ -449,7 +445,7 @@ async def hubspot_update_thread(
 
 @mcp.tool()
 async def hubspot_archive_thread(ctx: Context, thread_id: str) -> str:
-    """(Endpoint 16) Archives a single conversation thread.
+    """Archives a single conversation thread.
 
     Args:
         ctx: The MCP server context.
@@ -478,7 +474,7 @@ async def hubspot_archive_thread(ctx: Context, thread_id: str) -> str:
                  # Successful status code but got a Response object? Unexpected for 204.
                  try: body_str = response.text
                  except: body_str = "[Could not retrieve response text]"
-                 return f"{ERROR_PREFIX} Archive successful (Status {response.status_code}), but received unexpected response body: {body_str[:100]}..."
+                 return f"HUBSPOT_TOOL_SUCCESS: Archive successful (Status {response.status_code}), but received unexpected response body: {body_str[:100]}..."
              else:
                  try: body_str = response.text
                  except: body_str = "[Could not retrieve response text]"
@@ -502,7 +498,7 @@ async def hubspot_archive_thread(ctx: Context, thread_id: str) -> str:
 
 @mcp.tool()
 async def hubspot_get_actor_details(ctx: Context, actor_id: str) -> Dict[str, Any] | str:
-    """(Endpoint 1) Retrieves details for a specific actor.
+    """Retrieves details for a specific actor.
 
     Args:
         ctx: The MCP server context.
@@ -530,11 +526,11 @@ async def hubspot_get_actor_details(ctx: Context, actor_id: str) -> Dict[str, An
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
@@ -559,7 +555,7 @@ async def hubspot_get_actor_details(ctx: Context, actor_id: str) -> Dict[str, An
 
 @mcp.tool()
 async def hubspot_get_actors_batch(ctx: Context, actor_ids: List[str]) -> Dict[str, Any] | str:
-    """(Endpoint 13) Retrieves details for multiple actors in a batch.
+    """Retrieves details for multiple actors in a batch.
 
     Args:
         ctx: The MCP server context.
@@ -588,11 +584,11 @@ async def hubspot_get_actors_batch(ctx: Context, actor_ids: List[str]) -> Dict[s
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data # Includes status, results, errors etc.
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
@@ -619,7 +615,7 @@ async def hubspot_list_inboxes(
     limit: Optional[int] = None,
     after: Optional[str] = None
 ) -> Dict[str, Any] | str:
-    """(Endpoint 9) Retrieves a list of conversation inboxes.
+    """Retrieves a list of conversation inboxes.
 
     Args:
         ctx: The MCP server context.
@@ -650,11 +646,11 @@ async def hubspot_list_inboxes(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
@@ -677,7 +673,7 @@ async def hubspot_list_inboxes(
 
 @mcp.tool()
 async def hubspot_get_inbox_details(ctx: Context, inbox_id: str) -> Dict[str, Any] | str:
-    """(Endpoint 4) Retrieves details for a specific inbox.
+    """Retrieves details for a specific inbox.
 
     Args:
         ctx: The MCP server context.
@@ -704,11 +700,11 @@ async def hubspot_get_inbox_details(ctx: Context, inbox_id: str) -> Dict[str, An
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
@@ -735,7 +731,7 @@ async def hubspot_list_channels(
     limit: Optional[int] = None,
     after: Optional[str] = None
 ) -> Dict[str, Any] | str:
-    """(Endpoint 8) Retrieves a list of channels connected to inboxes.
+    """Retrieves a list of channels connected to inboxes.
 
     Args:
         ctx: The MCP server context.
@@ -766,11 +762,11 @@ async def hubspot_list_channels(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
@@ -793,7 +789,7 @@ async def hubspot_list_channels(
 
 @mcp.tool()
 async def hubspot_get_channel_details(ctx: Context, channel_id: str) -> Dict[str, Any] | str:
-    """(Endpoint 3) Retrieves details for a specific channel.
+    """Retrieves details for a specific channel.
 
     Args:
         ctx: The MCP server context.
@@ -820,11 +816,11 @@ async def hubspot_get_channel_details(ctx: Context, channel_id: str) -> Dict[str
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
@@ -853,7 +849,7 @@ async def hubspot_list_channel_accounts(
     limit: Optional[int] = None,
     after: Optional[str] = None
 ) -> Dict[str, Any] | str:
-    """(Endpoint 7) Retrieves a list of channel accounts (instances of channels).
+    """Retrieves a list of channel accounts (instances of channels).
 
     Args:
         ctx: The MCP server context.
@@ -871,8 +867,8 @@ async def hubspot_list_channel_accounts(
 
     api_path = "/conversations/v3/conversations/channel-accounts"
     query_params = {}
-    if channel_id: query_params['channelId'] = channel_id
-    if inbox_id: query_params['inboxId'] = inbox_id
+    if channel_id: query_params['channelId'] = channel_id # API allows array, simplifying
+    if inbox_id: query_params['inboxId'] = inbox_id # API allows array, simplifying
     if limit: query_params['limit'] = limit
     if after: query_params['after'] = after
 
@@ -888,11 +884,11 @@ async def hubspot_list_channel_accounts(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
@@ -918,7 +914,7 @@ async def hubspot_get_channel_account_details(
     ctx: Context,
     channel_account_id: str
 ) -> Dict[str, Any] | str:
-    """(Endpoint 2) Retrieves details for a specific channel account instance.
+    """Retrieves details for a specific channel account instance.
 
     Args:
         ctx: The MCP server context.
@@ -945,11 +941,11 @@ async def hubspot_get_channel_account_details(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
@@ -976,7 +972,7 @@ async def hubspot_get_message_details(
     thread_id: str,
     message_id: str
 ) -> Dict[str, Any] | str:
-    """(Endpoint 5) Retrieves a specific message within a given thread.
+    """Retrieves a specific message within a given thread.
 
     Args:
         ctx: The MCP server context.
@@ -1005,11 +1001,11 @@ async def hubspot_get_message_details(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"
@@ -1036,7 +1032,7 @@ async def hubspot_get_original_message_content(
     thread_id: str,
     message_id: str
 ) -> Dict[str, Any] | str:
-    """(Endpoint 11) Retrieves the original text/richText content of a potentially truncated message.
+    """Retrieves the original text/richText content of a potentially truncated message.
 
     Args:
         ctx: The MCP server context.
@@ -1065,11 +1061,11 @@ async def hubspot_get_original_message_content(
                 try:
                     parsed_data = response.json()
                     if isinstance(parsed_data, dict): return parsed_data
-                    else: return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
             else:
                 try: body_str = response.text
                 except: body_str = "[Could not retrieve response text]"

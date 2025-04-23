@@ -19,8 +19,7 @@ def load_sy_api_config():
     if not config["base_url"]:
         raise ValueError("SY_API_BASE_URL environment variable is not set.")
     if not config["auth_token"]:
-        # Allow empty token for now, but maybe should raise error depending on API needs
-        # print("Warning: SY_API_AUTH_TOKEN environment variable is not set.")
+        # Allow empty token for now, since we might need to refresh it at runtime
         pass
 
     return config

@@ -31,7 +31,6 @@ class ChatResponse(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Code to run on startup
-    print("--- Running Application Startup --- ")
     success = await config.refresh_sy_token()
     if success:
         print("Initial SY API token refresh successful.")

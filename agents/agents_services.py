@@ -34,8 +34,6 @@ class AgentService:
     """
     Manages the setup and execution of AutoGen chat sessions using shared class attributes
     to ensure shared state (model client, agents) across all instances.
-    Handles conversation state persistence for stateless environments using a SINGLE shared chat instance.
-    WARNING: This implementation is NOT concurrency-safe for multiple simultaneous conversations.
     """
     # --- Class Attributes for Shared State ---
     model_client: ClassVar[Optional[OpenAIChatCompletionClient]] = None
