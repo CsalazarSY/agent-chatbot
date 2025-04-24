@@ -1,7 +1,15 @@
+"""Configures and creates the StickerYou API Assistant Agent."""
 # agents/stickeryou/sy_api_agent.py
+
+# --- Type Hint Imports ---
+from typing import Optional, List, Callable
+from autogen_core.memory import Memory
+
+# --- Third Party Imports ---
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
+# --- First Party Imports ---
 # Import ALL tool functions
 from agents.stickeryou.tools.sy_api import (
     sy_create_design,
@@ -23,11 +31,7 @@ from agents.stickeryou.tools.sy_api import (
 )
 
 # Import the updated system message string
-from agents.stickeryou.system_message import sy_api_agent_system_message
-
-# --- Type Hint Imports ---
-from typing import Optional, List, Callable
-from autogen_core.memory import Memory
+from agents.stickeryou.system_message import SY_API_AGENT_SYSTEM_MESSAGE
 
 # --- Agent Name Constant ---
 SY_API_AGENT_NAME = "sy_api_assistant"
@@ -67,7 +71,7 @@ def create_sy_api_agent(model_client: OpenAIChatCompletionClient, memory: Option
     sy_api_assistant = AssistantAgent(
         name=SY_API_AGENT_NAME,
         description="Handles interaction with the StickerYou API for designs, orders, pricing, and user auth.",
-        system_message=sy_api_agent_system_message,
+        system_message=SY_API_AGENT_SYSTEM_MESSAGE,
         model_client=model_client,
         memory=memory,
         tools=all_sy_api_tools,

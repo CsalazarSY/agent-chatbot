@@ -1,0 +1,16 @@
+{
+  "folders": [
+    {
+      "path": "."
+    },
+    {
+      "path": "../agent-chatbot-ui"
+    }
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "postman.settings.dotenv-detection-notification-visibility": false,
+    "editor.defaultFormatter": "ms-python.pylint",
+    "notebook.defaultFormatter": "ms-python.pylint"
+  }
+}
