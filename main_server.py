@@ -1,9 +1,11 @@
+""" Main server for the AutoGen Agent API """
 # main_server.py
 # System imports
-import json
-import uvicorn
+
 from typing import Optional
 from contextlib import asynccontextmanager
+import json
+import uvicorn
 
 # FastAPI imports
 from fastapi import FastAPI, HTTPException
@@ -17,10 +19,12 @@ import config
 
 # --- Pydantic Models for Request/Response ---
 class ChatRequest(BaseModel):
+    """ Request model for the chat endpoint """
     message: str
     conversation_id: Optional[str] = None
 
 class ChatResponse(BaseModel):
+    """ Response model for the chat endpoint """
     reply: str
     conversation_id: str
     stop_reason: Optional[str] = None
@@ -30,6 +34,7 @@ class ChatResponse(BaseModel):
 # --- FastAPI App Setup ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """ Lifespan to control the FastAPI app """
     # Code to run on startup
     success = await config.refresh_sy_token()
     if not success:
@@ -96,7 +101,7 @@ async def chat_endpoint(request: ChatRequest):
     stop_reason = str(task_result.stop_reason) if task_result.stop_reason else "Paused/Awaiting Input" # Adjust default
 
     ####### --- Process Task Result --- #######
-    print(f"\n\n\n<< Task Result >>")
+    print("\n\n\n<< Task Result >>")
     if error_message:
         print(f"        - Task failed with error: {error_message}")
     elif task_result:
