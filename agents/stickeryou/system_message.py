@@ -2,7 +2,6 @@
 # agents/stickeryou/system_message.py
 import os
 from dotenv import load_dotenv
-from typing import Optional, List, Dict
 
 # Load environment variables (assuming config is handled elsewhere now)
 load_dotenv()

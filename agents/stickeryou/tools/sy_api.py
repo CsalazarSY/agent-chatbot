@@ -1,4 +1,7 @@
+# pylint: disable=line-too-long, broad-exception-caught
 # agents/stickeryou/tools/sy_api.py
+"""Defines tools (functions) for interacting with the StickerYou API."""
+
 import asyncio
 import json
 import traceback
