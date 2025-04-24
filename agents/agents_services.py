@@ -7,13 +7,13 @@ from typing import Sequence, Optional, Dict, Union, ClassVar, Any # Added Any fo
 from autogen_agentchat.agents import UserProxyAgent, AssistantAgent
 from autogen_agentchat.base import TaskResult
 from autogen_agentchat.conditions import MaxMessageTermination, TextMentionTermination
-from autogen_agentchat.messages import BaseAgentEvent, BaseChatMessage, TextMessage, UserMessage
+from autogen_agentchat.messages import BaseAgentEvent, BaseChatMessage, TextMessage
 from autogen_agentchat.teams import SelectorGroupChat
 from autogen_core import CancellationToken
 from autogen_core.models import ModelInfo
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 from autogen_agentchat.ui import Console
-from autogen_core.memory import ListMemory, MemoryContent, MemoryMimeType # Added for memory
+from autogen_core.memory import ListMemory, MemoryContent, MemoryMimeType
 
 # Agents
 from agents.hubspot.hubspot_agent import create_hubspot_agent, HUBSPOT_AGENT_NAME
@@ -47,7 +47,7 @@ class AgentService:
         """Initializes the shared class attributes ONCE."""
 
         if AgentService._initialized:
-            print("\n!!! AgentService already initialized. Skipping. !!!\n")
+            print("\n!!! AgentService already initialized. Skipping. !!!")
             return
 
         try:
@@ -127,7 +127,7 @@ class AgentService:
         if last_message.source == PLANNER_AGENT_NAME:
             return None
 
-        # Fallback: let LLM decide (should be rare)
+        # Fallback: let LLM decide (should be rare case)
         return None
 
     # Start or continue a chat session
@@ -164,7 +164,7 @@ class AgentService:
             planner_assistant = create_planner_agent(AgentService.model_client, memory=[request_memory])
             hubspot_agent = create_hubspot_agent(AgentService.model_client, memory=[request_memory])
             sy_api_agent = create_sy_api_agent(AgentService.model_client)
-            product_agent = create_product_agent(AgentService.model_client) # No memory needed
+            product_agent = create_product_agent(AgentService.model_client)
 
             # --- Create GroupChat Instance for this request --- #
             active_participants = [

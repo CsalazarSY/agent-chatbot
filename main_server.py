@@ -32,16 +32,14 @@ class ChatResponse(BaseModel):
 async def lifespan(app: FastAPI):
     # Code to run on startup
     success = await config.refresh_sy_token()
-    if success:
-        print("Initial SY API token refresh successful.")
-    else:
-        print("Initial SY API token refresh failed. Will attempt on first API call.")
+    if not success:
+        print("!!! Initial SY API token refresh failed. Will attempt on first API call.")
     yield
 
 app = FastAPI(
     title="AutoGen Agent API",
     description="API endpoint to interact with the multi-agent AutoGen system.",
-    lifespan=lifespan # Add the lifespan context manager
+    lifespan=lifespan
 )
 
 # Configure CORS to allow requests from frontend
@@ -98,12 +96,12 @@ async def chat_endpoint(request: ChatRequest):
     stop_reason = str(task_result.stop_reason) if task_result.stop_reason else "Paused/Awaiting Input" # Adjust default
 
     ####### --- Process Task Result --- #######
-    print(f"    << Task Result >>")
+    print(f"\n\n\n<< Task Result >>")
     if error_message:
         print(f"        - Task failed with error: {error_message}")
     elif task_result:
         print(f"        - Stop Reason: {stop_reason}")
-        print(f"        - Number of Messages: {len(task_result.messages)}\n")
+        print(f"        - Number of Messages: {len(task_result.messages)}")
 
         # Extract the last message's content for the reply
         if task_result.messages:
