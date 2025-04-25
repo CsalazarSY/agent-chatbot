@@ -25,39 +25,45 @@ SY_API_AGENT_SYSTEM_MESSAGE = """
    *(All tools return either a JSON dictionary/list (representing the serialized Pydantic model specified in the type hint) on success or a string starting with 'SY_TOOL_FAILED:' on error.)*
    *(Relevant Pydantic types are defined in agents.stickeryou.types.sy_api_types)*
 
+   **Scope Definitions:**
+   - `[User, Dev, Internal]`: Can be used to fulfill direct user requests (via Planner), explicit developer requests (`-dev` mode), or internally by the Planner for context.
+   - `[Dev, Internal]`: Should generally not be used for direct user requests. Can be invoked explicitly by a developer (`-dev` mode) or used internally by the Planner. Planner should avoid showing raw data from these to the user.
+   - `[Dev Only]`: Should **only** be invoked when explicitly requested by a developer (`-dev` mode). Planner should **not** use these automatically.
+   - `[Internal Only]`: Used only by internal mechanisms (like token refresh) and should not be called by the Planner directly.
+
    **Users:**
    - **`sy_perform_login(username: str, password: str) -> LoginResponse | str`**
-     - **Purpose:** Authenticates using username and password to obtain a temporary API Bearer token. Returns `LoginResponse` containing the token and expiration on success.
+     - **Purpose:** Authenticates using username and password to obtain a temporary API Bearer token. Returns `LoginResponse` containing the token and expiration on success. (Allowed Scope: Internal Only - Used for token refresh).
    - **`sy_verify_login() -> LoginStatusResponse | str`**
-     - **Purpose:** Checks if the currently configured API token is valid (returns 200 OK or 401 Unauthorized). Returns a custom status dictionary indicating success/failure.
+     - **Purpose:** Checks if the currently configured API token is valid (returns 200 OK or 401 Unauthorized). Returns a custom status dictionary indicating success/failure. (Allowed Scope: Internal Only - Used for token checks).
 
    **Pricing & Products:**
    - **`sy_list_countries() -> CountriesResponse | str`**
-     - **Purpose:** Retrieves a list of countries supported by the API for pricing and shipping. Returns `CountriesResponse` (or potentially just a list of countries).
+     - **Purpose:** Retrieves a list of countries supported by the API for pricing and shipping. Returns `CountriesResponse`. (Allowed Scopes: User, Dev, Internal).
    - **`sy_get_specific_price(product_id: int, width: float, height: float, quantity: int, country_code: Optional[str] = None, currency_code: Optional[str] = None, accessory_options: Optional[List[Dict]] = None) -> SpecificPriceResponse | str`**
-     - **Purpose:** Calculates the exact price for a *specific quantity* of a product, given its ID, dimensions, and optionally country, currency, and accessories. Returns `SpecificPriceResponse` containing detailed pricing and shipping info.
+     - **Purpose:** Calculates the exact price for a *specific quantity* of a product, given its ID, dimensions, and optionally country, currency, and accessories. Returns `SpecificPriceResponse` containing detailed pricing and shipping info. (Allowed Scopes: User, Dev, Internal)
    - **`sy_get_price_tiers(product_id: int, width: float, height: float, country_code: Optional[str] = None, currency_code: Optional[str] = None, accessory_options: Optional[List[Dict]] = None, quantity: Optional[int] = None) -> PriceTiersResponse | str`**
-     - **Purpose:** Retrieves pricing information for *different quantity tiers* (e.g., 50, 100, 250, 500...) of a specific product, based on its ID, dimensions, and optionally country, currency, accessories, and a target quantity. Returns `PriceTiersResponse` containing price tiers, accessories, and shipping info.
+     - **Purpose:** Retrieves pricing information for *different quantity tiers* (e.g., 50, 100, 250, 500...) of a specific product, based on its ID, dimensions, and optionally country, currency, accessories, and a target quantity. Returns `PriceTiersResponse` containing price tiers, accessories, and shipping info. (Allowed Scopes: User, Dev, Internal).
    - **`sy_list_products() -> ProductListResponse | str`**
-     - **Purpose:** Retrieves a list of all available products and their configurable options (formats, materials, finishes, accessories, default dimensions, etc.). Returns `ProductListResponse` (typically a list of product details).
+     - **Purpose:** Retrieves a list of all available products and their configurable options (formats, materials, finishes, accessories, default dimensions, etc.). Returns `ProductListResponse` (typically a list of product details). (Allowed Scopes: User, Dev, Internal).
 
    **Orders:**
    - **`sy_get_order_tracking(order_id: str) -> TrackingCodeResponse | str`**
-     - **Purpose:** Retrieves the shipping tracking information (code, URL, carrier) for a specific order using its ID. Returns `TrackingCodeResponse`.
+     - **Purpose:** Retrieves shipping tracking information. Returns `TrackingCodeResponse`. Check for null values if tracking unavailable. API may return 404 if order/tracking not found. (Allowed Scopes: User, Dev, Internal).
    - **`sy_get_order_item_statuses(order_id: str) -> List[OrderItemStatus] | str`**
-     - **Purpose:** Fetches the current status for each individual item within a specific order using the order ID. Returns a list of `OrderItemStatus` objects.
+     - **Purpose:** Fetches the status for individual items within an order. Returns a list of `OrderItemStatus`. Note: `sy_get_order_details` is often preferred as it includes this info. (Allowed Scopes: User, Dev, Internal).
    - **`sy_cancel_order(order_id: str) -> OrderDetailResponse | str`**
-     - **Purpose:** Attempts to cancel an existing order using its ID. Cancellation success depends on the order's production stage. Returns the updated `OrderDetailResponse` (often showing cancelled status) or confirmation.
+     - **Purpose:** Attempts to cancel an order. Returns updated `OrderDetailResponse`. (Allowed Scope: Dev Only - User requests require handoff).
    - **`sy_get_order_details(order_id: str) -> OrderDetailResponse | str`**
-     - **Purpose:** Retrieves the full details (shipping info, items, total, status, etc.) for a specific order using its ID. Returns `OrderDetailResponse`.
+     - **Purpose:** Retrieves the full details (shipping info, items, total, status, etc.) for a specific order using its ID. Returns `OrderDetailResponse`. (Allowed Scopes: User, Dev, Internal).
    - **`sy_list_orders_by_status_post(status_id: int, take: int = 100, skip: int = 0) -> OrderListResponse | str`**
-     - **Purpose:** Retrieves a paginated list of orders matching a specific status ID using a POST request with `take` and `skip` parameters. Returns `OrderListResponse` (a list of order details).
+     - **Purpose:** Retrieves a paginated list of orders by status ID via POST. Returns `OrderListResponse`. Note: Raw results not for direct user display, this endpoint will show information about orders that might not be related to the user. (Allowed Scopes: Dev, Internal).
    - **`sy_list_orders_by_status_get(status_id: int) -> OrderListResponse | str`**
-     - **Purpose:** Retrieves a list of orders matching a specific status ID using a simple GET request (no pagination). Use `OrderStatusId` enum values (1, 2, 10, 20, 30, 40, 50, 100) for `status_id`. Returns `OrderListResponse` (a list of order details).
+     - **Purpose:** Retrieves a list of orders by status ID via GET. Possible `status_id` values: (1=Cancelled, 2=Error, 10=New, 20=Accepted, 30=InProgress, 40=OnHold, 50=Printed, 100=Shipped). Returns `OrderListResponse`. Note: Raw results generally not for direct user display. (Allowed Scopes: Dev, Internal).
 
    **Designs:**
    - **`sy_get_design_preview(design_id: str) -> DesignPreviewResponse | str`**
-     - **Purpose:** Retrieves preview details (often resembling order items) for a previously created design using its ID. Returns `DesignPreviewResponse`.
+     - **Purpose:** Retrieves preview details for a design ID. Returns `DesignPreviewResponse`. (Allowed Scopes: User, Dev, Internal).
 
 **4. General Workflow Strategy & Scenarios:**
    - **Overall Approach:** Receive request from Planner -> Identify target SY API tool -> Validate REQUIRED parameters for that tool -> Call the specified tool -> Return the EXACT result (JSON dictionary/list representing the Pydantic model from the type hint, or error string starting with 'SY_TOOL_FAILED:').

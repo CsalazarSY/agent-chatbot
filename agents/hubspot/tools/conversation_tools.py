@@ -27,6 +27,7 @@ async def send_message_to_thread(
 
     If the message_text contains 'HANDOFF' or 'COMMENT' (case-insensitive), it sends the message
     as an internal COMMENT, otherwise it sends it as a regular MESSAGE.
+    Allowed Scopes: [Dev, Internal]
 
     Args:
         thread_id: The HubSpot conversation thread ID.
@@ -129,6 +130,7 @@ async def get_thread_details(
     association: Optional[str] = None
 ) -> Dict[str, Any] | str:
     """Retrieves details for a single conversation thread.
+    Allowed Scopes: [Dev, Internal]
 
     Args:
         thread_id: The unique ID of the thread.
@@ -199,6 +201,7 @@ async def get_thread_messages(
     sort: Optional[str] = None
 ) -> Dict[str, Any] | str:
     """Retrieves message history for a thread.
+    Allowed Scopes: [Dev, Internal]
 
     Args:
 
@@ -283,6 +286,7 @@ async def list_threads(
     association: Optional[str] = None
 ) -> Dict[str, Any] | str:
     """Retrieves a list of conversation threads with filtering and pagination.
+    Allowed Scopes: [Dev, Internal]
 
     Args:
 
@@ -380,6 +384,7 @@ async def update_thread(
     is_currently_archived: bool = False
 ) -> Dict[str, Any] | str:
     """Updates a thread's status or restores it from archive.
+    Allowed Scopes: [Dev Only]
 
     Args:
 
@@ -466,6 +471,7 @@ async def update_thread(
 
 async def archive_thread(thread_id: str) -> str:
     """Archives a single conversation thread.
+    Allowed Scopes: [Dev Only]
 
     Args:
 
@@ -524,6 +530,7 @@ async def archive_thread(thread_id: str) -> str:
 
 async def get_actor_details(actor_id: str) -> Dict[str, Any] | str:
     """Retrieves details for a specific actor.
+    Allowed Scopes: [Dev, Internal]
 
     Args:
 
@@ -589,6 +596,7 @@ async def get_actor_details(actor_id: str) -> Dict[str, Any] | str:
 
 async def get_actors_batch(actor_ids: List[str]) -> Dict[str, Any] | str:
     """Retrieves details for multiple actors in a batch.
+    Allowed Scopes: [Dev, Internal]
 
     Args:
 
@@ -658,6 +666,7 @@ async def list_inboxes(
     after: Optional[str] = None
 ) -> Dict[str, Any] | str:
     """Retrieves a list of conversation inboxes.
+    Allowed Scopes: [Dev, Internal]
 
     Args:
 
@@ -726,6 +735,7 @@ async def list_inboxes(
 
 async def get_inbox_details(inbox_id: str) -> Dict[str, Any] | str:
     """Retrieves details for a specific inbox.
+    Allowed Scopes: [Dev, Internal]
 
     Args:
 
@@ -791,6 +801,7 @@ async def list_channels(
     after: Optional[str] = None
 ) -> Dict[str, Any] | str:
     """Retrieves a list of channels connected to inboxes.
+    Allowed Scopes: [Dev, Internal]
 
     Args:
 
@@ -859,6 +870,7 @@ async def list_channels(
 
 async def get_channel_details(channel_id: str) -> Dict[str, Any] | str:
     """Retrieves details for a specific channel.
+    Allowed Scopes: [Dev, Internal]
 
     Args:
 
@@ -926,6 +938,7 @@ async def list_channel_accounts(
     after: Optional[str] = None
 ) -> Dict[str, Any] | str:
     """Retrieves a list of channel accounts (instances of channels).
+    Allowed Scopes: [Dev, Internal]
 
     Args:
 
@@ -1002,6 +1015,7 @@ async def list_channel_accounts(
 
 async def get_channel_account_details(channel_account_id: str) -> Dict[str, Any] | str:
     """Retrieves details for a specific channel account instance.
+    Allowed Scopes: [Dev, Internal]
 
     Args:
 
@@ -1067,6 +1081,7 @@ async def get_message_details(
     message_id: str
 ) -> Dict[str, Any] | str:
     """Retrieves a specific message within a given thread.
+    Allowed Scopes: [Dev, Internal]
 
     Args:
 
@@ -1136,6 +1151,7 @@ async def get_original_message_content(
     message_id: str
 ) -> Dict[str, Any] | str:
     """Retrieves the original text/richText content of a potentially truncated message.
+    Allowed Scopes: [Dev, Internal]
 
     Args:
 

@@ -4,7 +4,7 @@
 
 from typing import List, Optional
 from enum import IntEnum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
 
 # --- Enums --- #
 
@@ -195,17 +195,17 @@ class ProductDetail(BaseModel):
     defaultHeight: Optional[float] = Field(None, description="Default height suggested for this product (inches).")
     accessories: Optional[List[AccessoryOption]] = Field([], description="List of accessories available for this product. Maps to Swagger's Accessory model.")
 
-class ProductListResponse(BaseModel):
-    """Response type for sy_list_products (GET /api/v1/Pricing/list), containing a list of products. Based on Swagger's ProductListResponse."""
-    __root__: List[ProductDetail] = Field(description="A list containing detailed information for each available product.")
+class ProductListResponse(RootModel[List[ProductDetail]]):
+    """Response type for sy_list_products (GET /api/v1/Pricing/list), containing a list of products."""
+    root: List[ProductDetail] = Field(description="A list containing detailed information for each available product.")
 
     def __iter__(self):
         # Allow iteration over the list
-        return iter(self.__root__)
+        return iter(self.root)
 
     def __getitem__(self, item):
         # Allow direct indexing
-        return self.__root__[item]
+        return self.root[item]
 
 class TrackingCodeResponse(BaseModel):
     """Response body model for sy_get_order_tracking (GET /v1/Orders/{id}/trackingcode)."""
@@ -232,15 +232,15 @@ class OrderDetailResponse(BaseModel):
     status: str = Field(description="Textual description of the order's current status.")
     items: List[OrderItemBase] = Field(description="A list of items included in the order. Maps to list of Swagger's OrderItemResponse.")
 
-class OrderListResponse(BaseModel):
+class OrderListResponse(RootModel[List[OrderDetailResponse]]):
     """Response type for order list endpoints (sy_list_orders_by_status_get/post), containing a list of orders."""
-    __root__: List[OrderDetailResponse] = Field(description="A list containing detailed information for each order matching the query.")
+    root: List[OrderDetailResponse] = Field(description="A list containing detailed information for each order matching the query.")
 
     def __iter__(self):
-        return iter(self.__root__)
+        return iter(self.root)
 
     def __getitem__(self, item):
-        return self.__root__[item]
+        return self.root[item]
 
 class SuccessResponse(BaseModel):
     """Generic response model indicating the success or failure of an action (e.g., sy_create_order). Based on Swagger's ApiResponse."""

@@ -176,6 +176,7 @@ async def sy_get_design_preview(
     (GET /api/{version}/Designs/{designId}/preview)
     Description: Retrieves preview details for a previously created design using its unique ID.
                  The response structure often resembles order details.
+    Allowed Scopes: [User, Dev, Internal]
 
     Parameters:
         design_id (str): The unique identifier of the design (e.g., 'dz_123abc456def').
@@ -217,6 +218,7 @@ async def sy_list_orders_by_status_get(
     """
     (GET /v{version}/Orders/status/list/{status})
     Description: Retrieves a list of orders matching a specific status ID using a GET request.
+    Allowed Scopes: [Dev, Internal]
 
     Parameters:
         status_id (int): The status ID to filter orders by. Valid values:
@@ -264,6 +266,8 @@ async def sy_list_orders_by_status_post(
     """
     (POST /{version}/Orders/status/list)
     Description: Retrieves a paginated list of orders matching a specific status ID using a POST request.
+    Allowed Scopes: [Dev, Internal]
+    Note: Raw results should generally not be presented directly to the user.
 
     Parameters:
         status_id (int): The status ID (from OrderStatusId enum) to filter orders by. Required.
@@ -395,6 +399,7 @@ async def sy_get_order_details(
     """
     (GET /{version}/Orders/{id})
     Description: Retrieves the full details for a specific order using its unique identifier.
+    Allowed Scopes: [User, Dev, Internal]
 
     Parameters:
         order_id (str): The StickerYou identifier for the order (e.g., 'ORD-12345').
@@ -436,6 +441,7 @@ async def sy_cancel_order(
     (PUT /{version}/Orders/{id}/cancel)
     Description: Attempts to cancel an existing order using its identifier. Cancellation may only be possible
                  if the order has not progressed too far in the production process.
+    Allowed Scopes: [Dev Only] (User requests to cancel should be handled via handoff for now).
 
     Parameters:
         order_id (str): The StickerYou identifier for the order to cancel.
@@ -481,6 +487,8 @@ async def sy_get_order_item_statuses(
     """
     (GET /{version}/Orders/{id}/items/status)
     Description: Retrieves the status for each individual item within a specific order.
+    Allowed Scopes: [User, Dev, Internal]
+    Note: This information is usually included in `sy_get_order_details`. Use that tool preferably unless only item statuses are needed.
 
     Parameters:
         order_id (str): The StickerYou identifier for the parent order.
@@ -527,10 +535,12 @@ async def sy_get_order_item_statuses(
 
 async def sy_get_order_tracking(
     order_id: str,
-) -> TrackingCodeResponse | str:
+) -> str:
     """
     (GET /{version}/Orders/{id}/trackingcode)
     Description: Retrieves the shipping tracking information (code, URL, carrier) for a shipped order.
+    Allowed Scopes: [User, Dev, Internal]
+    Note: Returns a raw string, not a dict.The API might return 404 if the order doesn't exist or tracking isn't populated.
 
     Parameters:
         order_id (str): The StickerYou identifier for the order.
@@ -569,7 +579,8 @@ async def sy_list_products(
 ) -> ProductListResponse | str:
     """
     (GET /api/{version}/Pricing/list)
-    Description: Retrieves a list of all available products and their configurable options (formats, materials, finishes, accessories, etc.).
+    Description: Retrieves a list of all available products and their configurable options.
+    Allowed Scopes: [User, Dev, Internal]
 
     Parameters: None
 
@@ -621,9 +632,8 @@ async def sy_get_price_tiers(
 ) -> PriceTiersResponse | str:
     """
     (POST /api/{version}/Pricing/{productId}/pricings)
-    Description: Retrieves pricing information for different quantity tiers of a specific product,
-                 based on dimensions and selected options. Also returns available shipping methods and accessories.
-                 If 'quantity' is provided, it might focus pricing around that quantity.
+    Description: Retrieves pricing information for different quantity tiers of a specific product.
+    Allowed Scopes: [User, Dev, Internal]
 
     Parameters:
         product_id (int): The unique identifier of the product.
@@ -698,6 +708,7 @@ async def sy_get_specific_price(
     (POST /api/{version}/Pricing/{productId}/pricing)
     Description: Calculates and returns the exact price for a specific quantity of a product,
                  based on its dimensions and selected options. Also returns shipping methods.
+    Allowed Scopes: [User, Dev, Internal]
 
     Parameters:
         product_id (int): The unique identifier of the product.
@@ -759,6 +770,7 @@ async def sy_list_countries(
     """
     (POST /api/{version}/Pricing/countries)
     Description: Retrieves a list of countries supported by the StickerYou API for pricing and shipping.
+    Allowed Scopes: [User, Dev, Internal]
 
     Parameters: None
 
@@ -792,7 +804,7 @@ async def sy_verify_login(
     """
     (GET /users/login)
     Description: Verifies if the currently configured authentication token (Bearer) is valid.
-                 Does not require username/password. Primarily checks if the token results in a 200 OK or a 401 Unauthorized.
+    Allowed Scopes: [Internal, Dev] (Used by the request helper for token checks).
 
     Parameters: None
 
@@ -846,7 +858,8 @@ async def sy_perform_login(
                  The token and its expiration are returned upon successful login.
                  Note: This function makes a direct HTTP request, bypassing the standard helper,
                  as it doesn't use an existing token for authorization.
-
+    Allowed Scopes: [Internal, Dev] (Used by the token refresh mechanism).
+                 
     Parameters:
         username (str): The API username.
         password (str): The API password.
