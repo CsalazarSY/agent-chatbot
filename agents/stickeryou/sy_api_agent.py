@@ -38,12 +38,12 @@ SY_API_AGENT_NAME = "sy_api_assistant"
 
 # --- Collect all tool functions ---
 all_sy_api_tools: List[Callable] = [
-    sy_create_design,
+    # sy_create_design, # Removed
     sy_get_design_preview,
     sy_list_orders_by_status_get,
     sy_list_orders_by_status_post,
-    sy_create_order,
-    sy_create_order_from_designs,
+    # sy_create_order, # Removed
+    # sy_create_order_from_designs, # Removed
     sy_get_order_details,
     sy_cancel_order,
     sy_get_order_item_statuses,

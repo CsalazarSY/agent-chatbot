@@ -50,18 +50,12 @@ SY_API_AGENT_SYSTEM_MESSAGE = """
      - **Purpose:** Attempts to cancel an existing order using its ID. Cancellation success depends on the order's production stage. Returns the updated `OrderDetailResponse` (often showing cancelled status) or confirmation.
    - **`sy_get_order_details(order_id: str) -> OrderDetailResponse | str`**
      - **Purpose:** Retrieves the full details (shipping info, items, total, status, etc.) for a specific order using its ID. Returns `OrderDetailResponse`.
-   - **`sy_create_order(order_data: Dict) -> SuccessResponse | str`**
-     - **Purpose:** Submits a new order. Requires `order_data` dictionary matching the `CreateOrderRequest` structure (including shipping address and a list of items defined by product ID, dimensions, artwork URL, quantity, price, etc.). Returns `SuccessResponse` indicating success/failure.
-   - **`sy_create_order_from_designs(order_data: Dict) -> SuccessResponse | str`**
-     - **Purpose:** Submits a new order using pre-uploaded Design IDs instead of full product/artwork details. Requires `order_data` dictionary matching `CreateOrderFromDesignsRequest` (including shipping address and a list of items defined by design ID, quantity, price, etc.). Returns `SuccessResponse`.
    - **`sy_list_orders_by_status_post(status_id: int, take: int = 100, skip: int = 0) -> OrderListResponse | str`**
      - **Purpose:** Retrieves a paginated list of orders matching a specific status ID using a POST request with `take` and `skip` parameters. Returns `OrderListResponse` (a list of order details).
    - **`sy_list_orders_by_status_get(status_id: int) -> OrderListResponse | str`**
      - **Purpose:** Retrieves a list of orders matching a specific status ID using a simple GET request (no pagination). Use `OrderStatusId` enum values (1, 2, 10, 20, 30, 40, 50, 100) for `status_id`. Returns `OrderListResponse` (a list of order details).
 
    **Designs:**
-   - **`sy_create_design(product_id: int, width: float, height: float, image_base64: str) -> DesignResponse | str`**
-     - **Purpose:** Uploads a new design image (as base64) linked to a specific product ID and dimensions. Returns `DesignResponse` containing the new `designId`.
    - **`sy_get_design_preview(design_id: str) -> DesignPreviewResponse | str`**
      - **Purpose:** Retrieves preview details (often resembling order items) for a previously created design using its ID. Returns `DesignPreviewResponse`.
 
