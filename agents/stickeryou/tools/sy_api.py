@@ -15,7 +15,7 @@ import config # Import the whole module to access globals
 # Import Pydantic models
 from agents.stickeryou.types.sy_api_types import (
     LoginResponse, LoginStatusResponse, CountriesResponse, SpecificPriceResponse,
-    PriceTiersResponse, ProductListResponse, TrackingCodeResponse, OrderItemStatus,
+    PriceTiersResponse, ProductListResponse, OrderItemStatus,
     OrderDetailResponse, OrderListResponse, SuccessResponse, DesignResponse, DesignPreviewResponse
 )
 
@@ -69,8 +69,9 @@ async def _make_sy_api_request(
                 try:
                     return response.json()
                 except json.JSONDecodeError:
-                    return (f"{API_ERROR_PREFIX} Failed to decode successful " 
-                            f"JSON response (Status 200).")
+                    # If 200 OK but not JSON, return raw text if useful, else error
+                    # Check content-type? For now, assume JSON expected on 200 OK
+                    return f"{API_ERROR_PREFIX} Failed to decode successful JSON response (Status 200)."
 
             elif response.status_code == 401 and retry_count < max_retries:
                 print(f"SY API request received 401 Unauthorized. " 
@@ -89,36 +90,87 @@ async def _make_sy_api_request(
                     return f"{API_ERROR_PREFIX} Unauthorized (401) and token refresh failed."
 
             else:
-                error_body = response.text[:500]
+                # --- Enhanced Error Message Extraction ---
                 status_code = response.status_code
-                if status_code == 401:
-                    return f"{API_ERROR_PREFIX} Unauthorized (401) after retries."
-                elif status_code == 400:
-                    return f"{API_ERROR_PREFIX} Bad Request (400). Check parameters/payload."
+                error_message_detail = ""
+                try:
+                    # Attempt to parse JSON body first
+                    error_json = response.json()
+                    if isinstance(error_json, dict):
+                        # Look for common error message keys
+                        if 'message' in error_json:
+                            # Handle nested JSON string in message field
+                            if isinstance(error_json['message'], str):
+                                try:
+                                    nested_error = json.loads(error_json['message'])
+                                    if isinstance(nested_error, dict) and 'Error' in nested_error:
+                                        error_message_detail = f" Detail: {nested_error['Error']}"
+                                    else:
+                                         error_message_detail = f" Detail: {error_json['message'][:200]}" # Use raw message if nested parse fails
+                                except json.JSONDecodeError:
+                                     error_message_detail = f" Detail: {error_json['message'][:200]}" # Use raw message if not valid JSON string
+
+                            else:
+                                # Use the message directly if not a string or nested JSON isn't found
+                                error_message_detail = f" Detail: {str(error_json['message'])[:200]}"
+
+                        elif 'error' in error_json:
+                            error_message_detail = f" Detail: {str(error_json['error'])[:200]}"
+                        elif 'detail' in error_json:
+                             error_message_detail = f" Detail: {str(error_json['detail'])[:200]}"
+                        else:
+                            # Fallback to string representation of the dict if no known key
+                            error_message_detail = f" Detail: {str(error_json)[:200]}"
+                    else:
+                        # If JSON but not a dict, use string representation
+                         error_message_detail = f" Detail: {str(error_json)[:200]}"
+
+                except json.JSONDecodeError:
+                    # If body is not JSON, use raw text
+                    try:
+                        error_message_detail = f" Detail: {response.text[:200]}"
+                    except Exception:
+                        error_message_detail = " Detail: [Could not read response body]"
+                except Exception:
+                    # Catch any other parsing errors
+                     error_message_detail = " Detail: [Error parsing response body]"
+
+
+                # Construct the final error message
+                if status_code == 400:
+                    return f"{API_ERROR_PREFIX} Bad Request (400).{error_message_detail}"
+                elif status_code == 401: # Should only hit this if retries failed or max_retries=0
+                     return f"{API_ERROR_PREFIX} Unauthorized (401) after retries.{error_message_detail}"
+                elif status_code == 403:
+                    return f"{API_ERROR_PREFIX} Forbidden (403).{error_message_detail}"
                 elif status_code == 404:
-                    return f"{API_ERROR_PREFIX} Not Found (404)."
+                    return f"{API_ERROR_PREFIX} Not Found (404).{error_message_detail}"
                 elif status_code >= 500:
-                    return f"{API_ERROR_PREFIX} Server Error ({status_code})."
+                    return f"{API_ERROR_PREFIX} Server Error ({status_code}).{error_message_detail}"
                 else:
-                    return (f"{API_ERROR_PREFIX} Unexpected HTTP {status_code}. " 
-                            f"Body: {error_body}")
+                    return f"{API_ERROR_PREFIX} Unexpected HTTP {status_code}.{error_message_detail}"
+                # --- End Enhanced Error Message Extraction ---
 
         except httpx.TimeoutException:
             return f"{API_ERROR_PREFIX} Request timed out."
         except httpx.RequestError as req_err:
-            return f"{API_ERROR_PREFIX} Network or connection error. Details: {req_err}"
-        except json.JSONDecodeError:
-            # Now response should always be defined if we reach here after the `try` block
-            status_code = response.status_code if response else 'Unknown'
-            return (f"{API_ERROR_PREFIX} Failed to decode error response as JSON. " 
-                    f"Status: {status_code}")
+            # Provide more specific network error info if possible
+            return f"{API_ERROR_PREFIX} Network/Connection Error: {req_err}"
+        except json.JSONDecodeError: # Should be less likely to hit here now
+            status_code_str = str(response.status_code) if response else 'Unknown'
+            raw_text = response.text[:200] if response else "[No Response]"
+            return f"{API_ERROR_PREFIX} Failed to decode response as JSON. Status: {status_code_str}. Body starts: {raw_text}"
         except Exception as e:
             traceback.print_exc()
-            return f"{API_ERROR_PREFIX} An unexpected error occurred. Details: {e}"
+            return f"{API_ERROR_PREFIX} Unexpected error in request helper: {type(e).__name__} - {e}"
 
-        break # Exit loop for non-401 errors or if max_retries reached
+        # This break should only be reached if a non-401 error occurred within the loop
+        # or if max_retries was reached for a 401 without successful refresh.
+        # The specific error should have already been returned above.
+        break
 
-    return f"{API_ERROR_PREFIX} API request failed after processing."
+    # Fallback if loop finishes unexpectedly (should ideally not happen)
+    return f"{API_ERROR_PREFIX} API request helper finished unexpectedly."
 
 
 # --- Tool Functions (Refactored to use _make_sy_api_request) ---
@@ -535,7 +587,7 @@ async def sy_get_order_item_statuses(
 
 async def sy_get_order_tracking(
     order_id: str,
-) -> str:
+) -> Dict | str: # Changed return type hint to Dict | str
     """
     (GET /{version}/Orders/{id}/trackingcode)
     Description: Retrieves the shipping tracking information (code, URL, carrier) for a shipped order.
@@ -561,11 +613,18 @@ async def sy_get_order_tracking(
     result = await _make_sy_api_request("GET", api_url)
 
     if isinstance(result, dict):
-        return result
+        # Check if tracking info is actually present
+        if result.get("trackingCode") or result.get("trackingUrl"):
+             return result
+        else:
+            # Return a specific message if tracking is not populated yet
+            return f"{API_ERROR_PREFIX} Tracking information not yet available for this order."
+            # Alternatively return the dict as is: return result
     elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
         if "Not Found (404)" in result:
+            # Keep specific error for order not found / no tracking
             return f"{API_ERROR_PREFIX} Tracking not available or order not found (404)."
-        return result
+        return result # Return other errors with details from helper
     else:
         return (
             f"{API_ERROR_PREFIX} Unexpected successful response type: "
@@ -607,17 +666,22 @@ async def sy_list_products(
     api_url = f"{config.API_BASE_URL}/api/{config.API_VERSION}/Pricing/list"
     result = await _make_sy_api_request("GET", api_url)
 
-    # The Pydantic model uses __root__, so the result *should* be a list directly.
-    # However, the Swagger type is ProductListResponse which implies a dict { "products": [...] }.
-    # The current code handles both dict and list, let's keep that flexibility.
-    if isinstance(result, (dict, list)):
-        return result
+    # ProductListResponse is RootModel[List], so result should be a list on success
+    if isinstance(result, list):
+        return result # Direct list matches Pydantic model
+    elif isinstance(result, dict) and 'root' in result:
+         # Handle case if it incorrectly comes back as a dict { "root": [...] }
+        if isinstance(result['root'], list):
+            return result['root']
+        else:
+             return f"{API_ERROR_PREFIX} Unexpected structure in product list response dict."
+
     elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
         return result
     else:
         return (
-            f"{API_ERROR_PREFIX} Unexpected successful response type: "
-            f"{type(result)}. Expected Dict or List."
+            f"{API_ERROR_PREFIX} Unexpected successful response type for product list: "
+            f"{type(result)}. Expected List."
         )
 
 
@@ -823,29 +887,20 @@ async def sy_verify_login(
     result = await _make_sy_api_request("GET", api_url, max_retries=0)
 
     if isinstance(result, dict):
-        # Assuming a successful API call (dict response) means the token is valid
-        # The actual content might confirm username/auth status
+        # Successful call, return custom status dict
         return {
             "status": "success",
             "message": "Token appears valid (received 200 OK or data).",
-            "details": result # Return the actual API response content
+            "details": result
         }
     elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
+        # Specific handling for 401 on verify
         if "Unauthorized (401)" in result:
             return {"status": "failed", "message": "Token is invalid (Unauthorized 401)."}
-        elif "timed out" in result:
-            return f"{API_ERROR_PREFIX} Verification request timed out."
-        elif "Network or connection error" in result:
-            return f"{API_ERROR_PREFIX} Network error during verification."
-        else:
-            # Return other API errors directly
-            return result
+        # Return other detailed errors from helper
+        return result
     else:
-        # Should not happen with current _make_sy_api_request logic
-        return (
-            f"{API_ERROR_PREFIX} Unexpected response type during verification: "
-            f"{type(result)}."
-        )
+        return f"{API_ERROR_PREFIX} Unexpected response type during verification: {type(result)}."
 
 
 async def sy_perform_login(
@@ -902,34 +957,40 @@ async def sy_perform_login(
                     f"response from login (Status 200)."
                 )
         else:
-            error_body = response.text[:500]
+            # Try to get more detail for login failure
             status_code = response.status_code
+            error_detail = ""
+            try:
+                error_json = response.json()
+                if isinstance(error_json, dict):
+                     error_detail = f" Detail: {str(error_json)[:200]}"
+            except json.JSONDecodeError:
+                 try:
+                     error_detail = f" Detail: {response.text[:200]}"
+                 except Exception:
+                     error_detail = " Detail: [Could not read response body]"
+            except Exception:
+                error_detail = " Detail: [Error parsing response body]"
+
+
             if status_code == 400:
                 return (
                     f"{API_ERROR_PREFIX} Bad Request (400). Invalid credentials "
-                    f"or request format? Body: {error_body}"
+                    f"or request format?{error_detail}"
                 )
             elif status_code == 401:
-                return f"{API_ERROR_PREFIX} Unauthorized (401). Invalid username or password?"
+                return f"{API_ERROR_PREFIX} Unauthorized (401). Invalid username or password?{error_detail}"
             elif status_code >= 500:
-                return f"{API_ERROR_PREFIX} Server Error ({status_code}). Body: {error_body}"
+                return f"{API_ERROR_PREFIX} Server Error ({status_code}).{error_detail}"
             else:
                 return (
-                    f"{API_ERROR_PREFIX} Unexpected HTTP {status_code} during login. "
-                    f"Body: {error_body}"
+                    f"{API_ERROR_PREFIX} Unexpected HTTP {status_code} during login.{error_detail}"
                 )
 
     except httpx.TimeoutException:
         return f"{API_ERROR_PREFIX} Request timed out during login."
     except httpx.RequestError as req_err:
         return f"{API_ERROR_PREFIX} Network or connection error during login. Details: {req_err}"
-    except json.JSONDecodeError:
-        # Check response before accessing status_code
-        status_code_str = str(response.status_code) if response else 'Unknown'
-        return (
-            f"{API_ERROR_PREFIX} Failed to decode error response as JSON during login. "
-            f"Status: {status_code_str}"
-        )
-    except Exception as e:
+    except Exception as e: # Catch other potential errors like JSONDecodeError if response parsing fails outside status check
         traceback.print_exc()
         return f"{API_ERROR_PREFIX} An unexpected error occurred during login. Details: {e}"
