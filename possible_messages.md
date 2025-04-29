@@ -95,16 +95,16 @@ This file contains example messages to test the different functionalities and wo
       * Expected (Multi-turn):
         1. Planner -> ProductAgent (Find ID for 'die-cut stickers') -> Multiple Matches.
         2. Planner asks for clarification -> <UserProxyAgent>.
-        3. User clarifies (e.g., 'Permanent Die-Cut Singles').
-        4. Planner -> ProductAgent (Find ID for clarified) -> ID Found (e.g., 69).
-        5. Planner -> SYAgent (Get Specific Price ID 69, 4x4, Qty 50) -> Extract Price.
+        3. User clarifies (e.g., 'Permanent Glow In The Dark Glossy').
+        4. Planner -> ProductAgent (Find ID for clarified) -> ID Found (e.g., 74).
+        5. Planner -> SYAgent (Get Specific Price ID 74, 4x4, Qty 50) -> Extract Price.
         6. TASK COMPLETE (Price Result).
-      * (Follow-up) "Okay, what about 250 of those?" # Expected: Planner uses context (ID 69, size 4x4) -> SYAgent (Get Specific Price for 250) -> Extract Price -> TASK COMPLETE (Price Result)
+      * (Follow-up) "Okay, what about 250 of those?" # Expected: Planner uses context (ID 74, size 4x4) -> SYAgent (Get Specific Price for 250) -> Extract Price -> TASK COMPLETE (Price Result)
 
 **2. Failure / Handoff Scenarios (User Encounters Problem)**
 
 *   **Product Not Found:**
-    * "How much for 200 glow-in-the-dark waterproof stickers sized 4x4 inches?"
+    * "How much for 200 glitter gum stickers sized 4x4 inches?"
       * Expected: Planner -> ProductAgent (Find ID) -> Not Found -> Planner -> HubSpotAgent (Send Comment) -> TASK FAILED (Handoff)
     * "Price for polyester stickers?"
       * Expected: Planner -> ProductAgent (Find ID) -> Not Found -> Planner -> HubSpotAgent (Send Comment) -> TASK FAILED (Handoff)
@@ -120,10 +120,13 @@ This file contains example messages to test the different functionalities and wo
       * Expected: Planner -> ProductAgent (Find ID) -> ID Found -> Planner -> SYAgent (Get Specific Price) -> SY_TOOL_FAILED (e.g., Timeout) -> Planner -> HubSpotAgent (Send Comment) -> TASK FAILED (Handoff)
 
 *   **Dissatisfaction:**
-    * (Initial) "My order is taking forever! I'm really angry! Where is it?!" # Expected: Planner -> acknowledge frustratin -> Ask for order ID
-      * (Follow-up - Order ID) 893498313 # Expected: Planner -> SYAgent (Get Order Details) -> Extract Status -> Planner offers handoff -> <UserProxyAgent>
-      * (Follow-up - Accept Handoff) "Yes, have someone call me!" # Expected: Planner -> HubSpotAgent (Send Comment) -> TASK FAILED (Handoff Confirmed)
-      * (Follow-up - Decline Handoff) "No, just find my order!" # Expected: Planner acknowledges politely -> <UserProxyAgent>
+    * "My order is taking forever! I'm really angry! Where is it?!" # Expected: Planner -> acknowledge frustratin -> Ask for order ID
+      * (Follow-up - Order ID) 893498313
+         * Expected: Planner -> SYAgent (Get Order Details) -> Extract Status -> Planner offers handoff -> <UserProxyAgent>
+      * (Follow-up - Accept Handoff) "Yes, have someone call me!"
+         * Expected: Planner -> HubSpotAgent (Send Comment) -> TASK FAILED (Handoff Confirmed)
+      * (Follow-up - Decline Handoff) "No, just find my order!"
+         * Expected: Planner acknowledges politely -> <UserProxyAgent>
 
 *   **Out of Scope:**
     * "What's the weather like today?"
@@ -176,13 +179,13 @@ This file contains example messages to test the different functionalities and wo
       * Expected: Planner -> HubSpotAgent (Get Thread Details) -> Raw JSON -> TASK COMPLETE (Formatted summary + Raw Result)
     * "-dev Get last 5 messages for thread [THREAD_ID]" 
       * Expected: Planner -> HubSpotAgent (Get Thread Messages, limit=5) -> Raw JSON -> TASK COMPLETE (Formatted summary + Raw Result)
-    * "-dev List OPEN threads" 
+    * "-dev List OPEN threads from hubspot" 
       * Expected: Planner -> HubSpotAgent (List Threads, status=OPEN) -> Raw JSON -> TASK COMPLETE (Formatted summary + Raw Result)
     * "-dev Get details for actor [ACTOR_ID]" 
       * Expected: Planner -> HubSpotAgent (Get Actor Details) -> Raw JSON -> TASK COMPLETE (Formatted summary + Raw Result)
     * "-dev Get batch details for actors [ACTOR_ID_1], [ACTOR_ID_2]" 
       * Expected: Planner -> HubSpotAgent (Get Actors Batch) -> Raw JSON -> TASK COMPLETE (Formatted summary + Raw Result)
-    * "-dev List inboxes" 
+    * "-dev List inboxes from hubspot" 
       * Expected: Planner -> HubSpotAgent (List Inboxes) -> Raw JSON -> TASK COMPLETE (Formatted summary + Raw Result)
     * "-dev Get details for inbox [INBOX_ID]" 
       * Expected: Planner -> HubSpotAgent (Get Inbox Details) -> Raw JSON -> TASK COMPLETE (Formatted summary + Raw Result)

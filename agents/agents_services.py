@@ -1,6 +1,7 @@
 # agent_service.py
 import traceback
 import uuid # Added for generating conversation IDs
+import re # Import regex module
 from typing import Sequence, Optional, Dict, Union, ClassVar, Any # Added Any for state
 
 # AutoGen imports
@@ -63,7 +64,8 @@ class AgentService:
                     function_calling=True,
                     json_output=False,
                     family=LLM_MODEL_FAMILY,
-                    structured_output=True
+                    structured_output=True,
+                    multiple_system_messages=True
                 ),
             )
             AgentService._initialized = True
@@ -88,7 +90,7 @@ class AgentService:
     @staticmethod
     def _get_termination_condition():
         """Helper to define the termination condition."""
-        max_message_termination = MaxMessageTermination(max_messages=40)
+        max_message_termination = MaxMessageTermination(max_messages=30)
         text_termination = TextMentionTermination("TASK FAILED") | TextMentionTermination("TASK COMPLETE") | TextMentionTermination("<UserProxyAgent>")
         # The chat should naturally stop when UserProxyAgent turn comes and it has no input.
         return max_message_termination | text_termination
@@ -97,36 +99,72 @@ class AgentService:
 
     # Next speaker selector
     @staticmethod
-    def custom_speaker_selector(messages: Sequence[BaseAgentEvent | BaseChatMessage]) -> str: # Always returns a string
-        """Determines the next speaker based on rules. Aims to be deterministic."""
+    def custom_speaker_selector(messages: Sequence[BaseAgentEvent | BaseChatMessage]) -> str:
+        """Determines the next speaker based on explicit rules and message content.
+
+        Rules:
+        1. If the last message is from the User Proxy, the Planner must speak next.
+        2. If the last message is from a Specialist Agent (SY, Product, HubSpot),
+           the Planner must speak next to process the result.
+        3. If the last message is from the Planner:
+           a. Check if it contains a delegation pattern like '<agent_name> : Call ...'.
+           b. If yes, and 'agent_name' is a known Specialist Agent, that agent speaks next.
+           c. If no delegation is found (e.g., the message ends with '<UserProxyAgent>' or is a question),
+              the User Proxy speaks next (signalling the end of the turn).
+        4. Fallback: If none of the above, let the LLM decide (should be rare).
+        """
         if not AgentService._initialized:
-            # This case should be rare due to checks in run_chat_session
             print("<- WARN: custom_speaker_selector called before AgentService fully initialized. Defaulting to Planner.")
+            return PLANNER_AGENT_NAME
+
+        # Ensure messages list is not empty
+        if not messages:
+            print("Selector: No messages, defaulting to Planner.")
             return PLANNER_AGENT_NAME
 
         last_message = messages[-1]
 
-        # Basic check for empty messages sequence
-        if not messages:
-            # This function determines the *next* speaker after a message. If called with no messages, it's ambiguous.
-            print("Selector: No messages, defaulting to Planner.")
-            return PLANNER_AGENT_NAME
-
-        # If the last message was from the user (via API), Planner must process it.
+        # Rule 1: User Proxy spoke -> Planner processes
         if last_message.source == USER_PROXY_AGENT_NAME:
+            # print("Selector: User spoke, Planner next.")
             return PLANNER_AGENT_NAME
 
-        # If any specialist agent spoke, Planner must process the result.
+        # Rule 2: Specialist spoke -> Planner processes
         specialist_agents = {PRODUCT_AGENT_NAME, SY_API_AGENT_NAME, HUBSPOT_AGENT_NAME}
         if last_message.source in specialist_agents:
+            # print(f"Selector: Specialist {last_message.source} spoke, Planner next.")
             return PLANNER_AGENT_NAME
 
-        # If the Planner just spoke, let the LLM decide the next step
-        # (could be another delegation or concluding with <UserProxyAgent>, TASK COMPLETE, or TASK FAILED)
+        # Rule 3: Planner spoke -> Check for delegation or end of turn
         if last_message.source == PLANNER_AGENT_NAME:
-            return None
+            # Ensure content is a string before processing
+            if isinstance(last_message.content, str):
+                content = last_message.content.strip()
+                # Regex: Matches '<', then captures word characters (\w+?), then '>' at the start.
+                match = re.match(r"^<(\w+?)>", content)
 
-        # Fallback: let LLM decide (should be rare case)
+                if match:
+                    delegated_agent_name = match.group(1) # Extracts the name inside <>
+                    
+                    if delegated_agent_name == PRODUCT_AGENT_NAME: 
+                        return PRODUCT_AGENT_NAME
+                    elif delegated_agent_name == SY_API_AGENT_NAME:
+                        return SY_API_AGENT_NAME
+                    elif delegated_agent_name == HUBSPOT_AGENT_NAME:
+                        return HUBSPOT_AGENT_NAME
+                    else:
+                        print(f"<- WARN: Selector found delegation pattern but agent '{delegated_agent_name}' is unknown. Defaulting to Planner.")
+                        return PLANNER_AGENT_NAME # Fallback if agent name invalid
+                else:
+                    # Planner spoke, but no delegation found. Let LLM decide
+                    # print("Selector: Planner spoke, no delegation found. Letting LLM decide (likely pause for user)." )
+                    return None
+            else:
+                # Planner message content is not a string, unexpected.
+                return None
+
+        # Rule 4: Fallback - Let LLM decide (should be hit rarely now)
+        # print(f"Selector: Fallback condition hit (Last speaker: {last_message.source}). Letting LLM decide.")
         return None
 
     # Start or continue a chat session
