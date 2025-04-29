@@ -19,16 +19,30 @@ class PagingNext(BaseModel):
 class Paging(BaseModel):
     next: Optional[PagingNext] = None
 
+class MessageStatusType(str, Enum):
+    """ Defines known status types for messages. """
+    SENT = "SENT"
+    RECEIVED = "RECEIVED"
+    FAILED = "FAILED"
+
+class ClientType(str, Enum):
+    """ Defines known client types originating messages/events. """
+    HUBSPOT = "HUBSPOT"
+    SYSTEM = "SYSTEM"
+    INTEGRATION = "INTEGRATION"
+
+# --- Updated/Existing Models ---
+
 class MessageStatusFailureDetails(BaseModel):
     errorMessageTokens: Optional[Dict[str, str]] = None
     errorMessage: Optional[str] = None
 
 class MessageStatus(BaseModel):
-    statusType: Optional[str] = None # e.g., SENT, FAILED
+    statusType: Optional[MessageStatusType] = None
     failureDetails: Optional[MessageStatusFailureDetails] = None
 
 class ClientInfo(BaseModel):
-    clientType: Optional[str] = None # e.g., HUBSPOT
+    clientType: Optional[ClientType] = None
     integrationAppId: Optional[int] = None
 
 class MessageSender(BaseModel):
@@ -40,7 +54,7 @@ class MessageSender(BaseModel):
 class MessageRecipient(BaseModel):
     actorId: Optional[str] = None
     name: Optional[str] = None
-    deliveryIdentifier: Optional[DeliveryIdentifier] = None # Note: Can be null
+    deliveryIdentifier: Optional[DeliveryIdentifier] = None #  Can be null
     recipientField: Optional[str] = None
 
 class ThreadAssociations(BaseModel):
@@ -51,7 +65,6 @@ class ThreadAssociations(BaseModel):
 class ActorType(str, Enum):
     AGENT = "AGENT"
     BOT = "BOT"
-    # Add others if necessary
 
 class Actor(BaseModel):
     type: Optional[ActorType] = None
@@ -90,10 +103,13 @@ class Inbox(BaseModel):
     updatedAt: Optional[datetime] = None
 
 class MessageType(str, Enum):
+    """ Defines known message types within a conversation thread. """
     MESSAGE = "MESSAGE"
     COMMENT = "COMMENT"
     WELCOME_MESSAGE = "WELCOME_MESSAGE"
     SYSTEM = "SYSTEM"
+    ASSIGNMENT = "ASSIGNMENT"
+    THREAD_STATUS_CHANGE = "THREAD_STATUS_CHANGE"
 
 class MessageTruncationStatus(str, Enum):
     TRUNCATED = "TRUNCATED"
@@ -104,6 +120,7 @@ class MessageDirection(str, Enum):
     OUTGOING = "OUTGOING"
 
 class MessageDetail(BaseModel):
+    # --- Core Fields ---
     type: Optional[MessageType] = None
     id: str
     conversationsThreadId: Optional[str] = Field(None, alias="conversationsThreadId")
@@ -114,16 +131,31 @@ class MessageDetail(BaseModel):
     senders: Optional[List[MessageSender]] = None
     recipients: Optional[List[MessageRecipient]] = None
     archived: Optional[bool] = None
+
+    # --- Content Fields (primarily for MESSAGE, COMMENT, WELCOME_MESSAGE) ---
     text: Optional[str] = None
     richText: Optional[str] = None
     attachments: Optional[List[Any]] = None # Define specific attachment model if structure known
     subject: Optional[str] = None
     truncationStatus: Optional[MessageTruncationStatus] = None
     inReplyToId: Optional[str] = None
+
+    # --- Status & Direction Fields ---
     status: Optional[MessageStatus] = None
     direction: Optional[MessageDirection] = None
+
+    # --- Channel Fields ---
     channelId: Optional[str] = None
     channelAccountId: Optional[str] = None
+
+    # --- Fields for specific types ---
+    assignedTo: Optional[str] = None # For ASSIGNMENT type
+    newStatus: Optional[str] = None # For THREAD_STATUS_CHANGE type
+
+    # Allow other fields from API response
+    model_config = {
+        "extra": "allow"
+    }
 
 class ThreadStatus(str, Enum):
     OPEN = "OPEN"

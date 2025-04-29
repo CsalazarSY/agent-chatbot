@@ -5,7 +5,7 @@ import traceback # For detailed error logging
 
 # System imports
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import Optional, Union
 import json
 import uvicorn
 
@@ -20,7 +20,8 @@ from autogen_agentchat.base import TaskResult
 from models.chat_api import ChatRequest, ChatResponse # /chat endpoint
 from models.hubspot_webhooks import WebhookPayload, HubSpotSubscriptionType # /hubspot/webhooks endpoint
 
-from agents.hubspot.types.api_types import MessageDetailResponse # send_message_to_thread tool
+# Import specific HubSpot Pydantic models used for filtering
+from agents.hubspot.types.api_types import MessageDetailResponse, MessageType, MessageDirection
 
 # HubSpot Tools used in webhook handler
 from agents.hubspot.tools.conversation_tools import get_message_details, send_message_to_thread
@@ -31,9 +32,14 @@ from agents.agents_services import agent_service
 # Import config to access the refresh function
 import config
 
+# --- Globals for Webhook Deduplication ---
+PROCESSING_MESSAGE_IDS = set()
+message_id_lock = asyncio.Lock()
+# ----------------------------------------
+
 # --- FastAPI App Setup ---
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_: FastAPI):
     """ Lifespan to control the FastAPI app """
     # Code to run on startup
     success = await config.refresh_sy_token()
@@ -51,9 +57,9 @@ app = FastAPI(
 origins = [
     "http://localhost:5173",  # Default Vite dev server port
     "http://127.0.0.1:5173",
-    "http://172.20.20.204:5173", # Removed trailing slash
-    "http://172.27.160.1:5173", # Removed trailing slash
-    "http://172.17.0.1:5173",   # Removed trailing slash
+    "http://172.20.20.204:5173",
+    "http://172.27.160.1:5173",
+    "http://172.17.0.1:5173",  
     "https://hubsbot.loca.lt", # Subdomain exposed with localtunnel
     "http://hubsbot.loca.lt"   # Also allow http for localtunnel if needed
 ]
@@ -156,11 +162,13 @@ async def chat_endpoint(request: ChatRequest):
 
 # --- HubSpot Webhook Endpoint --- #
 
-async def process_agent_response_and_reply(conversation_id: str, task_result: Optional[TaskResult], error_message: Optional[str]):
+async def process_agent_response(conversation_id: str, task_result: Optional[TaskResult], error_message: Optional[str]):
     """
     Helper coroutine to process the agent's result and send the final reply to HubSpot.
     Runs in the background after the webhook returns 200 OK.
     """
+    print(f"    -> Background task: Process process agent response and reply {conversation_id}")
+
     final_reply_to_send = "Sorry, I encountered an issue and couldn't process your message." # Default error reply
 
     if error_message:
@@ -170,13 +178,14 @@ async def process_agent_response_and_reply(conversation_id: str, task_result: Op
         last_agent_message = task_result.messages[-1]
         if hasattr(last_agent_message, 'content'):
             raw_reply = last_agent_message.content
+
+            # Clean up Planner's final output tags
             if isinstance(raw_reply, str):
-                # Clean up Planner's final output tags
                 cleaned_reply = raw_reply
                 if cleaned_reply.startswith("TASK COMPLETE"): cleaned_reply = cleaned_reply[len("TASK COMPLETE:"):].strip()
                 if cleaned_reply.startswith("TASK FAILED"): cleaned_reply = cleaned_reply[len("TASK FAILED:"):].strip()
                 cleaned_reply = cleaned_reply.replace("<UserProxyAgent>", "").strip()
-                # Remove potential leading/trailing colons if UserProxyAgent tag had them
+                # Remove potential leading/trailing colons
                 if cleaned_reply.startswith(":"): cleaned_reply = cleaned_reply[1:].strip()
 
                 if cleaned_reply: # Ensure we have something to send
@@ -196,92 +205,136 @@ async def process_agent_response_and_reply(conversation_id: str, task_result: Op
         # Use default error reply
 
     # Send the final reply (or error message) back to the HubSpot thread
-    print(f"--> Sending reply to HubSpot Thread {conversation_id}: '{final_reply_to_send}'")
+    print(f"        - Sending reply to HubSpot Thread {conversation_id}: '{final_reply_to_send[:100]}...'")
     try:
         # Pass only required args + text
         send_result = await send_message_to_thread(
             thread_id=conversation_id,
             message_text=final_reply_to_send
         )
+        
         if isinstance(send_result, str) and send_result.startswith("HUBSPOT_TOOL_FAILED"):
             print(f"!!! FAILED to send reply to HubSpot Thread {conversation_id}: {send_result}")
+        elif isinstance(send_result, MessageDetailResponse):
+            print(f"        - Successfully sent reply (Message ID: {send_result.id}) to thread {conversation_id}")
+        else:
+            print(f"        - Reply sent to thread {conversation_id}, but received unexpected response type: {type(send_result)}")
 
     except Exception as send_exc:
         print(f"!!! EXCEPTION sending reply to HubSpot Thread {conversation_id}: {send_exc}")
         traceback.print_exc()
 
 
+async def process_incoming_hubspot_message(conversation_id: str, message_id: str):
+    """
+    Handles fetching message details and triggering agent processing for relevant messages.
+    Runs in a background task. Ensures message_id is removed from PROCESSING_MESSAGE_IDS on completion.
+    """
+    try:
+        print(f"    -> Background task: Process incoming hubspot messaeg {conversation_id}, message {message_id}")
+        message_content = None
+        is_relevant_message = False
+        msg_details: Optional[Union[MessageDetailResponse, str]] = None
+
+        # 1. Fetch message details
+        try:
+            print(f"        - Fetching message details for {message_id} in thread {conversation_id}...")
+            msg_details = await get_message_details(thread_id=conversation_id, message_id=message_id)
+
+            if isinstance(msg_details, MessageDetailResponse):
+                message_content = msg_details.text
+                print(f"        - Fetched message content: '{message_content[:20] if message_content else ''}...' ({msg_details.type}, {msg_details.direction}) Sender: {msg_details.senders[0].actorId if msg_details.senders else 'N/A'}")
+
+                # 2. Check if the message is relevant for agent processing
+                is_message_type = msg_details.type == MessageType.MESSAGE
+                is_incoming = msg_details.direction == MessageDirection.INCOMING
+                is_visitor_sender = (
+                    msg_details.senders and
+                    msg_details.senders[0].actorId and
+                    msg_details.senders[0].actorId.startswith("V-") # HubSpot visitor actor IDs start with "V-"
+                )
+
+                if is_message_type and is_incoming and is_visitor_sender:
+                    is_relevant_message = True
+                    print(f"        - Message {message_id} is RELEVANT for agent processing.")
+                else:
+                    print(f"        - Message {message_id} is NOT relevant. Skipping agent trigger. (Type Match: {is_message_type}, Direction Match: {is_incoming}, Sender Match: {is_visitor_sender})")
+
+            elif isinstance(msg_details, str) and msg_details.startswith("HUBSPOT_TOOL_FAILED"):
+                print(f"    !! Failed to fetch message details: {msg_details}")
+            else:
+                print(f"    !! Unexpected response from get_message_details: {type(msg_details)}")
+
+        except Exception as fetch_exc:
+            print(f"    !! EXCEPTION fetching message details for {message_id}: {fetch_exc}")
+            traceback.print_exc()
+
+        # 3. Trigger agent if relevant and content exists
+        if is_relevant_message and message_content:
+            print(f"        -> Triggering agent processing for thread {conversation_id}...\n")
+            task_result, error_message, _ = await agent_service.run_chat_session(
+                user_message=message_content,
+                show_console=True,
+                conversation_id=conversation_id
+            )
+            await process_agent_response(conversation_id, task_result, error_message)
+        else:
+            print(f"    -> Agent processing skipped for message {message_id}. (Relevant: {is_relevant_message}, Content Exists: {bool(message_content)})")
+
+    finally:
+        # Ensure the message ID is removed from the processing set
+        async with message_id_lock:
+            PROCESSING_MESSAGE_IDS.discard(message_id)
+            print(f"    <- Background task finished for message {message_id}. Removed from processing set.")
+
+
 @app.post("/hubspot/webhooks")
 async def hubspot_webhook_endpoint(payload: WebhookPayload):
     """
     Receives webhook notifications from HubSpot.
-    Validates signature, processes relevant events (conversation.newMessage type: MESSAGE),
+    Validates signature, processes relevant events (conversation.newMessage),
+    deduplicates based on messageId, fetches details, filters for relevant messages,
     triggers agent processing in the background, and returns 200 OK immediately.
     """
     # --- TODO: Implement Request Signature Verification --- #
-    # 1. Get X-HubSpot-Signature header
-    # 2. Get raw request body
-    # 3. Concatenate client_secret + raw_body
-    # 4. Calculate SHA-256 hash
-    # 5. Compare hash with signature header
-    # If verification fails, raise HTTPException(status_code=403, detail="Invalid signature")
     # -------------------------------------------------------- #
 
-    print(f"\n\n--- Received HubSpot Webhook Payload ({len(payload)} event(s)) ---")
+    print(f"\n\n\n\n--- Received HubSpot Webhook Payload ({len(payload)} event(s)) ---")
 
+    background_tasks = []
     for event in payload:
-        print(f"    - Processing Event Type: {event.subscriptionType}, Object ID: {event.objectId}")
+        print(f"    - Processing Event: Type={event.subscriptionType}, ObjID={event.objectId}, MsgID={event.messageId or 'N/A'}, MsgType={event.messageType or 'N/A'}")
 
-        # Filter for new messages of type MESSAGE
-        if event.subscriptionType == HubSpotSubscriptionType.CONVERSATION_NEW_MESSAGE and event.messageType == "MESSAGE":
-            thread_id = str(event.objectId) # Ensure string for consistency
+        # We only care about new messages
+        if event.subscriptionType == HubSpotSubscriptionType.CONVERSATION_NEW_MESSAGE:
+            conversation_id = str(event.objectId) # Ensure string
             message_id = event.messageId
 
             if not message_id:
-                print(f"    - Skipping newMessage event for thread {thread_id}: Missing messageId.")
+                print(f"    - Skipping newMessage event for thread {conversation_id}: Missing messageId.")
                 continue
 
-            # Fetch message content (needs to happen before triggering agent)
-            message_content = None
-            try:
-                print(f"    - Fetching message details for {message_id} in thread {thread_id}...")
-                msg_details = await get_message_details(thread_id=thread_id, message_id=message_id)
-
-                if isinstance(msg_details, MessageDetailResponse) and msg_details.text:
-                    message_content = msg_details.text
-                    print(f"    -> Fetched message content: '{message_content[:50]}...'")
-                elif isinstance(msg_details, dict) and 'text' in msg_details:
-                    message_content = msg_details['text']
-                elif isinstance(msg_details, str) and msg_details.startswith("HUBSPOT_TOOL_FAILED"):
-                     print(f"    !! Failed to fetch message details: {msg_details}")
+            # --- Deduplication Check --- #
+            async with message_id_lock:
+                if message_id in PROCESSING_MESSAGE_IDS:
+                    print(f"    - Skipping duplicate messageId {message_id} already being processed.")
+                    continue # Skip to the next event
                 else:
-                    print(f"    !! Unexpected response from get_message_details: {type(msg_details)}")
+                    # Add to set *before* scheduling to prevent race condition
+                    PROCESSING_MESSAGE_IDS.add(message_id)
+                    print(f"    -> Added message {message_id} to processing set.")
 
-            except Exception as fetch_exc:
-                print(f"    !! EXCEPTION fetching message details for {message_id}: {fetch_exc}")
-                traceback.print_exc()
-
-            # If we successfully got content, trigger the agent processing in the background
-            if message_content:
-                print(f"    -> Triggering agent processing for thread {thread_id} in background...")
-                # Create a background task to run the agent and send the reply
-                async def run_agent_and_reply():
-                    task_result, error_message, _ = await agent_service.run_chat_session(
-                        user_message=message_content,
-                        show_console=True,
-                        conversation_id=thread_id
-                    )
-                    await process_agent_response_and_reply(thread_id, task_result, error_message)
-
-                asyncio.create_task(run_agent_and_reply())
-            else:
-                print(f"    -> Skipping agent trigger for thread {thread_id} due to missing message content.")
+            # Schedule the detailed processing (fetch, filter, trigger agent) as a background task
+            task = asyncio.create_task(process_incoming_hubspot_message(conversation_id, message_id))
+            background_tasks.append(task)
+            print(f"--------> Scheduled background processing for message {message_id} in thread {conversation_id}")
 
         else:
-            print(f"    - Skipping event: Type '{event.subscriptionType}' / Message Type '{event.messageType}' not processed.")
+            print(f"    - Skipping event: SubscriptionType '{event.subscriptionType}' not processed.")
 
-    # Return 200 OK quickly to HubSpot regardless of background processing
-    return {"status": "received"}
+    # Return 200 OK quickly to HubSpot
+    # Background tasks will run independently
+    return {"status": "OK", "statusCode": "200"}
 
 
 # --- --- Run the Server (for local development) --- --- #
