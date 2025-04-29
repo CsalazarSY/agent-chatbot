@@ -80,7 +80,10 @@ def validate_api_config():
     if not API_BASE_URL:
         raise ValueError("API_BASE_URL environment variable not set in .env file.")
     if not SY_API_USERNAME or not SY_API_PASSWORD:
-        print(" Warning: SY_API_USERNAME or SY_API_PASSWORD not set. Dynamic token refresh will fail.")
+        print(
+            " Warning: SY_API_USERNAME or SY_API_PASSWORD not set. "
+            "Dynamic token refresh will fail."
+        )
     if not LLM_BASE_URL:
         raise ValueError("LLM_BASE_URL environment variable not set in .env file.")
     if not LLM_API_KEY:

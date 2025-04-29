@@ -48,8 +48,8 @@ async def send_message_to_thread(
         "default_sender_actor_id": HUBSPOT_DEFAULT_SENDER_ACTOR_ID
     }
 
-
-    if not client: return f"{ERROR_PREFIX} HubSpot client is not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client is not initialized in config."
 
     # Use provided args or fall back to config defaults
     final_channel_id = channel_id or config.get("default_channel")
@@ -57,12 +57,18 @@ async def send_message_to_thread(
     final_sender_actor_id = sender_actor_id or config.get("default_sender_actor_id")
 
     # --- Input Validation ---
-    if not thread_id or not isinstance(thread_id, str) or thread_id.lower() == 'unknown': return f"{ERROR_PREFIX} Valid HubSpot thread ID was not provided."
-    if not final_channel_id or not isinstance(final_channel_id, str): return f"{ERROR_PREFIX} Valid HubSpot channel ID was not provided."
-    if not final_channel_account_id or not isinstance(final_channel_account_id, str): return f"{ERROR_PREFIX} Valid HubSpot channel account ID was not provided."
-    if not final_sender_actor_id or not isinstance(final_sender_actor_id, str): return f"{ERROR_PREFIX} Valid HubSpot sender actor ID was not provided."
-    if not final_sender_actor_id.startswith("A-"): print("Warning: sender_actor_id does not start with 'A-'") # Just a warning, proceed
-    if not message_text or not isinstance(message_text, str): return f"{ERROR_PREFIX} Valid message text was not provided."
+    if not thread_id or not isinstance(thread_id, str) or thread_id.lower() == 'unknown':
+        return f"{ERROR_PREFIX} Valid HubSpot thread ID was not provided."
+    if not final_channel_id or not isinstance(final_channel_id, str):
+        return f"{ERROR_PREFIX} Valid HubSpot channel ID was not provided."
+    if not final_channel_account_id or not isinstance(final_channel_account_id, str):
+        return f"{ERROR_PREFIX} Valid HubSpot channel account ID was not provided."
+    if not final_sender_actor_id or not isinstance(final_sender_actor_id, str):
+        return f"{ERROR_PREFIX} Valid HubSpot sender actor ID was not provided."
+    if not final_sender_actor_id.startswith("A-"):
+        print("Warning: sender_actor_id does not start with 'A-'") # Just a warning, proceed
+    if not message_text or not isinstance(message_text, str):
+        return f"{ERROR_PREFIX} Valid message text was not provided."
 
     # --- Determine Message Type ---
     message_type = "MESSAGE"
@@ -95,13 +101,21 @@ async def send_message_to_thread(
                 try:
                     parsed_data = response.json()
 
-                    if isinstance(parsed_data, dict): return parsed_data # Return created message details
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                    if isinstance(parsed_data, dict):
+                        return parsed_data # Return created message details
+                    else:
+                        return (
+                            f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), "
+                            f"but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
+                        )
 
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
-                    return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    return (
+                        f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), "
+                        f"but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                    )
 
             else:
                 try: body_str = response.text
@@ -109,10 +123,15 @@ async def send_message_to_thread(
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} sending message. Body: {body_str}"
 
         # Handle already parsed dict/list
-        elif isinstance(response, dict): return response # Return created message details
+        elif isinstance(response, dict):
+            return response # Return created message details
 
         # Fallback for other unexpected types
-        else: return f"{ERROR_PREFIX} Unexpected success response format sending message. Type: {type(response).__name__}"
+        else:
+            return (
+                f"{ERROR_PREFIX} Unexpected success response format sending message. "
+                f"Type: {type(response).__name__}"
+            )
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -121,9 +140,13 @@ async def send_message_to_thread(
             error_reason = getattr(e, 'reason', 'No reason')
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
-            return f"{ERROR_PREFIX} API Error Status {status_code} sending message. Reason: {error_reason}. Body: {body_str}"
+            return (
+                f"{ERROR_PREFIX} API Error Status {status_code} sending message. "
+                f"Reason: {error_reason}. Body: {body_str}"
+            )
 
-        else: return f"{ERROR_PREFIX} Unexpected error sending message: {type(e).__name__} - {e}"
+        else:
+            return f"{ERROR_PREFIX} Unexpected error sending message: {type(e).__name__} - {e}"
 
 async def get_thread_details(
     thread_id: str,
@@ -142,9 +165,11 @@ async def get_thread_details(
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
-    if not thread_id: return f"{ERROR_PREFIX} thread_id is required."
+    if not thread_id:
+        return f"{ERROR_PREFIX} thread_id is required."
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}"
 
@@ -220,9 +245,11 @@ async def get_thread_messages(
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
-    if not thread_id: return f"{ERROR_PREFIX} thread_id is required."
+    if not thread_id:
+        return f"{ERROR_PREFIX} thread_id is required."
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}/messages"
 
@@ -311,11 +338,14 @@ async def list_threads(
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
-    if associated_contact_id and inbox_id: return f"{ERROR_PREFIX} Cannot use both 'inbox_id' and 'associated_contact_id'."
+    if associated_contact_id and inbox_id:
+        return f"{ERROR_PREFIX} Cannot use both 'inbox_id' and 'associated_contact_id'."
 
-    if associated_contact_id and not thread_status: return f"{ERROR_PREFIX} 'thread_status' is required when filtering by 'associated_contact_id'."
+    if associated_contact_id and not thread_status:
+        return f"{ERROR_PREFIX} 'thread_status' is required when filtering by 'associated_contact_id'."
 
     api_path = "/conversations/v3/conversations/threads"
 
@@ -403,17 +433,23 @@ async def update_thread(
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
-    if not thread_id: return f"{ERROR_PREFIX} thread_id is required."
+    if not thread_id:
+        return f"{ERROR_PREFIX} thread_id is required."
 
-    if status is None and archived is None: return f"{ERROR_PREFIX} Either 'status' or 'archived' must be provided."
+    if status is None and archived is None:
+        return f"{ERROR_PREFIX} Either 'status' or 'archived' must be provided."
 
-    if status is not None and status not in ["OPEN", "CLOSED"]: return f"{ERROR_PREFIX} Invalid status '{status}'."
+    if status is not None and status not in ["OPEN", "CLOSED"]:
+        return f"{ERROR_PREFIX} Invalid status '{status}'."
 
-    if archived is not None and not isinstance(archived, bool): return f"{ERROR_PREFIX} 'archived' must be a boolean."
+    if archived is not None and not isinstance(archived, bool):
+        return f"{ERROR_PREFIX} 'archived' must be a boolean."
 
-    if archived is False and not is_currently_archived: return f"{ERROR_PREFIX} To restore (archived=false), set 'is_currently_archived=true'."
+    if archived is False and not is_currently_archived:
+        return f"{ERROR_PREFIX} To restore (archived=false), set 'is_currently_archived=true'."
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}"
 
@@ -484,9 +520,11 @@ async def archive_thread(thread_id: str) -> str:
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
-    if not thread_id: return f"{ERROR_PREFIX} thread_id is required."
+    if not thread_id:
+        return f"{ERROR_PREFIX} thread_id is required."
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}"
 
@@ -496,15 +534,21 @@ async def archive_thread(thread_id: str) -> str:
         response = await asyncio.to_thread(client.api_request, request_data)
 
         # Handle 204 No Content specifically for DELETE
-        if response is None: return "HUBSPOT_TOOL_SUCCESS: Thread successfully archived (No Content)."
+        if response is None:
+            return "HUBSPOT_TOOL_SUCCESS: Thread successfully archived (No Content)."
 
         # Handle raw Response object (though less likely for DELETE success)
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
              if 200 <= response.status_code < 300:
                  # Successful status code but got a Response object? Unexpected for 204.
-                 try: body_str = response.text
-                 except: body_str = "[Could not retrieve response text]"
-                 return f"HUBSPOT_TOOL_SUCCESS: Archive successful (Status {response.status_code}), but received unexpected response body: {body_str[:100]}..."
+                 try:
+                     body_str = response.text
+                 except:
+                     body_str = "[Could not retrieve response text]"
+                 return (
+                     f"HUBSPOT_TOOL_SUCCESS: Archive successful (Status {response.status_code}), "
+                     f"but received unexpected response body: {body_str[:100]}..."
+                 )
 
              else:
                  try: body_str = response.text
@@ -512,7 +556,8 @@ async def archive_thread(thread_id: str) -> str:
                  return f"{ERROR_PREFIX} API Error Status {response.status_code} archiving thread. Body: {body_str}"
 
         # Fallback for other unexpected types
-        else: return f"{ERROR_PREFIX} Unexpected success response format archiving thread. Type: {type(response).__name__}"
+        else:
+            return f"{ERROR_PREFIX} Unexpected success response format archiving thread. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -522,7 +567,8 @@ async def archive_thread(thread_id: str) -> str:
             try: body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
             except: body_str = "[Could not decode error body]"
             # Check if the error status is 204, which SDK might raise for No Content
-            if status_code == 204: return "HUBSPOT_TOOL_SUCCESS: Thread successfully archived (No Content)."
+            if status_code == 204:
+                return "HUBSPOT_TOOL_SUCCESS: Thread successfully archived (No Content)."
             return f"{ERROR_PREFIX} API Error Status {status_code} archiving thread. Reason: {error_reason}. Body: {body_str}"
 
         else: return f"{ERROR_PREFIX} Unexpected error archiving thread: {type(e).__name__} - {e}"
@@ -543,9 +589,11 @@ async def get_actor_details(actor_id: str) -> Dict[str, Any] | str:
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
-    if not actor_id: return f"{ERROR_PREFIX} actor_id is required."
+    if not actor_id:
+        return f"{ERROR_PREFIX} actor_id is required."
 
     api_path = f"/conversations/v3/conversations/actors/{actor_id}"
 
@@ -580,7 +628,8 @@ async def get_actor_details(actor_id: str) -> Dict[str, Any] | str:
         elif isinstance(response, dict): return response
 
         # Fallback for other unexpected types
-        else: return f"{ERROR_PREFIX} Unexpected success response format getting actor details. Type: {type(response).__name__}"
+        else:
+            return f"{ERROR_PREFIX} Unexpected success response format getting actor details. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -609,9 +658,11 @@ async def get_actors_batch(actor_ids: List[str]) -> Dict[str, Any] | str:
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
-    if not actor_ids or not isinstance(actor_ids, list): return f"{ERROR_PREFIX} actor_ids must be a non-empty list."
+    if not actor_ids or not isinstance(actor_ids, list):
+        return f"{ERROR_PREFIX} actor_ids must be a non-empty list."
 
     api_path = "/conversations/v3/conversations/actors/batch/read"
 
@@ -681,7 +732,8 @@ async def list_inboxes(
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
     api_path = "/conversations/v3/conversations/inboxes"
 
@@ -748,9 +800,11 @@ async def get_inbox_details(inbox_id: str) -> Dict[str, Any] | str:
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
-    if not inbox_id: return f"{ERROR_PREFIX} inbox_id is required."
+    if not inbox_id:
+        return f"{ERROR_PREFIX} inbox_id is required."
 
     api_path = f"/conversations/v3/conversations/inboxes/{inbox_id}"
 
@@ -816,7 +870,8 @@ async def list_channels(
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
     api_path = "/conversations/v3/conversations/channels"
 
@@ -883,9 +938,11 @@ async def get_channel_details(channel_id: str) -> Dict[str, Any] | str:
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
-    if not channel_id: return f"{ERROR_PREFIX} channel_id is required."
+    if not channel_id:
+        return f"{ERROR_PREFIX} channel_id is required."
 
     api_path = f"/conversations/v3/conversations/channels/{channel_id}"
 
@@ -957,7 +1014,8 @@ async def list_channel_accounts(
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
     api_path = "/conversations/v3/conversations/channel-accounts"
 
@@ -1028,9 +1086,11 @@ async def get_channel_account_details(channel_account_id: str) -> Dict[str, Any]
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
-    if not channel_account_id: return f"{ERROR_PREFIX} channel_account_id is required."
+    if not channel_account_id:
+        return f"{ERROR_PREFIX} channel_account_id is required."
 
     api_path = f"/conversations/v3/conversations/channel-accounts/{channel_account_id}"
 
@@ -1096,11 +1156,14 @@ async def get_message_details(
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
-    if not thread_id: return f"{ERROR_PREFIX} thread_id is required."
+    if not thread_id:
+        return f"{ERROR_PREFIX} thread_id is required."
 
-    if not message_id: return f"{ERROR_PREFIX} message_id is required."
+    if not message_id:
+        return f"{ERROR_PREFIX} message_id is required."
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}/messages/{message_id}"
 
@@ -1166,11 +1229,14 @@ async def get_original_message_content(
     """
     client = hubspot_client
 
-    if not client: return f"{ERROR_PREFIX} HubSpot client not initialized in config."
+    if not client:
+        return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
-    if not thread_id: return f"{ERROR_PREFIX} thread_id is required."
+    if not thread_id:
+        return f"{ERROR_PREFIX} thread_id is required."
 
-    if not message_id: return f"{ERROR_PREFIX} message_id is required."
+    if not message_id:
+        return f"{ERROR_PREFIX} message_id is required."
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}/messages/{message_id}/original-content"
 

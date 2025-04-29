@@ -99,7 +99,7 @@ class AgentService:
 
     # Next speaker selector
     @staticmethod
-    def custom_speaker_selector(messages: Sequence[BaseAgentEvent | BaseChatMessage]) -> str:
+    def custom_speaker_selector(messages: Sequence[BaseAgentEvent | BaseChatMessage]) -> str | None:
         """Determines the next speaker based on explicit rules and message content.
 
         Rules:
@@ -239,7 +239,9 @@ class AgentService:
 
             # Run the chat - use run() for API flow, run_stream() wrapped in Console for terminal
             if show_console:
-                task_result = await Console(group_chat.run_stream(task=next_message, cancellation_token=cancellation_token))
+                task_result = await Console(
+                    group_chat.run_stream(task=next_message, cancellation_token=cancellation_token)
+                )
             else:
                 # Run the chat. The `next_message` kicks off the next round.
                 task_result = await group_chat.run(task=next_message, cancellation_token=cancellation_token)

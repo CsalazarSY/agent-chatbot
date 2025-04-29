@@ -49,8 +49,11 @@ async def main():
                         final_content = final_message.content if isinstance(final_message.content, str) else json.dumps(final_message.content)
                         # Clean up internal tags for display
                         display_reply = final_content.replace("<UserProxyAgent>", "").strip()
-                        if display_reply.startswith("TASK COMPLETE:"): display_reply = display_reply[len("TASK COMPLETE:"):].strip()
-                        if display_reply.startswith("TASK FAILED:"): display_reply = display_reply[len("TASK FAILED:"):].strip()
+                        if display_reply.startswith("TASK COMPLETE:"):
+                            display_reply = display_reply[len("TASK COMPLETE:"):].strip()
+                        if display_reply.startswith("TASK FAILED:"):
+                            display_reply = display_reply[len("TASK FAILED:"):].strip()
+                        print(f"Agent: {display_reply}") # Print cleaned reply
                     else:
                         print(f"Agent: [{type(final_message).__name__} with no content]")
                 else:
@@ -66,6 +69,25 @@ async def main():
             print(f"\n!!! ERROR during agent execution: {e}")
             traceback.print_exc()
 
+        finally:
+            # Ensure the client is closed on script exit, regardless of how main() finished
+            print("\n--- Attempting final client cleanup ---")
+            try:
+                # Use asyncio.run for the class method if the loop is already stopped
+                asyncio.run(agent_service.close_client())
+            except RuntimeError as ex:
+                 if "cannot call run_in_executor from a running event loop" in str(ex) or \
+                    "cannot run coroutine" in str(ex):
+                      # If loop is running or already closed in an unexpected way, might need adjustment
+                      # For simplicity, just print the issue. Proper handling might need event loop access.
+                      print(f"--- Could not run async close_client cleanly in finally: {ex} ---")
+                 else:
+                      raise ex
+            except Exception as e:
+                print(f"--- Error during final client cleanup: {e} ---")
+
+            print("--- Script Finished ---\n\n")
+
 
 # --- Main Execution --- #
 if __name__ == "__main__":
@@ -76,21 +98,3 @@ if __name__ == "__main__":
     except Exception as e:
          print(f"\n Top-level error: {e}")
          traceback.print_exc()
-    finally:
-        # Ensure the client is closed on script exit, regardless of how main() finished
-        print("\n--- Attempting final client cleanup ---")
-        try:
-            # Use asyncio.run for the class method if the loop is already stopped
-            asyncio.run(agent_service.close_client())
-        except RuntimeError as ex:
-             if "cannot call run_in_executor from a running event loop" in str(ex) or \
-                "cannot run coroutine" in str(ex):
-                  # If loop is running or already closed in an unexpected way, might need adjustment
-                  # For simplicity, just print the issue. Proper handling might need event loop access.
-                  print(f"--- Could not run async close_client cleanly in finally: {ex} ---")
-             else:
-                  raise ex
-        except Exception as e:
-            print(f"--- Error during final client cleanup: {e} ---")
-
-        print("--- Script Finished ---\n\n")

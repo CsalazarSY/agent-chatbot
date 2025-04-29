@@ -1,4 +1,4 @@
-# pylint: disable=line-too-long, broad-exception-caught
+# pylint: disable=broad-exception-caught
 # agents/stickeryou/tools/sy_api.py
 """Defines tools (functions) for interacting with the StickerYou API."""
 
@@ -69,7 +69,8 @@ async def _make_sy_api_request(
                 try:
                     return response.json()
                 except json.JSONDecodeError:
-                    # If 200 OK but not JSON, return raw text. It might be the expected plain string response (e.g., tracking code).
+                    # If 200 OK but not JSON, return raw text.
+                    # It might be the expected plain string response (e.g., tracking code).
                     try:
                         return response
                     except Exception as text_err:
@@ -107,9 +108,11 @@ async def _make_sy_api_request(
                                     if isinstance(nested_error, dict) and 'Error' in nested_error:
                                         error_message_detail = f" Detail: {nested_error['Error']}"
                                     else:
-                                         error_message_detail = f" Detail: {error_json['message'][:200]}" # Use raw message if nested parse fails
+                                         # Use raw message if nested parse fails
+                                         error_message_detail = f" Detail: {error_json['message'][:200]}"
                                 except json.JSONDecodeError:
-                                     error_message_detail = f" Detail: {error_json['message'][:200]}" # Use raw message if not valid JSON string
+                                     # Use raw message if not valid JSON string
+                                     error_message_detail = f" Detail: {error_json['message'][:200]}"
 
                             else:
                                 # Use the message directly if not a string or nested JSON isn't found

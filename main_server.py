@@ -51,9 +51,9 @@ app = FastAPI(
 origins = [
     "http://localhost:5173",  # Default Vite dev server port
     "http://127.0.0.1:5173",
-    "http://172.20.20.204:5173/", 
-    "http://172.27.160.1:5173/", 
-    "http://172.17.0.1:5173/",   
+    "http://172.20.20.204:5173", # Removed trailing slash
+    "http://172.27.160.1:5173", # Removed trailing slash
+    "http://172.17.0.1:5173",   # Removed trailing slash
     "https://hubsbot.loca.lt", # Subdomain exposed with localtunnel
     "http://hubsbot.loca.lt"   # Also allow http for localtunnel if needed
 ]
@@ -87,7 +87,10 @@ async def chat_endpoint(request: ChatRequest):
         print(f"!!! Error reported: {error_message}")
         # If ID was missing, final_conversation_id will be None from the service
         status_code = 400 if "conversation_id is required" in error_message else 500
-        raise HTTPException(status_code=status_code, detail={"message": error_message, "conversation_id": final_conversation_id})
+        raise HTTPException(
+            status_code=status_code,
+            detail={"message": error_message, "conversation_id": final_conversation_id}
+        )
 
     # Handle cases where the task didn't complete successfully but didn't raise an error
     if not task_result:
@@ -113,7 +116,11 @@ async def chat_endpoint(request: ChatRequest):
             last_message = task_result.messages[-1] # Get the last message object
             # Extract content safely, handling different message types
             if hasattr(last_message, 'content'):
-                 final_reply_content = last_message.content if isinstance(last_message.content, str) else json.dumps(last_message.content)
+                 final_reply_content = (
+                     last_message.content
+                     if isinstance(last_message.content, str)
+                     else json.dumps(last_message.content)
+                 )
                  # Clean up internal tags if they are not meant for the user
                  if isinstance(final_reply_content, str):
                      # Remove TASK COMPLETE/FAILED prefixes
