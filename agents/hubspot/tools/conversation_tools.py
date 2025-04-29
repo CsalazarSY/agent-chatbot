@@ -41,20 +41,14 @@ async def send_message_to_thread(
     """
     # Use the imported client
     client = hubspot_client
-    # Access config defaults directly
-    config = {
-        "default_channel": HUBSPOT_DEFAULT_CHANNEL,
-        "default_channel_account": HUBSPOT_DEFAULT_CHANNEL_ACCOUNT,
-        "default_sender_actor_id": HUBSPOT_DEFAULT_SENDER_ACTOR_ID
-    }
 
     if not client:
         return f"{ERROR_PREFIX} HubSpot client is not initialized in config."
 
     # Use provided args or fall back to config defaults
-    final_channel_id = channel_id or config.get("default_channel")
-    final_channel_account_id = channel_account_id or config.get("default_channel_account")
-    final_sender_actor_id = sender_actor_id or config.get("default_sender_actor_id")
+    final_channel_id = channel_id or HUBSPOT_DEFAULT_CHANNEL
+    final_channel_account_id = channel_account_id or HUBSPOT_DEFAULT_CHANNEL_ACCOUNT
+    final_sender_actor_id = sender_actor_id or HUBSPOT_DEFAULT_SENDER_ACTOR_ID
 
     # --- Input Validation ---
     if not thread_id or not isinstance(thread_id, str) or thread_id.lower() == 'unknown':
