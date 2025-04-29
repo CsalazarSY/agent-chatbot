@@ -11,12 +11,6 @@ This file contains example messages to test the different functionalities and wo
 *   `[INBOX_ID]` - Replace with a specific HubSpot Inbox ID.
 *   `[DEFAULT_CHANNEL_ACCOUNT_ID]` - The configured default HubSpot channel account ID.
 *   `[DEFAULT_SENDER_ACTOR_ID]` - The configured default HubSpot sender actor ID.
-
-**Fixed Test Order IDs:**
-*   `ORD-12345` (Assumed Shipped)
-*   `ORD-67890` (Assumed In Progress)
-*   `ORD-SLOW` (Used for Dissatisfaction Test)
-
 ---
 
 ## Customer Service Scenarios
@@ -25,39 +19,65 @@ This file contains example messages to test the different functionalities and wo
 
 **1. Success Scenarios (User Expects Result/Confirmation)**
 
-*   **Pricing - Specific Quantity:**
+*   **Pricing - Specific Quantity (Direct Flow):**
     * "How much are 500 durable roll labels, 2 inches by 4 inches?"
-      * Expected: Planner -> ProductAgent (Find ID) -> ID Found -> Planner -> SYAgent (Get Specific Price) -> Extract Price -> TASK COMPLETE (Price Result)
+      * Expected: Planner -> ProductAgent (Find ID) -> ID Found (30) -> Planner -> SYAgent (Get Specific Price) -> Extract Price -> TASK COMPLETE (Price Result)
+      
+*   **Pricing - Tier Options (Direct Flow):** 
+    * "What are the prices for Permanent Holographic 4x4 inch?"
+      * Expected: Planner -> ProductAgent (Find ID) -> ID Found (52) -> Planner -> SYAgent (Get Specific Price) -> Extract Price -> TASK COMPLETE (Price Result)
+
+*   **Pricing - Multi-turn Clarification:**
     * "I need a quote for 75 kiss-cut removable vinyl stickers, 3x3 inches."
       * Expected (Multi-turn):
         1. Planner -> ProductAgent (Find ID for 'kiss-cut removable vinyl stickers') -> Multiple Matches Found (including 'Removable Smart Save Kiss-Cut Singles').
         2. Planner asks user for clarification -> <UserProxyAgent>.
         3. User clarifies ('Removable Smart Save Kiss-Cut Singles').
-        4. Planner -> ProductAgent (Find ID for 'Removable Smart Save Kiss-Cut Singles') -> ID Found (e.g., 73).
+        4. Planner -> ProductAgent (Find ID for 'Removable Smart Save Kiss-Cut Singles') -> ID Found (73).
         5. Planner -> SYAgent (Get Specific Price for ID 73, 3x3, Qty 75) -> SY_TOOL_FAILED (Minimum quantity error, e.g., 500).
         6. Planner informs user about minimum quantity and asks for confirmation -> <UserProxyAgent>.
         7. User agrees to minimum quantity.
         8. Planner -> SYAgent (Get Specific Price for ID 73, 3x3, Qty 500) -> Extract Price.
         9. TASK COMPLETE (Price Result for 500 units).
 
-*   **Pricing - Tier Options:**
     * "What are the price options for 2x2 kiss-cut stickers?"
-      * Expected: Planner -> ProductAgent (Find ID) -> ID Found -> Planner -> SYAgent (Get Price Tiers) -> Extract Tiers -> TASK COMPLETE (Formatted Tiers List)
-    * "Show me prices for different quantities of 3x3 die-cut stickers."
-      * Expected: Planner -> ProductAgent (Find ID) -> ID Found -> Planner -> SYAgent (Get Price Tiers) -> Extract Tiers -> TASK COMPLETE (Formatted Tiers List)
-    * "I'm not sure how many I need yet. Can you give me pricing tiers for 4x4 removable clear stickers?"
-      * Expected: Planner -> ProductAgent (Find ID) -> ID Found -> Planner -> SYAgent (Get Price Tiers) -> Extract Tiers -> TASK COMPLETE (Formatted Tiers List)
+      * Expected (Multi-turn):
+        1. Planner -> ProductAgent (Find ID for 'kiss-cut stickers') -> Multiple Matches Found.
+        2. Planner asks user for clarification (listing matches) -> <UserProxyAgent>.
+        3. User clarifies (e.g., 'Removable Vinyl Sticker Hand-Outs').
+        4. Planner -> ProductAgent (Find ID for clarified description) -> ID Found (11).
+        5. Planner -> SYAgent (Get Price Tiers for ID 11, 2x2) -> Extract Tiers.
+        6. TASK COMPLETE (Formatted Tiers List).
 
-*   **Pricing - Multi-turn Clarification:**
-   * (Initial) "Quote for durable roll labels" # Expected: Planner -> ProductAgent (Find ID) -> ID Found -> Planner asks user for Size & Quantity -> <UserProxyAgent>
-      * (Follow-up) "3x3 and 500 units" # Expected: Planner uses context -> SYAgent (Get Specific Price) -> Extract Price -> TASK COMPLETE (Price Result)
-   * (Initial) "Price for removable stickers 2x2?" # Expected: Planner -> ProductAgent (Find ID) -> Multiple Matches Found -> Planner asks user for clarification -> <UserProxyAgent>
-      *  (Follow-up, after Planner clarification) "The clear vinyl ones" # Expected: Planner uses context -> SYAgent (Get price tiers) -> Extract tiers -> TASK COMPLETE
+    * "Show me prices for different quantities of 3x3 die-cut stickers."
+      * Expected (Multi-turn):
+        1. Planner -> ProductAgent (Find ID for 'die-cut stickers') -> Multiple Matches Found.
+        2. Planner asks user for clarification (listing matches) -> <UserProxyAgent>.
+        3. User clarifies (e.g., 'Permanent Glow In The Dark Glossy').
+        4. Planner -> ProductAgent (Find ID for clarified description) -> ID Found (74).
+        5. Planner -> SYAgent (Get Price Tiers for ID 74, 3x3) -> Extract Tiers.
+        6. TASK COMPLETE (Formatted Tiers List).
+
+    * "I'm not sure how many I need yet. Can you give me pricing tiers for 4x4 removable clear stickers?"
+      * Expected (Multi-turn):
+        1. Planner -> ProductAgent (Find ID for 'removable clear stickers') -> Multiple Matches Found.
+        2. Planner asks user for clarification (listing matches and formats) -> <UserProxyAgent>.
+        3. User clarifies (e.g., 'Removable Clear Stickers in pages format').
+        4. Planner -> ProductAgent (Find ID for clarified description) -> ID Found (2).
+        5. Planner -> SYAgent (Get Price Tiers for ID 2, 4x4) -> Extract Tiers.
+        6. TASK COMPLETE (Formatted Tiers List, noting stickers per page).
+
+    * "Quote for durable roll labels"
+      * Expected (Multi-turn):
+         1. Planner -> ProductAgent (Find ID) -> ID Found (30) -> Planner asks user for Size & Quantity -> <UserProxyAgent>
+         2. "3x3 and 500 units"
+         3. Planner uses context (ID 30) -> SYAgent (Get Specific Price) -> Extract Price -> TASK COMPLETE (Price Result)
 
 *   **Order Status - Found:**
-    * "What is the status of my order OQA12346?"
+    * "What is the tracking code of my order OQA12346?"
       * Expected: Planner -> SYAgent (Get Order Details) -> Extract Status -> Planner -> SYAgent (Get Tracking) -> Extract Tracking -> TASK COMPLETE (Shipped Status + Tracking)
-    * "Can you check on OQA12345?"
+    
+    * "Can you check on my order OQA12345?"
       * Expected: Planner -> SYAgent (Get Order Details) -> Extract Status -> TASK COMPLETE (In Progress Status)
 
 *   **Product Information:**
@@ -71,8 +91,15 @@ This file contains example messages to test the different functionalities and wo
       * Expected: Planner -> ProductAgent (Count matching material 'Vinyl') -> Agent returns count -> TASK COMPLETE (Count Result)
 
 *   **Context / Memory:**
-    * (Initial) "Price for 50 4x4 die-cut stickers?" # Expected: Planner -> ProductAgent (Find ID) -> ID Found -> Planner -> SYAgent (Get Specific Price) -> Extract Price -> TASK COMPLETE (Price Result)
-      * (Follow-up) "Okay, what about 250 of those?" # Expected: Planner uses context (ID, size) -> SYAgent (Get Specific Price for 250) -> Extract Price -> TASK COMPLETE (Price Result)
+    * "Price for 50 4x4 die-cut stickers?" 
+      * Expected (Multi-turn):
+        1. Planner -> ProductAgent (Find ID for 'die-cut stickers') -> Multiple Matches.
+        2. Planner asks for clarification -> <UserProxyAgent>.
+        3. User clarifies (e.g., 'Permanent Die-Cut Singles').
+        4. Planner -> ProductAgent (Find ID for clarified) -> ID Found (e.g., 69).
+        5. Planner -> SYAgent (Get Specific Price ID 69, 4x4, Qty 50) -> Extract Price.
+        6. TASK COMPLETE (Price Result).
+      * (Follow-up) "Okay, what about 250 of those?" # Expected: Planner uses context (ID 69, size 4x4) -> SYAgent (Get Specific Price for 250) -> Extract Price -> TASK COMPLETE (Price Result)
 
 **2. Failure / Handoff Scenarios (User Encounters Problem)**
 

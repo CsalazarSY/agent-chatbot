@@ -69,13 +69,14 @@ async def _make_sy_api_request(
                 try:
                     return response.json()
                 except json.JSONDecodeError:
-                    # If 200 OK but not JSON, return raw text if useful, else error
-                    # Check content-type? For now, assume JSON expected on 200 OK
-                    return f"{API_ERROR_PREFIX} Failed to decode successful JSON response (Status 200)."
+                    # If 200 OK but not JSON, return raw text. It might be the expected plain string response (e.g., tracking code).
+                    try:
+                        return response
+                    except Exception as text_err:
+                        return f"{API_ERROR_PREFIX} Status 200 OK, but failed to decode JSON and failed to read response text: {text_err}"
 
             elif response.status_code == 401 and retry_count < max_retries:
-                print(f"SY API request received 401 Unauthorized. " 
-                      f"Attempting token refresh (Retry {retry_count + 1}/{max_retries})...")
+                print(f"SY API request received 401 Unauthorized. \n Attempting token refresh (Retry {retry_count + 1}/{max_retries})...")
                 refresh_successful = await config.refresh_sy_token()
                 retry_count += 1
 
@@ -90,7 +91,7 @@ async def _make_sy_api_request(
                     return f"{API_ERROR_PREFIX} Unauthorized (401) and token refresh failed."
 
             else:
-                # --- Enhanced Error Message Extraction ---
+                # --- Error Message Extraction ---
                 status_code = response.status_code
                 error_message_detail = ""
                 try:
@@ -587,50 +588,33 @@ async def sy_get_order_item_statuses(
 
 async def sy_get_order_tracking(
     order_id: str,
-) -> Dict | str: # Changed return type hint to Dict | str
+) -> Dict | str:
     """
     (GET /{version}/Orders/{id}/trackingcode)
     Description: Retrieves the shipping tracking information (code, URL, carrier) for a shipped order.
     Allowed Scopes: [User, Dev, Internal]
-    Note: Returns a raw string, not a dict.The API might return 404 if the order doesn't exist or tracking isn't populated.
+    Note: This endpoint returns a **raw string** containing only the tracking code on success (200 OK)
 
     Parameters:
         order_id (str): The StickerYou identifier for the order.
-
-    Request body example: None (GET request)
-
-    Response body template (on success, type: TrackingCodeResponse):
-        {
-            "trackingCode": Optional[str],
-            "trackingUrl": Optional[str],
-            "carrier": Optional[str],
-            "orderIdentifier": Optional[str],
-            "message": Optional[str]
-        }
-        (Note: Fields might be null if tracking is not yet available or if the order hasn't shipped.)
     """
     api_url = f"{config.API_BASE_URL}/{config.API_VERSION}/Orders/{order_id}/trackingcode"
     result = await _make_sy_api_request("GET", api_url)
 
-    if isinstance(result, dict):
-        # Check if tracking info is actually present
-        if result.get("trackingCode") or result.get("trackingUrl"):
-             return result
+    if isinstance(result, str):
+        # If it's an error string from the helper
+        if result.startswith(API_ERROR_PREFIX):
+            if "Not Found (404)" in result:
+                # Keep specific error for order not found / no tracking
+                return f"{API_ERROR_PREFIX} No tracking code available."
+            
+            return result
+        
+        # --- SUCCESS CASE: Raw string tracking code --- 
         else:
-            # Return a specific message if tracking is not populated yet
-            return f"{API_ERROR_PREFIX} Tracking information not yet available for this order."
-            # Alternatively return the dict as is: return result
-    elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
-        if "Not Found (404)" in result:
-            # Keep specific error for order not found / no tracking
-            return f"{API_ERROR_PREFIX} Tracking not available or order not found (404)."
-        return result # Return other errors with details from helper
-    else:
-        return (
-            f"{API_ERROR_PREFIX} Unexpected successful response type: "
-            f"{type(result)}. Expected Dict."
-        )
+            return f"Tracking code retrieved successfully: {result}"
 
+    return result
 
 # --- Pricing ---
 

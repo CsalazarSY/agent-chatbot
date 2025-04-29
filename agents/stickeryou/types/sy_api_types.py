@@ -207,14 +207,6 @@ class ProductListResponse(RootModel[List[ProductDetail]]):
         # Allow direct indexing
         return self.root[item]
 
-class TrackingCodeResponse(BaseModel):
-    """Response body model for sy_get_order_tracking (GET /v1/Orders/{id}/trackingcode)."""
-    trackingCode: Optional[str] = Field(None, description="The shipping tracking code/number.")
-    trackingUrl: Optional[str] = Field(None, description="A direct URL to track the shipment.")
-    carrier: Optional[str] = Field(None, description="The name of the shipping carrier.")
-    orderIdentifier: Optional[str] = Field(None, description="The identifier of the order this tracking belongs to.")
-    message: Optional[str] = Field(None, description="An optional message, e.g., indicating tracking is not yet available.")
-
 class OrderItemStatus(OrderItemBase):
     """Represents the status of a single item within an order, returned by sy_get_order_item_statuses (GET /v1/Orders/{id}/items/status). Inherits fields from OrderItemBase (maps to Swagger's OrderItemResponse)."""
     orderItemIdentifier: str = Field(description="API-defined identifier for the specific order item.")

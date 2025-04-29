@@ -82,8 +82,7 @@ class AgentService:
     def __init__(self):
         # Ensure shared state is initialized if it hasn't been already
         if not AgentService._initialized:
-             AgentService._initialize_shared_state()
-        pass
+            AgentService._initialize_shared_state()
 
     # Termination Condition
     @staticmethod
