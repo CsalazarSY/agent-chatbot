@@ -1,7 +1,7 @@
 # agents/hubspot/tools/conversation_tools.py
 
 import asyncio
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 
 # Import necessary configuration constants and the client
 from config import (
@@ -9,6 +9,24 @@ from config import (
     HUBSPOT_DEFAULT_CHANNEL,
     HUBSPOT_DEFAULT_CHANNEL_ACCOUNT,
     HUBSPOT_DEFAULT_SENDER_ACTOR_ID
+)
+# Import newly defined Pydantic models for API responses
+from agents.hubspot.types.api_types import (
+    CreateMessageResponse,
+    ThreadDetailResponse,
+    ListMessagesResponse,
+    ListThreadsResponse,
+    UpdateThreadResponse,
+    ActorDetailResponse,
+    BatchReadResponse,
+    ListInboxesResponse,
+    InboxDetailResponse,
+    ListChannelsResponse,
+    ChannelDetailResponse,
+    ListChannelAccountsResponse,
+    ChannelAccountDetailResponse,
+    MessageDetailResponse,
+    OriginalMessageContentResponse
 )
 
 # Standardized Error Prefix
@@ -22,7 +40,7 @@ async def send_message_to_thread(
     channel_id: Optional[str] = None,
     channel_account_id: Optional[str] = None,
     sender_actor_id: Optional[str] = None,
-) -> str | Dict[str, Any]: # Allow returning dict on success
+) -> Union[CreateMessageResponse, str]:
     """Sends a message or comment to a HubSpot conversation thread.
 
     If the message_text contains 'HANDOFF' or 'COMMENT' (case-insensitive), it sends the message
@@ -37,7 +55,7 @@ async def send_message_to_thread(
         sender_actor_id: Optional. The HubSpot Actor ID (e.g., "A-12345") posting the message/comment. Uses default from config if None.
 
     Returns:
-        A dictionary containing the created message details on success, or an error string.
+        A CreateMessageResponse model instance on success, or an error string.
     """
     # Use the imported client
     client = hubspot_client
@@ -94,21 +112,14 @@ async def send_message_to_thread(
             if 200 <= response.status_code < 300:
                 try:
                     parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict):
-                        return parsed_data # Return created message details
-                    else:
-                        return (
-                            f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), "
-                            f"but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-                        )
-
-                except Exception as json_err:
+                    # Attempt to parse into the Pydantic model
+                    return CreateMessageResponse.model_validate(parsed_data)
+                except Exception as parse_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
                     return (
                         f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), "
-                        f"but failed to parse JSON response. Error: {json_err}. Response Text: {response_text[:200]}..."
+                        f"but failed to parse JSON into CreateMessageResponse. Error: {parse_err}. Response Text: {response_text[:200]}..."
                     )
 
             else:
@@ -116,9 +127,12 @@ async def send_message_to_thread(
                 except: body_str = "[Could not retrieve response text]"
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} sending message. Body: {body_str}"
 
-        # Handle already parsed dict/list
+        # Handle already parsed dict/list - attempt validation
         elif isinstance(response, dict):
-            return response # Return created message details
+            try:
+                return CreateMessageResponse.model_validate(response)
+            except Exception as parse_err:
+                 return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for CreateMessageResponse: {parse_err}. Data: {str(response)[:200]}..."
 
         # Fallback for other unexpected types
         else:
@@ -145,7 +159,7 @@ async def send_message_to_thread(
 async def get_thread_details(
     thread_id: str,
     association: Optional[str] = None
-) -> Dict[str, Any] | str:
+) -> Union[ThreadDetailResponse, str]:
     """Retrieves details for a single conversation thread.
     Allowed Scopes: [Dev, Internal]
 
@@ -154,8 +168,7 @@ async def get_thread_details(
         association: Optional. Specify an association type (e.g., 'TICKET') to include associated object IDs.
 
     Returns:
-        A dictionary containing thread details on success, or an error string.
-
+        A ThreadDetailResponse model instance on success, or an error string.
     """
     client = hubspot_client
 
@@ -181,12 +194,7 @@ async def get_thread_details(
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
             if 200 <= response.status_code < 300:
                 try:
-                    parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict): return parsed_data
-
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-
+                    return ThreadDetailResponse.model_validate(response.json())
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
@@ -197,9 +205,12 @@ async def get_thread_details(
                 except: body_str = "[Could not retrieve response text]"
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} getting thread details. Body: {body_str}"
 
-        elif isinstance(response, dict): return response
+        elif isinstance(response, dict):
+             try: return ThreadDetailResponse.model_validate(response)
+             except Exception as parse_err: return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for ThreadDetailResponse: {parse_err}. Data: {str(response)[:200]}..."
 
-        else: return f"{ERROR_PREFIX} Unexpected success response format getting thread details. Type: {type(response).__name__}"
+        else:
+            return f"{ERROR_PREFIX} Unexpected success response format getting thread details. Type: {type(response).__name__}"
 
     except Exception as e:
         if hasattr(e, 'status'):
@@ -218,7 +229,7 @@ async def get_thread_messages(
     limit: Optional[int] = None,
     after: Optional[str] = None,
     sort: Optional[str] = None
-) -> Dict[str, Any] | str:
+) -> Union[ListMessagesResponse, str]:
     """Retrieves message history for a thread.
     Allowed Scopes: [Dev, Internal]
 
@@ -234,7 +245,7 @@ async def get_thread_messages(
 
     Returns:
 
-        A dictionary containing message results and paging info, or an error string.
+        A ListMessagesResponse model instance containing message results and paging info, or an error string.
 
     """
     client = hubspot_client
@@ -265,12 +276,7 @@ async def get_thread_messages(
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
             if 200 <= response.status_code < 300:
                 try:
-                    parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict): return parsed_data # API returns a dict like {"results": [], "paging": ...}
-
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-
+                    return ListMessagesResponse.model_validate(response.json())
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
@@ -281,7 +287,9 @@ async def get_thread_messages(
                 except: body_str = "[Could not retrieve response text]"
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} getting thread messages. Body: {body_str}"
 
-        elif isinstance(response, dict): return response
+        elif isinstance(response, dict):
+             try: return ListMessagesResponse.model_validate(response)
+             except Exception as parse_err: return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for ListMessagesResponse: {parse_err}. Data: {str(response)[:200]}..."
 
         else: return f"{ERROR_PREFIX} Unexpected success response format getting thread messages. Type: {type(response).__name__}"
 
@@ -305,7 +313,7 @@ async def list_threads(
     associated_contact_id: Optional[str] = None,
     sort: Optional[str] = None,
     association: Optional[str] = None
-) -> Dict[str, Any] | str:
+) -> Union[ListThreadsResponse, str]:
     """Retrieves a list of conversation threads with filtering and pagination.
     Allowed Scopes: [Dev, Internal]
 
@@ -327,7 +335,7 @@ async def list_threads(
 
     Returns:
 
-        A dictionary containing thread results and paging info, or an error string.
+        A ListThreadsResponse model instance containing thread results and paging info, or an error string.
 
     """
     client = hubspot_client
@@ -369,12 +377,7 @@ async def list_threads(
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
             if 200 <= response.status_code < 300:
                 try:
-                    parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict): return parsed_data
-
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-
+                    return ListThreadsResponse.model_validate(response.json())
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
@@ -385,7 +388,9 @@ async def list_threads(
                 except: body_str = "[Could not retrieve response text]"
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} listing threads. Body: {body_str}"
 
-        elif isinstance(response, dict): return response
+        elif isinstance(response, dict):
+             try: return ListThreadsResponse.model_validate(response)
+             except Exception as parse_err: return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for ListThreadsResponse: {parse_err}. Data: {str(response)[:200]}..."
 
         else: return f"{ERROR_PREFIX} Unexpected success response format listing threads. Type: {type(response).__name__}"
 
@@ -406,7 +411,7 @@ async def update_thread(
     status: Optional[str] = None,
     archived: Optional[bool] = None,
     is_currently_archived: bool = False
-) -> Dict[str, Any] | str:
+) -> Union[UpdateThreadResponse, str]:
     """Updates a thread's status or restores it from archive.
     Allowed Scopes: [Dev Only]
 
@@ -422,7 +427,7 @@ async def update_thread(
 
     Returns:
 
-        The updated thread details on success, or an error string.
+        An UpdateThreadResponse model instance (updated thread details) on success, or an error string.
 
     """
     client = hubspot_client
@@ -467,12 +472,7 @@ async def update_thread(
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
             if 200 <= response.status_code < 300:
                 try:
-                    parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict): return parsed_data
-
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-
+                    return UpdateThreadResponse.model_validate(response.json())
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
@@ -483,7 +483,9 @@ async def update_thread(
                 except: body_str = "[Could not retrieve response text]"
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} updating thread. Body: {body_str}"
 
-        elif isinstance(response, dict): return response
+        elif isinstance(response, dict):
+             try: return UpdateThreadResponse.model_validate(response)
+             except Exception as parse_err: return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for UpdateThreadResponse: {parse_err}. Data: {str(response)[:200]}..."
 
         else: return f"{ERROR_PREFIX} Unexpected success response format updating thread. Type: {type(response).__name__}"
 
@@ -568,7 +570,7 @@ async def archive_thread(thread_id: str) -> str:
         else: return f"{ERROR_PREFIX} Unexpected error archiving thread: {type(e).__name__} - {e}"
 
 
-async def get_actor_details(actor_id: str) -> Dict[str, Any] | str:
+async def get_actor_details(actor_id: str) -> Union[ActorDetailResponse, str]:
     """Retrieves details for a specific actor.
     Allowed Scopes: [Dev, Internal]
 
@@ -578,7 +580,7 @@ async def get_actor_details(actor_id: str) -> Dict[str, Any] | str:
 
     Returns:
 
-        A dictionary containing actor details on success, or an error string.
+        An ActorDetailResponse model instance on success, or an error string.
 
     """
     client = hubspot_client
@@ -602,12 +604,7 @@ async def get_actor_details(actor_id: str) -> Dict[str, Any] | str:
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
             if 200 <= response.status_code < 300:
                 try:
-                    parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict): return parsed_data
-
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-
+                    return ActorDetailResponse.model_validate(response.json())
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
@@ -619,7 +616,9 @@ async def get_actor_details(actor_id: str) -> Dict[str, Any] | str:
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} getting actor details. Body: {body_str}"
 
         # Handle already parsed dict/list
-        elif isinstance(response, dict): return response
+        elif isinstance(response, dict):
+            try: return ActorDetailResponse.model_validate(response)
+            except Exception as parse_err: return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for ActorDetailResponse: {parse_err}. Data: {str(response)[:200]}..."
 
         # Fallback for other unexpected types
         else:
@@ -637,7 +636,7 @@ async def get_actor_details(actor_id: str) -> Dict[str, Any] | str:
         else: return f"{ERROR_PREFIX} Unexpected error getting actor details: {type(e).__name__} - {e}"
 
 
-async def get_actors_batch(actor_ids: List[str]) -> Dict[str, Any] | str:
+async def get_actors_batch(actor_ids: List[str]) -> Union[BatchReadResponse, str]:
     """Retrieves details for multiple actors in a batch.
     Allowed Scopes: [Dev, Internal]
 
@@ -647,7 +646,7 @@ async def get_actors_batch(actor_ids: List[str]) -> Dict[str, Any] | str:
 
     Returns:
 
-        A dictionary containing batch results (potentially including errors), or a general error string.
+        A BatchReadResponse model instance (potentially including errors), or a general error string.
 
     """
     client = hubspot_client
@@ -674,12 +673,7 @@ async def get_actors_batch(actor_ids: List[str]) -> Dict[str, Any] | str:
 
             if 200 <= response.status_code < 300:
                 try:
-                    parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict): return parsed_data # Includes status, results, errors etc.
-
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-
+                    return BatchReadResponse.model_validate(response.json())
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
@@ -690,7 +684,9 @@ async def get_actors_batch(actor_ids: List[str]) -> Dict[str, Any] | str:
                 except: body_str = "[Could not retrieve response text]"
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} getting actors batch. Body: {body_str}"
 
-        elif isinstance(response, dict): return response
+        elif isinstance(response, dict):
+             try: return BatchReadResponse.model_validate(response)
+             except Exception as parse_err: return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for BatchReadResponse: {parse_err}. Data: {str(response)[:200]}..."
 
         else: return f"{ERROR_PREFIX} Unexpected success response format getting actors batch. Type: {type(response).__name__}"
 
@@ -709,7 +705,7 @@ async def get_actors_batch(actor_ids: List[str]) -> Dict[str, Any] | str:
 async def list_inboxes(
     limit: Optional[int] = None,
     after: Optional[str] = None
-) -> Dict[str, Any] | str:
+) -> Union[ListInboxesResponse, str]:
     """Retrieves a list of conversation inboxes.
     Allowed Scopes: [Dev, Internal]
 
@@ -721,7 +717,7 @@ async def list_inboxes(
 
     Returns:
 
-        A dictionary containing inbox results and paging info, or an error string.
+        A ListInboxesResponse model instance containing inbox results and paging info, or an error string.
 
     """
     client = hubspot_client
@@ -747,12 +743,7 @@ async def list_inboxes(
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
             if 200 <= response.status_code < 300:
                 try:
-                    parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict): return parsed_data
-
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-
+                    return ListInboxesResponse.model_validate(response.json())
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
@@ -763,7 +754,9 @@ async def list_inboxes(
                 except: body_str = "[Could not retrieve response text]"
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} listing inboxes. Body: {body_str}"
 
-        elif isinstance(response, dict): return response
+        elif isinstance(response, dict):
+             try: return ListInboxesResponse.model_validate(response)
+             except Exception as parse_err: return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for ListInboxesResponse: {parse_err}. Data: {str(response)[:200]}..."
 
         else: return f"{ERROR_PREFIX} Unexpected success response format listing inboxes. Type: {type(response).__name__}"
 
@@ -779,7 +772,7 @@ async def list_inboxes(
         else: return f"{ERROR_PREFIX} Unexpected error listing inboxes: {type(e).__name__} - {e}"
 
 
-async def get_inbox_details(inbox_id: str) -> Dict[str, Any] | str:
+async def get_inbox_details(inbox_id: str) -> Union[InboxDetailResponse, str]:
     """Retrieves details for a specific inbox.
     Allowed Scopes: [Dev, Internal]
 
@@ -789,7 +782,7 @@ async def get_inbox_details(inbox_id: str) -> Dict[str, Any] | str:
 
     Returns:
 
-        A dictionary containing inbox details, or an error string.
+        An InboxDetailResponse model instance, or an error string.
 
     """
     client = hubspot_client
@@ -812,12 +805,7 @@ async def get_inbox_details(inbox_id: str) -> Dict[str, Any] | str:
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
             if 200 <= response.status_code < 300:
                 try:
-                    parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict): return parsed_data
-
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-
+                    return InboxDetailResponse.model_validate(response.json())
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
@@ -828,7 +816,9 @@ async def get_inbox_details(inbox_id: str) -> Dict[str, Any] | str:
                 except: body_str = "[Could not retrieve response text]"
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} getting inbox details. Body: {body_str}"
 
-        elif isinstance(response, dict): return response
+        elif isinstance(response, dict):
+             try: return InboxDetailResponse.model_validate(response)
+             except Exception as parse_err: return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for InboxDetailResponse: {parse_err}. Data: {str(response)[:200]}..."
 
         else: return f"{ERROR_PREFIX} Unexpected success response format getting inbox details. Type: {type(response).__name__}"
 
@@ -847,7 +837,7 @@ async def get_inbox_details(inbox_id: str) -> Dict[str, Any] | str:
 async def list_channels(
     limit: Optional[int] = None,
     after: Optional[str] = None
-) -> Dict[str, Any] | str:
+) -> Union[ListChannelsResponse, str]:
     """Retrieves a list of channels connected to inboxes.
     Allowed Scopes: [Dev, Internal]
 
@@ -859,7 +849,7 @@ async def list_channels(
 
     Returns:
 
-        A dictionary containing channel results and paging info, or an error string.
+        A ListChannelsResponse model instance containing channel results and paging info, or an error string.
 
     """
     client = hubspot_client
@@ -885,12 +875,7 @@ async def list_channels(
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
             if 200 <= response.status_code < 300:
                 try:
-                    parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict): return parsed_data
-
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-
+                    return ListChannelsResponse.model_validate(response.json())
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
@@ -901,7 +886,9 @@ async def list_channels(
                 except: body_str = "[Could not retrieve response text]"
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} listing channels. Body: {body_str}"
 
-        elif isinstance(response, dict): return response
+        elif isinstance(response, dict):
+             try: return ListChannelsResponse.model_validate(response)
+             except Exception as parse_err: return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for ListChannelsResponse: {parse_err}. Data: {str(response)[:200]}..."
 
         else: return f"{ERROR_PREFIX} Unexpected success response format listing channels. Type: {type(response).__name__}"
 
@@ -917,7 +904,7 @@ async def list_channels(
         else: return f"{ERROR_PREFIX} Unexpected error listing channels: {type(e).__name__} - {e}"
 
 
-async def get_channel_details(channel_id: str) -> Dict[str, Any] | str:
+async def get_channel_details(channel_id: str) -> Union[ChannelDetailResponse, str]:
     """Retrieves details for a specific channel.
     Allowed Scopes: [Dev, Internal]
 
@@ -927,7 +914,7 @@ async def get_channel_details(channel_id: str) -> Dict[str, Any] | str:
 
     Returns:
 
-        A dictionary containing channel details, or an error string.
+        A ChannelDetailResponse model instance, or an error string.
 
     """
     client = hubspot_client
@@ -950,12 +937,7 @@ async def get_channel_details(channel_id: str) -> Dict[str, Any] | str:
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
             if 200 <= response.status_code < 300:
                 try:
-                    parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict): return parsed_data
-
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-
+                    return ChannelDetailResponse.model_validate(response.json())
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
@@ -966,7 +948,9 @@ async def get_channel_details(channel_id: str) -> Dict[str, Any] | str:
                 except: body_str = "[Could not retrieve response text]"
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} getting channel details. Body: {body_str}"
 
-        elif isinstance(response, dict): return response
+        elif isinstance(response, dict):
+             try: return ChannelDetailResponse.model_validate(response)
+             except Exception as parse_err: return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for ChannelDetailResponse: {parse_err}. Data: {str(response)[:200]}..."
 
         else: return f"{ERROR_PREFIX} Unexpected success response format getting channel details. Type: {type(response).__name__}"
 
@@ -987,7 +971,7 @@ async def list_channel_accounts(
     inbox_id: Optional[str] = None,
     limit: Optional[int] = None,
     after: Optional[str] = None
-) -> Dict[str, Any] | str:
+) -> Union[ListChannelAccountsResponse, str]:
     """Retrieves a list of channel accounts (instances of channels).
     Allowed Scopes: [Dev, Internal]
 
@@ -1003,7 +987,7 @@ async def list_channel_accounts(
 
     Returns:
 
-        A dictionary containing channel account results and paging info, or an error string.
+        A ListChannelAccountsResponse model instance containing channel account results/paging info, or an error string.
 
     """
     client = hubspot_client
@@ -1033,12 +1017,7 @@ async def list_channel_accounts(
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
             if 200 <= response.status_code < 300:
                 try:
-                    parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict): return parsed_data
-
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-
+                    return ListChannelAccountsResponse.model_validate(response.json())
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
@@ -1049,7 +1028,9 @@ async def list_channel_accounts(
                 except: body_str = "[Could not retrieve response text]"
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} listing channel accounts. Body: {body_str}"
 
-        elif isinstance(response, dict): return response
+        elif isinstance(response, dict):
+             try: return ListChannelAccountsResponse.model_validate(response)
+             except Exception as parse_err: return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for ListChannelAccountsResponse: {parse_err}. Data: {str(response)[:200]}..."
 
         else: return f"{ERROR_PREFIX} Unexpected success response format listing channel accounts. Type: {type(response).__name__}"
 
@@ -1065,7 +1046,7 @@ async def list_channel_accounts(
         else: return f"{ERROR_PREFIX} Unexpected error listing channel accounts: {type(e).__name__} - {e}"
 
 
-async def get_channel_account_details(channel_account_id: str) -> Dict[str, Any] | str:
+async def get_channel_account_details(channel_account_id: str) -> Union[ChannelAccountDetailResponse, str]:
     """Retrieves details for a specific channel account instance.
     Allowed Scopes: [Dev, Internal]
 
@@ -1075,7 +1056,7 @@ async def get_channel_account_details(channel_account_id: str) -> Dict[str, Any]
 
     Returns:
 
-        A dictionary containing channel account details, or an error string.
+        A ChannelAccountDetailResponse model instance, or an error string.
 
     """
     client = hubspot_client
@@ -1098,12 +1079,7 @@ async def get_channel_account_details(channel_account_id: str) -> Dict[str, Any]
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
             if 200 <= response.status_code < 300:
                 try:
-                    parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict): return parsed_data
-
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-
+                    return ChannelAccountDetailResponse.model_validate(response.json())
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
@@ -1114,7 +1090,9 @@ async def get_channel_account_details(channel_account_id: str) -> Dict[str, Any]
                 except: body_str = "[Could not retrieve response text]"
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} getting channel account details. Body: {body_str}"
 
-        elif isinstance(response, dict): return response
+        elif isinstance(response, dict):
+             try: return ChannelAccountDetailResponse.model_validate(response)
+             except Exception as parse_err: return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for ChannelAccountDetailResponse: {parse_err}. Data: {str(response)[:200]}..."
 
         else: return f"{ERROR_PREFIX} Unexpected success response format getting channel account details. Type: {type(response).__name__}"
 
@@ -1133,7 +1111,7 @@ async def get_channel_account_details(channel_account_id: str) -> Dict[str, Any]
 async def get_message_details(
     thread_id: str,
     message_id: str
-) -> Dict[str, Any] | str:
+) -> Union[MessageDetailResponse, str]:
     """Retrieves a specific message within a given thread.
     Allowed Scopes: [Dev, Internal]
 
@@ -1145,7 +1123,7 @@ async def get_message_details(
 
     Returns:
 
-        A dictionary containing message details, or an error string.
+        A MessageDetailResponse model instance, or an error string.
 
     """
     client = hubspot_client
@@ -1171,12 +1149,7 @@ async def get_message_details(
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
             if 200 <= response.status_code < 300:
                 try:
-                    parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict): return parsed_data
-
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-
+                    return MessageDetailResponse.model_validate(response.json())
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
@@ -1187,7 +1160,9 @@ async def get_message_details(
                 except: body_str = "[Could not retrieve response text]"
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} getting message details. Body: {body_str}"
 
-        elif isinstance(response, dict): return response
+        elif isinstance(response, dict):
+             try: return MessageDetailResponse.model_validate(response)
+             except Exception as parse_err: return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for MessageDetailResponse: {parse_err}. Data: {str(response)[:200]}..."
 
         else: return f"{ERROR_PREFIX} Unexpected success response format getting message details. Type: {type(response).__name__}"
 
@@ -1206,7 +1181,7 @@ async def get_message_details(
 async def get_original_message_content(
     thread_id: str,
     message_id: str
-) -> Dict[str, Any] | str:
+) -> Union[OriginalMessageContentResponse, str]:
     """Retrieves the original text/richText content of a potentially truncated message.
     Allowed Scopes: [Dev, Internal]
 
@@ -1218,7 +1193,7 @@ async def get_original_message_content(
 
     Returns:
 
-        A dictionary with 'text' and 'richText' keys, or an error string.
+        An OriginalMessageContentResponse model instance with 'text'/'richText', or an error string.
 
     """
     client = hubspot_client
@@ -1244,12 +1219,7 @@ async def get_original_message_content(
         if hasattr(response, 'status_code') and hasattr(response, 'json'):
             if 200 <= response.status_code < 300:
                 try:
-                    parsed_data = response.json()
-
-                    if isinstance(parsed_data, dict): return parsed_data
-
-                    else: return f"{ERROR_PREFIX} WARNING: API call successful (Status {response.status_code}), but JSON parsing yielded unexpected type: {type(parsed_data).__name__}"
-
+                    return OriginalMessageContentResponse.model_validate(response.json())
                 except Exception as json_err:
                     try: response_text = response.text
                     except: response_text = "[Could not retrieve response text]"
@@ -1260,7 +1230,9 @@ async def get_original_message_content(
                 except: body_str = "[Could not retrieve response text]"
                 return f"{ERROR_PREFIX} API Error Status {response.status_code} getting original message content. Body: {body_str}"
 
-        elif isinstance(response, dict): return response
+        elif isinstance(response, dict):
+             try: return OriginalMessageContentResponse.model_validate(response)
+             except Exception as parse_err: return f"{ERROR_PREFIX} Unexpected dict response format, failed validation for OriginalMessageContentResponse: {parse_err}. Data: {str(response)[:200]}..."
 
         else: return f"{ERROR_PREFIX} Unexpected success response format getting original message content. Type: {type(response).__name__}"
 

@@ -15,15 +15,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # AutoGen imports
 from autogen_agentchat.base import TaskResult
+
 # Types
-from models.api_types import ChatRequest, ChatResponse
-from models.hubspot_types import WebhookPayload, HubSpotSubscriptionType
+from models.chat_api import ChatRequest, ChatResponse # /chat endpoint
+from models.hubspot_webhooks import WebhookPayload, HubSpotSubscriptionType # /hubspot/webhooks endpoint
+
+from agents.hubspot.types.api_types import MessageDetailResponse # send_message_to_thread tool
+
+# HubSpot Tools used in webhook handler
+from agents.hubspot.tools.conversation_tools import get_message_details, send_message_to_thread
 
 # Centralized Agent Service
 from agents.agents_services import agent_service
 
-# HubSpot Tools for direct use in webhook handler
-from agents.hubspot.tools.conversation_tools import get_message_details, send_message_to_thread
 # Import config to access the refresh function
 import config
 
@@ -169,8 +173,8 @@ async def process_agent_response_and_reply(conversation_id: str, task_result: Op
             if isinstance(raw_reply, str):
                 # Clean up Planner's final output tags
                 cleaned_reply = raw_reply
-                if cleaned_reply.startswith("TASK COMPLETE:"): cleaned_reply = cleaned_reply[len("TASK COMPLETE:"):].strip()
-                if cleaned_reply.startswith("TASK FAILED:"): cleaned_reply = cleaned_reply[len("TASK FAILED:"):].strip()
+                if cleaned_reply.startswith("TASK COMPLETE"): cleaned_reply = cleaned_reply[len("TASK COMPLETE:"):].strip()
+                if cleaned_reply.startswith("TASK FAILED"): cleaned_reply = cleaned_reply[len("TASK FAILED:"):].strip()
                 cleaned_reply = cleaned_reply.replace("<UserProxyAgent>", "").strip()
                 # Remove potential leading/trailing colons if UserProxyAgent tag had them
                 if cleaned_reply.startswith(":"): cleaned_reply = cleaned_reply[1:].strip()
@@ -243,9 +247,11 @@ async def hubspot_webhook_endpoint(payload: WebhookPayload):
                 print(f"    - Fetching message details for {message_id} in thread {thread_id}...")
                 msg_details = await get_message_details(thread_id=thread_id, message_id=message_id)
 
-                if isinstance(msg_details, dict) and 'text' in msg_details:
+                if isinstance(msg_details, MessageDetailResponse) and msg_details.text:
+                    message_content = msg_details.text
+                    print(f"    -> Fetched message content: '{message_content[:50]}...'")
+                elif isinstance(msg_details, dict) and 'text' in msg_details:
                     message_content = msg_details['text']
-                    print(f"    -> Fetched message content: '{message_content[:50]}...'") # Log snippet
                 elif isinstance(msg_details, str) and msg_details.startswith("HUBSPOT_TOOL_FAILED"):
                      print(f"    !! Failed to fetch message details: {msg_details}")
                 else:
@@ -269,7 +275,7 @@ async def hubspot_webhook_endpoint(payload: WebhookPayload):
 
                 asyncio.create_task(run_agent_and_reply())
             else:
-                 print(f"    -> Skipping agent trigger for thread {thread_id} due to missing message content.")
+                print(f"    -> Skipping agent trigger for thread {thread_id} due to missing message content.")
 
         else:
             print(f"    - Skipping event: Type '{event.subscriptionType}' / Message Type '{event.messageType}' not processed.")

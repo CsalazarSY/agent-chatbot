@@ -2,6 +2,6 @@
 # models/__init__.py
 
 # Types
-from models.api_types import ChatRequest, ChatResponse
-from models.hubspot_types import WebhookPayload
+from models.chat_api import ChatRequest, ChatResponse
+from models.hubspot_webhooks import WebhookPayload
 
