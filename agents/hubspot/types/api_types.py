@@ -2,7 +2,6 @@
 # agents/hubspot/types/hubspot_api_types.py
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime
 from enum import Enum
 from pydantic import BaseModel, Field
 
@@ -74,8 +73,8 @@ class Actor(BaseModel):
     avatar: Optional[str] = None
 
 class ChannelAccount(BaseModel):
-    createdAt: Optional[datetime] = None
-    archivedAt: Optional[datetime] = None
+    createdAt: Optional[str] = None
+    archivedAt: Optional[str] = None
     archived: Optional[bool] = None
     authorized: Optional[bool] = None
     name: Optional[str] = None
@@ -94,13 +93,13 @@ class InboxType(str, Enum):
     INBOX = "INBOX"
 
 class Inbox(BaseModel):
-    createdAt: Optional[datetime] = None
-    archivedAt: Optional[datetime] = None
+    createdAt: Optional[str] = None
+    archivedAt: Optional[str] = None
     archived: Optional[bool] = None
     name: Optional[str] = None
     id: str
     type: Optional[InboxType] = None
-    updatedAt: Optional[datetime] = None
+    updatedAt: Optional[str] = None
 
 class MessageType(str, Enum):
     """ Defines known message types within a conversation thread. """
@@ -124,8 +123,8 @@ class MessageDetail(BaseModel):
     type: Optional[MessageType] = None
     id: str
     conversationsThreadId: Optional[str] = Field(None, alias="conversationsThreadId")
-    createdAt: Optional[datetime] = None
-    updatedAt: Optional[datetime] = None
+    createdAt: Optional[str] = None
+    updatedAt: Optional[str] = None
     createdBy: Optional[str] = None
     client: Optional[ClientInfo] = None
     senders: Optional[List[MessageSender]] = None
@@ -166,18 +165,18 @@ class ThreadDetail(BaseModel):
     associatedContactId: Optional[str] = Field(None, alias="associatedContactId")
     threadAssociations: Optional[ThreadAssociations] = None
     assignedTo: Optional[str] = None # Actor ID
-    createdAt: Optional[datetime] = None
+    createdAt: Optional[str] = None
     archived: Optional[bool] = None
     originalChannelId: Optional[str] = None
-    latestMessageTimestamp: Optional[datetime] = None
-    latestMessageSentTimestamp: Optional[datetime] = None
+    latestMessageTimestamp: Optional[str] = None
+    latestMessageSentTimestamp: Optional[str] = None
     originalChannelAccountId: Optional[str] = None
     id: str
-    closedAt: Optional[datetime] = None
+    closedAt: Optional[str] = None
     spam: Optional[bool] = None
     inboxId: Optional[str] = None
     status: Optional[ThreadStatus] = None
-    latestMessageReceivedTimestamp: Optional[datetime] = None
+    latestMessageReceivedTimestamp: Optional[str] = None
 
 # --- Specific Endpoint Response Models ---
 
@@ -234,9 +233,9 @@ class ListThreadsResponse(BaseModel):
 
 # POST /conversations/v3/conversations/actors/batch/read
 class BatchReadResponse(BaseModel): # Simplified representation
-    completedAt: Optional[datetime] = None
-    requestedAt: Optional[datetime] = None
-    startedAt: Optional[datetime] = None
+    completedAt: Optional[str] = None
+    requestedAt: Optional[str] = None
+    startedAt: Optional[str] = None
     links: Optional[Dict[str, str]] = None
     results: List[Actor]
     status: Optional[str] = None # e.g., PENDING, COMPLETE

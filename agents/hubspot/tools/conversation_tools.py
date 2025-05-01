@@ -1,7 +1,7 @@
 # agents/hubspot/tools/conversation_tools.py
 
 import asyncio
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Union
 
 # Import necessary configuration constants and the client
 from config import (

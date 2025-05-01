@@ -28,52 +28,52 @@ hubspot_agent_system_message = f"""
    - `[Dev Only]`: Should **only** be invoked when explicitly requested by a developer (via `-dev` mode in Planner). The Planner should **not** use these tools automatically as part of its internal processing in standard customer service mode.
 
    - **`send_message_to_thread(thread_id: str, message_text: str, channel_id: str | None = '{HUBSPOT_DEFAULT_CHANNEL}', channel_account_id: str | None = '{HUBSPOT_DEFAULT_CHANNEL_ACCOUNT}', sender_actor_id: str | None = '{HUBSPOT_DEFAULT_SENDER_ACTOR_ID}') -> Dict | str`**
-     - **Purpose:** Sends content to a specific conversation thread. Automatically sends as a public `MESSAGE` unless `message_text` contains `COMMENT` or `HANDOFF` (case-insensitive), then sends as internal `COMMENT`. Returns created message details. (Scope: `[Dev, Internal]`)
+     - **Purpose:** Sends content to a specific conversation thread. Automatically sends as a public `MESSAGE` unless `message_text` contains `COMMENT` or `HANDOFF` (case-insensitive), then sends as internal `COMMENT`. Returns created message details as a dictionary. (Scope: `[Dev, Internal]`)
 
-   - **`get_thread_details(thread_id: str, association: str | None = None) -> dict | str`**
-     - **Purpose:** Retrieves detailed information about a single conversation thread. (Scope: `[Dev, Internal]`)
+   - **`get_thread_details(thread_id: str, association: str | None = None) -> Dict | str`**
+     - **Purpose:** Retrieves detailed information about a single conversation thread as a dictionary. (Scope: `[Dev, Internal]`)
 
-   - **`get_thread_messages(thread_id: str, limit: int | None = None, after: str | None = None, sort: str | None = None) -> dict | str`**
-     - **Purpose:** Fetches the message history for a specific conversation thread. (Scope: `[Dev, Internal]`)
+   - **`get_thread_messages(thread_id: str, limit: int | None = None, after: str | None = None, sort: str | None = None) -> Dict | str`**
+     - **Purpose:** Fetches the message history for a specific conversation thread as a dictionary (containing results and paging). (Scope: `[Dev, Internal]`)
 
-   - **`list_threads(limit: int | None = None, after: str | None = None, thread_status: str | None = None, inbox_id: str | None = None, associated_contact_id: str | None = None, sort: str | None = None, association: str | None = None) -> dict | str`**
-     - **Purpose:** Finds and lists conversation threads with filtering/pagination. (Scope: `[Dev, Internal]`)
+   - **`list_threads(limit: int | None = None, after: str | None = None, thread_status: str | None = None, inbox_id: str | None = None, associated_contact_id: str | None = None, sort: str | None = None, association: str | None = None) -> Dict | str`**
+     - **Purpose:** Finds and lists conversation threads with filtering/pagination, returns a dictionary. (Scope: `[Dev, Internal]`)
 
-   - **`update_thread(thread_id: str, status: str | None = None, archived: bool | None = None, is_currently_archived: bool = False) -> dict | str`**
-     - **Purpose:** Modifies a thread's status or restores an archived thread. (Scope: `[Dev Only]`)
+   - **`update_thread(thread_id: str, status: str | None = None, archived: bool | None = None, is_currently_archived: bool = False) -> Dict | str`**
+     - **Purpose:** Modifies a thread's status or restores an archived thread, returns updated thread details as a dictionary. (Scope: `[Dev Only]`)
 
    - **`archive_thread(thread_id: str) -> str`**
-     - **Purpose:** Archives a specific conversation thread. Returns confirmation. (Scope: `[Dev Only]`)
+     - **Purpose:** Archives a specific conversation thread. Returns confirmation string. (Scope: `[Dev Only]`)
 
-   - **`get_actor_details(actor_id: str) -> dict | str`**
-     - **Purpose:** Retrieves details for a specific actor (user or bot). (Scope: `[Dev, Internal]`)
+   - **`get_actor_details(actor_id: str) -> Dict | str`**
+     - **Purpose:** Retrieves details for a specific actor (user or bot) as a dictionary. (Scope: `[Dev, Internal]`)
 
-   - **`get_actors_batch(actor_ids: list[str]) -> dict | str`**
-     - **Purpose:** Retrieves details for multiple actors simultaneously. (Scope: `[Dev, Internal]`)
+   - **`get_actors_batch(actor_ids: list[str]) -> Dict | str`**
+     - **Purpose:** Retrieves details for multiple actors simultaneously as a dictionary. (Scope: `[Dev, Internal]`)
 
-   - **`list_inboxes(limit: int | None = None, after: str | None = None) -> dict | str`**
-     - **Purpose:** Retrieves a list of all available conversation inboxes. (Scope: `[Dev, Internal]`)
+   - **`list_inboxes(limit: int | None = None, after: str | None = None) -> Dict | str`**
+     - **Purpose:** Retrieves a list of all available conversation inboxes as a dictionary. (Scope: `[Dev, Internal]`)
 
-   - **`get_inbox_details(inbox_id: str) -> dict | str`**
-     - **Purpose:** Retrieves detailed information about a specific conversation inbox. (Scope: `[Dev, Internal]`)
+   - **`get_inbox_details(inbox_id: str) -> Dict | str`**
+     - **Purpose:** Retrieves detailed information about a specific conversation inbox as a dictionary. (Scope: `[Dev, Internal]`)
 
-   - **`list_channels(limit: int | None = None, after: str | None = None) -> dict | str`**
-     - **Purpose:** Retrieves a list of all configured communication channels. (Scope: `[Dev, Internal]`)
+   - **`list_channels(limit: int | None = None, after: str | None = None) -> Dict | str`**
+     - **Purpose:** Retrieves a list of all configured communication channels as a dictionary. (Scope: `[Dev, Internal]`)
 
-   - **`get_channel_details(channel_id: str) -> dict | str`**
-     - **Purpose:** Retrieves detailed information about a specific communication channel. (Scope: `[Dev, Internal]`)
+   - **`get_channel_details(channel_id: str) -> Dict | str`**
+     - **Purpose:** Retrieves detailed information about a specific communication channel as a dictionary. (Scope: `[Dev, Internal]`)
 
-   - **`list_channel_accounts(channel_id: str | None = None, inbox_id: str | None = None, limit: int | None = None, after: str | None = None) -> dict | str`**
-     - **Purpose:** Retrieves a list of specific channel accounts (e.g., 'support@example.com', 'Website Chatbot'). (Scope: `[Dev, Internal]`)
+   - **`list_channel_accounts(channel_id: str | None = None, inbox_id: str | None = None, limit: int | None = None, after: str | None = None) -> Dict | str`**
+     - **Purpose:** Retrieves a list of specific channel accounts (e.g., 'support@example.com', 'Website Chatbot') as a dictionary. (Scope: `[Dev, Internal]`)
 
-   - **`get_channel_account_details(channel_account_id: str) -> dict | str`**
-     - **Purpose:** Retrieves detailed information about a specific channel account. (Scope: `[Dev, Internal]`)
+   - **`get_channel_account_details(channel_account_id: str) -> Dict | str`**
+     - **Purpose:** Retrieves detailed information about a specific channel account as a dictionary. (Scope: `[Dev, Internal]`)
 
-   - **`get_message_details(thread_id: str, message_id: str) -> dict | str`**
-     - **Purpose:** Retrieves the full details of a single specific message/comment. (Scope: `[Dev, Internal]`)
+   - **`get_message_details(thread_id: str, message_id: str) -> Dict | str`**
+     - **Purpose:** Retrieves the full details of a single specific message/comment as a dictionary. (Scope: `[Dev, Internal]`)
 
-   - **`get_original_message_content(thread_id: str, message_id: str) -> dict | str`**
-     - **Purpose:** Fetches the original, potentially longer content of a truncated message. (Scope: `[Dev, Internal]`)
+   - **`get_original_message_content(thread_id: str, message_id: str) -> Dict | str`**
+     - **Purpose:** Fetches the original, potentially longer content of a truncated message as a dictionary. (Scope: `[Dev, Internal]`)
 
 **4. General Workflow Strategy & Scenarios:**
    - **Overall Approach:** Receive request from Planner -> Identify target tool -> Validate REQUIRED parameters -> Call the specified tool -> Return the EXACT result (JSON dictionary/list or error string).
