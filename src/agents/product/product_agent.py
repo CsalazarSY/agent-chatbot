@@ -1,5 +1,6 @@
-# agents/product/product_agent.py
-from autogen_core.memory import Memory
+"""Product agent creation"""
+
+# /src/agents/product/product_agent.py
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
@@ -15,6 +16,7 @@ PRODUCT_AGENT_NAME = "product_assistant"
 # --- Tool list ---
 all_product_tools = [sy_list_products]
 
+
 # --- Agent Creation Function ---
 def create_product_agent(model_client: OpenAIChatCompletionClient) -> AssistantAgent:
     """
@@ -29,10 +31,10 @@ def create_product_agent(model_client: OpenAIChatCompletionClient) -> AssistantA
 
     product_assistant = AssistantAgent(
         name=PRODUCT_AGENT_NAME,
-        description="Finds product IDs by searching the live API product list. Lists available products by counting API results. Your only tool for product information.",
+        description="Interprets product data from the live StickerYou API (using sy_list_products). Finds Product IDs based on descriptions, lists/filters products by criteria, counts products, and summarizes product details. Does NOT handle pricing.",
         system_message=PRODUCT_ASSISTANT_SYSTEM_MESSAGE,
         model_client=model_client,
         tools=all_product_tools,
-        reflect_on_tool_use=True
+        reflect_on_tool_use=True,
     )
     return product_assistant

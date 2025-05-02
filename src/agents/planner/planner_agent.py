@@ -1,4 +1,5 @@
 """Defines and creates the Planner Assistant Agent."""
+
 # agents/planner/planner_agent.py
 
 # --- Standard Library Imports ---
@@ -15,8 +16,11 @@ from src.agents.planner.system_message import PLANNER_ASSISTANT_SYSTEM_MESSAGE
 # --- Agent Name Constant ---
 PLANNER_AGENT_NAME = "planner_assistant"
 
+
 # --- Agent Creation Function ---
-def create_planner_agent(model_client: OpenAIChatCompletionClient, memory: Optional[List[Memory]] = None) -> AssistantAgent:
+def create_planner_agent(
+    model_client: OpenAIChatCompletionClient, memory: Optional[List[Memory]] = None
+) -> AssistantAgent:
     """
     Creates and configures the Planner Assistant Agent.
 
@@ -30,10 +34,10 @@ def create_planner_agent(model_client: OpenAIChatCompletionClient, memory: Optio
 
     planner_assistant = AssistantAgent(
         name=PLANNER_AGENT_NAME,
-        description="Workflow manager that coordinates between product lookup, pricing, and user communication",
+        description="The orchestrator, it coordinates between StickerYou API agent, Hubspot agent, Product Agent and the user",
         system_message=PLANNER_ASSISTANT_SYSTEM_MESSAGE,
         model_client=model_client,
         memory=memory,
-        reflect_on_tool_use=True
+        reflect_on_tool_use=True,
     )
     return planner_assistant

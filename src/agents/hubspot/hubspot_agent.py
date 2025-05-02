@@ -1,9 +1,13 @@
+"""Hubspot Agent create function"""
+
 # agents/hubspot/hubspot_agent.py
+from typing import Optional, List, Callable
+from autogen_core.memory import Memory
 
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
-# Import the NEW consolidated tools file
+# Hubspot Agent Tools
 from src.tools.hubspot.conversation_tools import (
     send_message_to_thread,
     get_thread_details,
@@ -20,13 +24,9 @@ from src.tools.hubspot.conversation_tools import (
     list_channel_accounts,
     get_channel_account_details,
     get_message_details,
-    get_original_message_content
+    get_original_message_content,
 )
 from src.agents.hubspot.system_message import hubspot_agent_system_message
-
-# --- Type Hint Imports ---
-from typing import Optional, List, Callable
-from autogen_core.memory import Memory
 
 # --- Agent Name Constant ---
 HUBSPOT_AGENT_NAME = "hubspot_assistant"
@@ -48,11 +48,14 @@ all_hubspot_tools: List[Callable] = [
     list_channel_accounts,
     get_channel_account_details,
     get_message_details,
-    get_original_message_content
+    get_original_message_content,
 ]
 
+
 # --- Agent Creation Function ---
-def create_hubspot_agent(model_client: OpenAIChatCompletionClient, memory: Optional[List[Memory]] = None) -> AssistantAgent:
+def create_hubspot_agent(
+    model_client: OpenAIChatCompletionClient, memory: Optional[List[Memory]] = None
+) -> AssistantAgent:
     """
     Creates and configures the HubSpot Agent with an expanded toolkit.
 
@@ -65,11 +68,11 @@ def create_hubspot_agent(model_client: OpenAIChatCompletionClient, memory: Optio
     """
     hubspot_assistant = AssistantAgent(
         name=HUBSPOT_AGENT_NAME,
-        description="Handles the communication from the agents to HubSpot API, managing threads, messages, actors, channels, and inboxes.",
+        description="Interacts with the HubSpot Conversations API. Manages threads (get, list, update/archive [DevOnly]), messages (get, send COMMENT/MESSAGE), actors, channels, and inboxes. Primarily used for internal operations (like handoffs) or dev requests. Returns raw dicts/lists or confirmation strings.",
         system_message=hubspot_agent_system_message,
         model_client=model_client,
         memory=memory,
         tools=all_hubspot_tools,
-        reflect_on_tool_use=False
+        reflect_on_tool_use=False,
     )
     return hubspot_assistant
