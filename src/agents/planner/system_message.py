@@ -4,9 +4,9 @@ import os
 from dotenv import load_dotenv
 
 # Import agent name constants
-from agents.hubspot.hubspot_agent import HUBSPOT_AGENT_NAME
-from agents.product.product_agent import PRODUCT_AGENT_NAME
-from agents.stickeryou.sy_api_agent import SY_API_AGENT_NAME
+from src.agents.hubspot.hubspot_agent import HUBSPOT_AGENT_NAME
+from src.agents.product.product_agent import PRODUCT_AGENT_NAME
+from src.agents.stickeryou.sy_api_agent import SY_API_AGENT_NAME
 
 # Load environment variables
 load_dotenv()

@@ -4,10 +4,10 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 # Import tools/functions
-from agents.stickeryou.tools.sy_api import sy_list_products
+from src.tools.sticker_api.sy_api import sy_list_products
 
 # Import system message string
-from agents.product.system_message import PRODUCT_ASSISTANT_SYSTEM_MESSAGE
+from src.agents.product.system_message import PRODUCT_ASSISTANT_SYSTEM_MESSAGE
 
 # --- Agent Name Constant ---
 PRODUCT_AGENT_NAME = "product_assistant"

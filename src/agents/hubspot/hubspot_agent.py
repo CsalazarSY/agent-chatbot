@@ -4,7 +4,7 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 # Import the NEW consolidated tools file
-from agents.hubspot.tools.conversation_tools import (
+from src.tools.hubspot.conversation_tools import (
     send_message_to_thread,
     get_thread_details,
     get_thread_messages,
@@ -22,7 +22,7 @@ from agents.hubspot.tools.conversation_tools import (
     get_message_details,
     get_original_message_content
 )
-from agents.hubspot.system_message import hubspot_agent_system_message
+from src.agents.hubspot.system_message import hubspot_agent_system_message
 
 # --- Type Hint Imports ---
 from typing import Optional, List, Callable

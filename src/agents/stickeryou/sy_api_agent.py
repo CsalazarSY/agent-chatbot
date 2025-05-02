@@ -11,7 +11,7 @@ from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 # --- First Party Imports ---
 # Import ALL tool functions
-from agents.stickeryou.tools.sy_api import (
+from src.tools.sticker_api.sy_api import (
     sy_create_design,
     sy_get_design_preview,
     sy_list_orders_by_status_get,
@@ -31,7 +31,7 @@ from agents.stickeryou.tools.sy_api import (
 )
 
 # Import the updated system message string
-from agents.stickeryou.system_message import SY_API_AGENT_SYSTEM_MESSAGE
+from src.agents.stickeryou.system_message import SY_API_AGENT_SYSTEM_MESSAGE
 
 # --- Agent Name Constant ---
 SY_API_AGENT_NAME = "sy_api_assistant"

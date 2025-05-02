@@ -10,7 +10,7 @@ from autogen_core.memory import Memory
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 # --- First Party Imports ---
-from agents.planner.system_message import PLANNER_ASSISTANT_SYSTEM_MESSAGE
+from src.agents.planner.system_message import PLANNER_ASSISTANT_SYSTEM_MESSAGE
 
 # --- Agent Name Constant ---
 PLANNER_AGENT_NAME = "planner_assistant"

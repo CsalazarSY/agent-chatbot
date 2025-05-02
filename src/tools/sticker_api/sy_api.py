@@ -1,23 +1,42 @@
-# pylint: disable=broad-exception-caught
+# pylint: disable=broad-exception-caught, unused-argument, too-many-lines
 # agents/stickeryou/tools/sy_api.py
 """Defines tools (functions) for interacting with the StickerYou API."""
 
 import asyncio
 import json
 import traceback
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 
 import httpx
 
-# Import necessary configuration constants and the refresh function
-import config # Import the whole module to access globals
+# Import necessary configuration constants
+import config # Import the whole module to access globals & trigger refresh
 
-# Import Pydantic models
-from agents.stickeryou.types.sy_api_types import (
-    LoginResponse, LoginStatusResponse, CountriesResponse, SpecificPriceResponse,
-    PriceTiersResponse, ProductListResponse, OrderItemStatus,
-    OrderDetailResponse, OrderListResponse, SuccessResponse, DesignResponse, DesignPreviewResponse
+# Import specific DTOs using absolute paths from src
+from src.tools.sticker_api.dto_requests import (
+    LoginRequest,
+    SpecificPriceRequest,
+    CreateOrderRequest,
+    CreateOrderFromDesignsRequest,
+    ListOrdersByStatusRequest
 )
+from src.tools.sticker_api.dto_responses import (
+    LoginResponse,
+    LoginStatusResponse,
+    CountriesResponse,
+    SpecificPriceResponse,
+    PriceTiersResponse,
+    ProductListResponse,
+    OrderDetailResponse,
+    OrderListResponse,
+    SuccessResponse,
+    DesignResponse,
+    DesignPreviewResponse,
+    OrderItemStatus,
+    # OrderStatusId removed from here
+)
+# Import the common Enum
+from src.tools.sticker_api.dto_common import OrderStatusId
 
 # Standardized Error Prefix
 API_ERROR_PREFIX = "SY_TOOL_FAILED:"
@@ -37,15 +56,27 @@ async def _make_sy_api_request(
     if not config.API_BASE_URL:
         return f"{API_ERROR_PREFIX} Configuration Error - Missing API Base URL."
 
-    auth_token = config.SY_API_AUTH_TOKEN_DYNAMIC or config.API_AUTH_TOKEN # Prioritize dynamic
+    # Get the token using the accessor function
+    auth_token = config.get_sy_api_token()
     if not auth_token:
-        return f"{API_ERROR_PREFIX} Configuration Error - No SY API auth token available (static or dynamic)."
+        # If no dynamic token exists initially, try to refresh it via config trigger
+        print("No initial dynamic token found. Triggering refresh via config...")
+        refresh_successful = await config.trigger_sy_token_refresh() # Call config trigger
+        if refresh_successful:
+            auth_token = config.get_sy_api_token() # Re-read the token via accessor
+            if not auth_token: # Should not happen if refresh_successful is True, but check defensively
+                 print("!!! Config reported refresh success, but token is still None.")
+                 return f"{API_ERROR_PREFIX} Internal Error - Token refresh state mismatch."
+            print("Initial token obtained successfully via config trigger.")
+        else:
+             print("Initial token refresh failed via config trigger. Cannot proceed.")
+             return f"{API_ERROR_PREFIX} Configuration Error - Could not obtain initial SY API auth token."
 
     headers = headers_base or {}
     headers["Authorization"] = f"Bearer {auth_token}"
     headers.setdefault("Accept", "application/json") # Ensure Accept header is present
 
-    response: Optional[httpx.Response] = None # Initialize with type hint
+    response: Optional[httpx.Response] = None
     retry_count = 0
 
     while retry_count <= max_retries:
@@ -72,23 +103,30 @@ async def _make_sy_api_request(
                     # If 200 OK but not JSON, return raw text.
                     # It might be the expected plain string response (e.g., tracking code).
                     try:
+                        # Return the response object itself for the caller to handle .text
                         return response
                     except Exception as text_err:
                         return f"{API_ERROR_PREFIX} Status 200 OK, but failed to decode JSON and failed to read response text: {text_err}"
 
             elif response.status_code == 401 and retry_count < max_retries:
-                print(f"SY API request received 401 Unauthorized. \n Attempting token refresh (Retry {retry_count + 1}/{max_retries})...")
-                refresh_successful = await config.refresh_sy_token()
+                print(f"SY API request received 401 Unauthorized. \n Triggering token refresh via config (Retry {retry_count + 1}/{max_retries})...")
+                # Call the config trigger function
+                refresh_successful = await config.trigger_sy_token_refresh()
                 retry_count += 1
 
-                if refresh_successful and config.SY_API_AUTH_TOKEN_DYNAMIC:
-                    auth_token = config.SY_API_AUTH_TOKEN_DYNAMIC
-                    headers["Authorization"] = f"Bearer {auth_token}"
-                    print("Token refreshed. Retrying API call...")
+                if refresh_successful:
+                    # Re-read the potentially updated token from config via accessor
+                    auth_token = config.get_sy_api_token()
+                    if not auth_token: # Should not happen, but check
+                        print("!!! Config reported refresh success on 401, but token is still None.")
+                        return f"{API_ERROR_PREFIX} Unauthorized (401) and subsequent refresh state mismatch."
+
+                    headers["Authorization"] = f"Bearer {auth_token}" # Update header for retry
+                    print("Token refreshed via config trigger. Retrying API call...")
                     await asyncio.sleep(0.5)
-                    continue
+                    continue # Retry the request with the new token
                 else:
-                    print("Token refresh failed or new token not available. Aborting retries.")
+                    print("Token refresh failed via config trigger. Aborting retries.")
                     return f"{API_ERROR_PREFIX} Unauthorized (401) and token refresh failed."
 
             else:
@@ -153,7 +191,6 @@ async def _make_sy_api_request(
                     return f"{API_ERROR_PREFIX} Server Error ({status_code}).{error_message_detail}"
                 else:
                     return f"{API_ERROR_PREFIX} Unexpected HTTP {status_code}.{error_message_detail}"
-                # --- End Enhanced Error Message Extraction ---
 
         except httpx.TimeoutException:
             return f"{API_ERROR_PREFIX} Request timed out."
@@ -167,11 +204,6 @@ async def _make_sy_api_request(
         except Exception as e:
             traceback.print_exc()
             return f"{API_ERROR_PREFIX} Unexpected error in request helper: {type(e).__name__} - {e}"
-
-        # This break should only be reached if a non-401 error occurred within the loop
-        # or if max_retries was reached for a 401 without successful refresh.
-        # The specific error should have already been returned above.
-        break
 
     # Fallback if loop finishes unexpectedly (should ideally not happen)
     return f"{API_ERROR_PREFIX} API request helper finished unexpectedly."
@@ -218,6 +250,8 @@ async def sy_create_design(
         return result
     elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
         return result
+    elif isinstance(result, httpx.Response): # Handle non-JSON 200 OK
+        return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for create design."
     else:
         return (
             f"{API_ERROR_PREFIX} Unexpected successful response type: "
@@ -259,6 +293,8 @@ async def sy_get_design_preview(
         return result
     elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
         return result
+    elif isinstance(result, httpx.Response): # Handle non-JSON 200 OK
+        return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for design preview."
     else:
         return (
             f"{API_ERROR_PREFIX} Unexpected successful response type: "
@@ -269,7 +305,7 @@ async def sy_get_design_preview(
 # --- Orders ---
 
 async def sy_list_orders_by_status_get(
-    status_id: int,
+    status_id: int, # Can now use OrderStatusId if desired, but int for direct API call
 ) -> OrderListResponse | str:
     """
     (GET /v{version}/Orders/status/list/{status})
@@ -277,9 +313,7 @@ async def sy_list_orders_by_status_get(
     Allowed Scopes: [Dev, Internal]
 
     Parameters:
-        status_id (int): The status ID to filter orders by. Valid values:
-                         1 (Cancelled), 2 (Error), 10 (New), 20 (Accepted),
-                         30 (InProgress), 40 (OnHold), 50 (Printed), 100 (Shipped).
+        status_id (int): The status ID to filter orders by. See OrderStatusId enum in dto_common.
 
     Request body example: None (GET request)
 
@@ -307,6 +341,8 @@ async def sy_list_orders_by_status_get(
         if "Not Found (404)" in result:
             return f"{API_ERROR_PREFIX} Invalid Status ID {status_id} provided? (404)."
         return result
+    elif isinstance(result, httpx.Response): # Handle non-JSON 200 OK
+        return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for list orders by status."
     else:
         return (
             f"{API_ERROR_PREFIX} Unexpected successful response type: "
@@ -315,7 +351,7 @@ async def sy_list_orders_by_status_get(
 
 
 async def sy_list_orders_by_status_post(
-    status_id: int,
+    status_id: int, # Can use OrderStatusId if desired, but int for direct API call
     take: int = 100,
     skip: int = 0,
 ) -> OrderListResponse | str:
@@ -326,7 +362,7 @@ async def sy_list_orders_by_status_post(
     Note: Raw results should generally not be presented directly to the user.
 
     Parameters:
-        status_id (int): The status ID (from OrderStatusId enum) to filter orders by. Required.
+        status_id (int): The status ID (from OrderStatusId enum in dto_common) to filter orders by. Required.
         take (int): The maximum number of orders to retrieve (pagination limit). Default: 100.
         skip (int): The number of orders to skip (pagination offset). Default: 0.
 
@@ -360,6 +396,8 @@ async def sy_list_orders_by_status_post(
         return result
     elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
         return result
+    elif isinstance(result, httpx.Response): # Handle non-JSON 200 OK
+        return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for list orders by status (POST)."
     else:
         return (
             f"{API_ERROR_PREFIX} Unexpected successful response type: "
@@ -368,7 +406,7 @@ async def sy_list_orders_by_status_post(
 
 
 async def sy_create_order(
-    order_data: Dict,
+    order_data: Dict, # Expects data conforming to CreateOrderRequest
 ) -> SuccessResponse | str:
     """
     (POST /{version}/Orders/new)
@@ -401,6 +439,8 @@ async def sy_create_order(
         return result
     elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
         return result
+    elif isinstance(result, httpx.Response): # Handle non-JSON 200 OK
+        return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for create order."
     else:
         return (
             f"{API_ERROR_PREFIX} Unexpected successful response type: "
@@ -409,7 +449,7 @@ async def sy_create_order(
 
 
 async def sy_create_order_from_designs(
-    order_data: Dict,
+    order_data: Dict, # Expects data conforming to CreateOrderFromDesignsRequest
 ) -> SuccessResponse | str:
     """
     (POST /{version}/Orders/designs/new)
@@ -436,12 +476,15 @@ async def sy_create_order_from_designs(
         }
     """
     api_url = f"{config.API_BASE_URL}/{config.API_VERSION}/Orders/designs/new"
+    # Validate order_data against Pydantic model before sending?
     result = await _make_sy_api_request("POST", api_url, json_payload=order_data)
 
     if isinstance(result, dict):
         return result
     elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
         return result
+    elif isinstance(result, httpx.Response): # Handle non-JSON 200 OK
+        return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for create order from designs."
     else:
         return (
             f"{API_ERROR_PREFIX} Unexpected successful response type: "
@@ -483,6 +526,8 @@ async def sy_get_order_details(
         if "Not Found (404)" in result:
             return f"{API_ERROR_PREFIX} Order not found (404)."  # More specific error
         return result
+    elif isinstance(result, httpx.Response): # Handle non-JSON 200 OK
+        return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for get order details."
     else:
         return (
             f"{API_ERROR_PREFIX} Unexpected successful response type: "
@@ -523,8 +568,10 @@ async def sy_cancel_order(
 
     if isinstance(result, dict):
         return result
-    # The API might return non-JSON on successful PUT/DELETE, check docs or handle based on observation
-    # Example: elif isinstance(result, str) and not result.startswith(API_ERROR_PREFIX): return {"status": "success", "message": result}
+    # Handle non-JSON 200 OK for PUT (e.g., empty body)
+    elif isinstance(result, httpx.Response) and result.status_code == 200:
+        # Success, but no JSON body - return a generic success message or structure
+        return {"success": True, "message": f"Order {order_id} cancellation request processed (received 200 OK)."}
     elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
         if "Not Found (404)" in result:
             return f"{API_ERROR_PREFIX} Order not found (404)."
@@ -533,7 +580,7 @@ async def sy_cancel_order(
         # Consider if a plain string might be a valid success confirmation
         return (
             f"{API_ERROR_PREFIX} Unexpected successful response type: "
-            f"{type(result)}. Expected Dict (or confirmation)."
+            f"{type(result)}. Expected Dict or 200 OK Response."
         )
 
 
@@ -582,6 +629,8 @@ async def sy_get_order_item_statuses(
         if "Not Found (404)" in result:
             return f"{API_ERROR_PREFIX} Order not found (404)."
         return result
+    elif isinstance(result, httpx.Response): # Handle non-JSON 200 OK
+         return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for get order item statuses."
     else:
         return (
             f"{API_ERROR_PREFIX} Unexpected successful response type: "
@@ -596,28 +645,45 @@ async def sy_get_order_tracking(
     (GET /{version}/Orders/{id}/trackingcode)
     Description: Retrieves the shipping tracking information (code, URL, carrier) for a shipped order.
     Allowed Scopes: [User, Dev, Internal]
-    Note: This endpoint returns a **raw string** containing only the tracking code on success (200 OK)
+    Note: This endpoint returns a **raw string** response containing only the tracking code on success (200 OK).
+          The helper function `_make_sy_api_request` will return the `httpx.Response` object in this case.
 
     Parameters:
         order_id (str): The StickerYou identifier for the order.
+
+    Returns:
+        Dict | str: A dictionary `{"tracking_code": str}` on success, or an error string.
     """
     api_url = f"{config.API_BASE_URL}/{config.API_VERSION}/Orders/{order_id}/trackingcode"
     result = await _make_sy_api_request("GET", api_url)
 
-    if isinstance(result, str):
-        # If it's an error string from the helper
-        if result.startswith(API_ERROR_PREFIX):
-            if "Not Found (404)" in result:
-                # Keep specific error for order not found / no tracking
-                return f"{API_ERROR_PREFIX} No tracking code available."
-            
-            return result
-        
-        # --- SUCCESS CASE: Raw string tracking code --- 
+    # Check if the result is an httpx.Response object (indicating 200 OK, non-JSON)
+    if isinstance(result, httpx.Response):
+        if result.status_code == 200:
+            try:
+                tracking_code = result.text
+                if tracking_code:
+                    # Return structured dict on success
+                    return {"tracking_code": tracking_code}
+                else:
+                    # Handle empty string case
+                    return f"{API_ERROR_PREFIX} Tracking code retrieved successfully but was empty."
+            except Exception as e:
+                return f"{API_ERROR_PREFIX} Error reading tracking code text from response: {e}"
         else:
-            return f"Tracking code retrieved successfully: {result}"
+            # Should not happen if helper worked, but handle defensively
+            return f"{API_ERROR_PREFIX} Received unexpected status code {result.status_code} in response object for tracking code."
 
-    return result
+    # Handle error strings from the helper
+    elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
+        if "Not Found (404)" in result:
+            # Keep specific error for order not found / no tracking yet
+            return f"{API_ERROR_PREFIX} No tracking code available (404)."
+        return result # Return other specific errors
+
+    # Handle unexpected dictionary or other types (shouldn't occur for this endpoint on success)
+    else:
+        return f"{API_ERROR_PREFIX} Unexpected result type ({type(result)}) for tracking code request."
 
 # --- Pricing ---
 
@@ -665,6 +731,8 @@ async def sy_list_products(
 
     elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
         return result
+    elif isinstance(result, httpx.Response): # Handle non-JSON 200 OK
+         return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for list products."
     else:
         return (
             f"{API_ERROR_PREFIX} Unexpected successful response type for product list: "
@@ -740,6 +808,8 @@ async def sy_get_price_tiers(
         return result
     elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
         return result
+    elif isinstance(result, httpx.Response): # Handle non-JSON 200 OK
+         return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for get price tiers."
     else:
         return (
             f"{API_ERROR_PREFIX} Unexpected successful response type: "
@@ -810,6 +880,8 @@ async def sy_get_specific_price(
         return result
     elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
         return result
+    elif isinstance(result, httpx.Response): # Handle non-JSON 200 OK
+         return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for get specific price."
     else:
         return (
             f"{API_ERROR_PREFIX} Unexpected successful response type: "
@@ -838,10 +910,15 @@ async def sy_list_countries(
     result = await _make_sy_api_request("POST", api_url)
 
     # Response might be a dict {'countries': [...]} or just the list [...]
-    if isinstance(result, (dict, list)):
+    if isinstance(result, dict):
+        # If it's the expected dict structure
         return result
+    elif isinstance(result, list):
+        return f"{API_ERROR_PREFIX} Received unexpected list format, expected dict wrapping countries list."
     elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
         return result
+    elif isinstance(result, httpx.Response): # Handle non-JSON 200 OK
+         return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for list countries."
     else:
         return (
             f"{API_ERROR_PREFIX} Unexpected successful response type: "
@@ -855,6 +932,7 @@ async def sy_verify_login(
     """
     (GET /users/login)
     Description: Verifies if the currently configured authentication token (Bearer) is valid.
+                 Returns a structured dictionary indicating status.
     Allowed Scopes: [Internal, Dev] (Used by the request helper for token checks).
 
     Parameters: None
@@ -866,9 +944,10 @@ async def sy_verify_login(
             "name": str,
             "authenticated": bool
         }
-        (Note: This function actually returns a custom dictionary status for success/failure interpretation:
-         e.g., {"status": "success", "message": "...", "details": { ... actual response ... } }
-         e.g., {"status": "failed", "message": "Token is invalid (Unauthorized 401)."} for 401)
+
+    Returns:
+        Dict | str: A dictionary like {"status": "success", "details": {...}} or
+                     {"status": "failed", "message": "..."} on failure, or an error string.
     """
     api_url = f"{config.API_BASE_URL}/users/login"
     result = await _make_sy_api_request("GET", api_url, max_retries=0)
@@ -877,15 +956,25 @@ async def sy_verify_login(
         # Successful call, return custom status dict
         return {
             "status": "success",
-            "message": "Token appears valid (received 200 OK or data).",
+            "message": "Token appears valid (received 200 OK with data).",
             "details": result
         }
     elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
         # Specific handling for 401 on verify
         if "Unauthorized (401)" in result:
             return {"status": "failed", "message": "Token is invalid (Unauthorized 401)."}
-        # Return other detailed errors from helper
+        # Return other detailed errors from helper as a string
         return result
+    elif isinstance(result, httpx.Response): # Handle non-JSON 200 OK
+         # Treat non-JSON 200 OK as potentially valid but lacking expected data
+         if result.status_code == 200:
+            return {
+            "status": "success",
+            "message": "Token appears valid (received 200 OK, but no JSON data).",
+            "details": None # Or result.text if needed
+            }
+         else:
+            return f"{API_ERROR_PREFIX} Unexpected response status {result.status_code} in response object during verification."
     else:
         return f"{API_ERROR_PREFIX} Unexpected response type during verification: {type(result)}."
 
@@ -901,7 +990,7 @@ async def sy_perform_login(
                  Note: This function makes a direct HTTP request, bypassing the standard helper,
                  as it doesn't use an existing token for authorization.
     Allowed Scopes: [Internal, Dev] (Used by the token refresh mechanism).
-                 
+
     Parameters:
         username (str): The API username.
         password (str): The API password.

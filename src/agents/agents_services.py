@@ -17,10 +17,10 @@ from autogen_agentchat.ui import Console
 from autogen_core.memory import ListMemory, MemoryContent, MemoryMimeType
 
 # Agents
-from agents.hubspot.hubspot_agent import create_hubspot_agent, HUBSPOT_AGENT_NAME
-from agents.planner.planner_agent import create_planner_agent, PLANNER_AGENT_NAME
-from agents.stickeryou.sy_api_agent import create_sy_api_agent, SY_API_AGENT_NAME
-from agents.product.product_agent import create_product_agent, PRODUCT_AGENT_NAME
+from src.agents.hubspot.hubspot_agent import create_hubspot_agent, HUBSPOT_AGENT_NAME
+from src.agents.planner.planner_agent import create_planner_agent, PLANNER_AGENT_NAME
+from src.agents.stickeryou.sy_api_agent import create_sy_api_agent, SY_API_AGENT_NAME
+from src.agents.product.product_agent import create_product_agent, PRODUCT_AGENT_NAME
 
 # Config imports
 from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_FAMILY, LLM_MODEL_NAME
