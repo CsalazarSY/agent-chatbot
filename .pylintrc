@@ -1,0 +1,5 @@
+[MASTER]
+disable=C0301,W0718
+
+[FORMAT]
+max-line-length=200

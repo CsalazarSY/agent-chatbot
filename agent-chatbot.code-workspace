@@ -10,7 +10,8 @@
   "settings": {
     "editor.formatOnSave": true,
     "postman.settings.dotenv-detection-notification-visibility": false,
-    "editor.defaultFormatter": "ms-python.pylint",
-    "notebook.defaultFormatter": "ms-python.pylint"
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "notebook.defaultFormatter": "ms-python.pylint",
+    "docker.languageserver.formatter.ignoreMultilineInstructions": true
   }
 }
