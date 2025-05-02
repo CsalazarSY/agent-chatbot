@@ -178,14 +178,15 @@ async def hubspot_webhook_endpoint(payload: WebhookPayload, background_tasks: Ba
             print(f"    - New message event: ConvID={conversation_id}, MsgID={message_id}")
 
             # Deduplication check using helper functions
-            if await is_message_being_processed(message_id):
-                print(f"    -- Skipping duplicate message ID: {message_id}")
-                continue
-            else:
+            is_processing = await is_message_being_processed(message_id)
+            if not is_processing:
                 await add_message_to_processing(message_id) # Add before scheduling task
+            else:
+                print(f"    - Skipping duplicate message ID: {message_id}")
+                continue
 
             # Schedule background task to fetch details and process
-            print(f"    -> Scheduling background task for message {message_id} in thread {conversation_id}")
+            print(f"    > Scheduling background task for message {message_id} in thread {conversation_id}")
             background_tasks.add_task(
                 process_incoming_hubspot_message,
                 conversation_id=conversation_id,
