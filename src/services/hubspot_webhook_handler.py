@@ -20,7 +20,26 @@ from src.agents.agents_services import agent_service
 # --- Globals for Webhook Deduplication ---
 PROCESSING_MESSAGE_IDS = set()
 message_id_lock = asyncio.Lock()
+
+# --- Message ID Processing Helpers ---
+
+async def is_message_being_processed(message_id: str) -> bool:
+    """Checks if a message ID is currently in the processing set."""
+    async with message_id_lock:
+        return message_id in PROCESSING_MESSAGE_IDS
+
+async def add_message_to_processing(message_id: str):
+    """Adds a message ID to the processing set."""
+    async with message_id_lock:
+        PROCESSING_MESSAGE_IDS.add(message_id)
+
+async def remove_message_from_processing(message_id: str):
+    """Removes a message ID from the processing set."""
+    async with message_id_lock:
+        PROCESSING_MESSAGE_IDS.discard(message_id) # Use discard to avoid errors if not found
+
 # ----------------------------------------
+
 def clean_agent_output(raw_reply: str) -> str:
     """Clean up Planner's final output tags from the agent's response."""
     cleaned_reply = raw_reply
@@ -35,6 +54,7 @@ def clean_agent_output(raw_reply: str) -> str:
         cleaned_reply = cleaned_reply[1:].strip()
     return cleaned_reply
 
+# --- Webhook Processing helpers ---
 async def process_agent_response(conversation_id: str, task_result: Optional[TaskResult], error_message: Optional[str]):
     """
     Helper coroutine to process the agent's result and send the final reply to HubSpot.
@@ -98,9 +118,8 @@ async def process_agent_response(conversation_id: str, task_result: Optional[Tas
 async def process_incoming_hubspot_message(conversation_id: str, message_id: str):
     """
     Handles fetching message details and triggering agent processing for relevant messages.
-    Runs in a background task. Ensures message_id is removed from PROCESSING_MESSAGE_IDS on completion.
+    Runs in a background task. Ensures message_id is removed from processing set on completion.
     """
-    global PROCESSING_MESSAGE_IDS # Need to modify global
     try:
         print(f"    -> Background task: Process incoming HubSpot message {message_id} for thread {conversation_id}")
         message_content = None
@@ -153,6 +172,5 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
 
     finally:
         # Ensure the message ID is removed from the processing set
-        async with message_id_lock:
-            PROCESSING_MESSAGE_IDS.discard(message_id)
-            print(f"    <- Background task finished for message {message_id}. Removed from processing set.")
+        print(f"    -- Background task finished for message {message_id}. Removing from processing set.")
+        await remove_message_from_processing(message_id)

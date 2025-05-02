@@ -24,8 +24,8 @@ import config
 from src.services.hubspot_webhook_handler import (
     clean_agent_output,
     process_incoming_hubspot_message,
-    PROCESSING_MESSAGE_IDS,
-    message_id_lock
+    is_message_being_processed,
+    add_message_to_processing
 )
 
 # --- FastAPI App Setup ---
@@ -177,14 +177,12 @@ async def hubspot_webhook_endpoint(payload: WebhookPayload, background_tasks: Ba
 
             print(f"    - New message event: ConvID={conversation_id}, MsgID={message_id}")
 
-            # Deduplication check
-            async with message_id_lock:
-                if message_id in PROCESSING_MESSAGE_IDS:
-                    print(f"    -- Skipping duplicate message ID: {message_id}")
-                    continue
-                else:
-                    print(f"    -- Adding message ID {message_id} to processing set.")
-                    PROCESSING_MESSAGE_IDS.add(message_id)
+            # Deduplication check using helper functions
+            if await is_message_being_processed(message_id):
+                print(f"    -- Skipping duplicate message ID: {message_id}")
+                continue
+            else:
+                await add_message_to_processing(message_id) # Add before scheduling task
 
             # Schedule background task to fetch details and process
             print(f"    -> Scheduling background task for message {message_id} in thread {conversation_id}")
