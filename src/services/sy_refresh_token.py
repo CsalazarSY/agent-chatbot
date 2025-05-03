@@ -3,6 +3,7 @@
 # src/services/sy_refresh_token.py
 
 # Import necessary components from the config and tools
+from pydantic import ValidationError
 from src.tools.sticker_api.dto_responses import LoginResponse
 from src.tools.sticker_api.sy_api import sy_perform_login, API_ERROR_PREFIX
 
@@ -32,19 +33,32 @@ async def refresh_sy_token() -> bool:
             username=SY_API_USERNAME, password=SY_API_PASSWORD
         )
 
-        if isinstance(result, LoginResponse):
-            new_token = result.token
-            expiry = result.expirationMinutes
-            print(f"Successfully obtained SY API token. Expires in: {expiry} minutes.")
-            # Update the token in config
-            set_sy_api_token(new_token)
-            return True  # Indicate success
-
+        # Check for error string first
         if isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
             print(f"Error refreshing SY API token: {result}")
             set_sy_api_token(None)  # Ensure token is cleared in config
             return False
 
+        # Check if the result is a dictionary (expected on success)
+        if isinstance(result, dict):
+            try:
+                # Validate the dictionary against the Pydantic model
+                login_response = LoginResponse.model_validate(result)
+                # Access validated data
+                new_token = login_response.token
+                expiry = login_response.expirationMinutes
+                print(
+                    f"Successfully obtained SY API token. Expires in: {expiry} minutes."
+                )
+                # Update the token in config
+                set_sy_api_token(new_token)
+                return True  # Indicate success
+            except ValidationError as e:
+                print(f"Error validating login response structure: {e}. Data: {result}")
+                set_sy_api_token(None)
+                return False
+
+        # Handle unexpected result types (not string error, not dict)
         print(f"Unexpected result type during token refresh: {type(result)}")
         set_sy_api_token(None)  # Ensure token is cleared in config
         return False

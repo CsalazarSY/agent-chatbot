@@ -3,11 +3,11 @@
 This file contains example messages to test the different functionalities and workflows of the agent system.
 
 **Placeholders:**
-*   `[THREAD_ID]` - Replace with a valid HubSpot Thread ID for the conversation.
 *   `[ORDER_ID]` - Replace with a specific StickerYou Order ID for testing.
+*   `[DESIGN_ID]` - Replace with a specific StickerYou Design ID (e.g., dz_xxxxx).
+*   `[THREAD_ID]` - Replace with a valid HubSpot Thread ID for the conversation.
 *   `[MESSAGE_ID]` - Replace with a specific HubSpot Message ID.
 *   `[ACTOR_ID]` - Replace with a specific HubSpot Actor ID (e.g., A-xxxxx).
-*   `[DESIGN_ID]` - Replace with a specific StickerYou Design ID (e.g., dz_xxxxx).
 *   `[INBOX_ID]` - Replace with a specific HubSpot Inbox ID.
 *   `[DEFAULT_CHANNEL_ACCOUNT_ID]` - The configured default HubSpot channel account ID.
 *   `[DEFAULT_SENDER_ACTOR_ID]` - The configured default HubSpot sender actor ID.
