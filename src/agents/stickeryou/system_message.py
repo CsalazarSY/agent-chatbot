@@ -4,7 +4,8 @@
 import os
 from dotenv import load_dotenv
 
-from src.agents.stickeryou.sy_api_agent import SY_API_AGENT_NAME
+# Import Agent Name
+from src.agents.agent_names import SY_API_AGENT_NAME
 
 # Load environment variables (assuming config is handled elsewhere now)
 load_dotenv()

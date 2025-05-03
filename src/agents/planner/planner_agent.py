@@ -13,8 +13,8 @@ from autogen_ext.models.openai import OpenAIChatCompletionClient
 # --- First Party Imports ---
 from src.agents.planner.system_message import PLANNER_ASSISTANT_SYSTEM_MESSAGE
 
-# --- Agent Name Constant ---
-PLANNER_AGENT_NAME = "planner_assistant"
+# Import Agent Name
+from src.agents.agent_names import PLANNER_AGENT_NAME
 
 
 # --- Agent Creation Function ---

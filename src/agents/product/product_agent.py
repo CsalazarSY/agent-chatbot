@@ -10,8 +10,8 @@ from src.tools.sticker_api.sy_api import sy_list_products
 # Import system message string
 from src.agents.product.system_message import PRODUCT_ASSISTANT_SYSTEM_MESSAGE
 
-# --- Agent Name Constant ---
-PRODUCT_AGENT_NAME = "product_assistant"
+# Import Agent Name
+from src.agents.agent_names import PRODUCT_AGENT_NAME
 
 # --- Tool list ---
 all_product_tools = [sy_list_products]

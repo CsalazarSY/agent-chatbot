@@ -31,8 +31,8 @@ from src.tools.sticker_api.sy_api import (
 # Import the updated system message string
 from src.agents.stickeryou.system_message import SY_API_AGENT_SYSTEM_MESSAGE
 
-# --- Agent Name Constant ---
-SY_API_AGENT_NAME = "sy_api_assistant"
+# Import Agent Name
+from src.agents.agent_names import SY_API_AGENT_NAME
 
 # --- Collect all tool functions ---
 all_sy_api_tools: List[Callable] = [

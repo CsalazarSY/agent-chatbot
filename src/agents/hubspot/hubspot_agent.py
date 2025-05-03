@@ -7,29 +7,31 @@ from autogen_core.memory import Memory
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
-# Hubspot Agent Tools
+# Import ALL tool functions
 from src.tools.hubspot.conversation_tools import (
-    send_message_to_thread,
+    get_actor_details,
+    get_actors_batch,
+    get_channel_account_details,
+    get_channel_details,
+    list_channel_accounts,
+    list_channels,
+    get_inbox_details,
+    list_inboxes,
+    get_message_details,
+    get_original_message_content,
+    archive_thread,
     get_thread_details,
     get_thread_messages,
     list_threads,
+    send_message_to_thread,
     update_thread,
-    archive_thread,
-    get_actor_details,
-    get_actors_batch,
-    list_inboxes,
-    get_inbox_details,
-    list_channels,
-    get_channel_details,
-    list_channel_accounts,
-    get_channel_account_details,
-    get_message_details,
-    get_original_message_content,
 )
+
+# Import system message
 from src.agents.hubspot.system_message import hubspot_agent_system_message
 
-# --- Agent Name Constant ---
-HUBSPOT_AGENT_NAME = "hubspot_assistant"
+# Import Agent Name
+from src.agents.agent_names import HUBSPOT_AGENT_NAME
 
 # --- Collect all tool functions ---
 all_hubspot_tools: List[Callable] = [

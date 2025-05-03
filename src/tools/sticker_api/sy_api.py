@@ -1,16 +1,11 @@
-# pylint: disable=broad-exception-caught, unused-argument, too-many-lines
-# agents/stickeryou/tools/sy_api.py
 """Defines tools (functions) for interacting with the StickerYou API."""
 
-import asyncio
+# src/tools/sticker_api/sy_api.py
 import json
 import traceback
 from typing import Optional, List, Dict
-
 import httpx
-
-# Import necessary configuration constants
-import config  # Import the whole module to access globals & trigger refresh
+import config
 
 # Import specific DTOs using absolute paths from src
 from src.tools.sticker_api.dto_responses import (
@@ -47,193 +42,131 @@ async def _make_sy_api_request(
     if not config.API_BASE_URL:
         return f"{API_ERROR_PREFIX} Configuration Error - Missing API Base URL."
 
-    # Get the token using the accessor function
-    auth_token = config.get_sy_api_token()
-    if not auth_token:
-        # If no dynamic token exists initially, try to refresh it via config trigger
-        print("No initial dynamic token found. Triggering refresh via config...")
-        refresh_successful = (
-            await config.trigger_sy_token_refresh()
-        )  # Call config trigger
-        if refresh_successful:
-            auth_token = config.get_sy_api_token()  # Re-read the token via accessor
-            if (
-                not auth_token
-            ):  # Should not happen if refresh_successful is True, but check defensively
-                print("!!! Config reported refresh success, but token is still None.")
-                return (
-                    f"{API_ERROR_PREFIX} Internal Error - Token refresh state mismatch."
-                )
-            print("Initial token obtained successfully via config trigger.")
-        else:
-            print("Initial token refresh failed via config trigger. Cannot proceed.")
-            return f"{API_ERROR_PREFIX} Configuration Error - Could not obtain initial SY API auth token."
+    current_token = config.get_sy_api_token()
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        **(headers_base or {}),  # Merge base headers if provided
+    }
+    # Add Authorization header ONLY if token exists
+    if current_token:
+        headers["Authorization"] = f"Bearer {current_token}"
 
-    headers = headers_base or {}
-    headers["Authorization"] = f"Bearer {auth_token}"
-    headers.setdefault("Accept", "application/json")  # Ensure Accept header is present
-
-    response: Optional[httpx.Response] = None
-    retry_count = 0
-
-    while retry_count <= max_retries:
-        try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                request_method = method.upper()
-                if request_method == "GET":
-                    response = await client.get(api_url, headers=headers)
-                elif request_method == "POST":
-                    headers.setdefault("Content-Type", "application/json")
-                    response = await client.post(
-                        api_url, headers=headers, json=json_payload
-                    )
-                elif request_method == "PUT":  # Add PUT method handling
-                    headers.setdefault(
-                        "Content-Type", "application/json"
-                    )  # Often needed for PUT too
-                    response = await client.put(
-                        api_url, headers=headers, json=json_payload
-                    )
-                elif request_method == "DELETE":
-                    response = await client.delete(api_url, headers=headers)
-                else:
-                    return f"{API_ERROR_PREFIX} Unsupported HTTP method: {method}"
-
-            if response.status_code == 200:
-                try:
-                    return response.json()
-                except json.JSONDecodeError:
-                    # If 200 OK but not JSON, return raw text.
-                    # It might be the expected plain string response (e.g., tracking code).
-                    try:
-                        # Return the response object itself for the caller to handle .text
-                        return response
-                    except Exception as text_err:
-                        return f"{API_ERROR_PREFIX} Status 200 OK, but failed to decode JSON and failed to read response text: {text_err}"
-
-            elif response.status_code == 401 and retry_count < max_retries:
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response: Optional[httpx.Response] = None
+        for attempt in range(max_retries + 1):
+            try:
                 print(
-                    f"SY API request received 401 Unauthorized. \n Triggering token refresh via config (Retry {retry_count + 1}/{max_retries})..."
+                    f" -> SY API Request ({method} {api_url}) Attempt {attempt + 1}..."
                 )
-                # Call the config trigger function
-                refresh_successful = await config.trigger_sy_token_refresh()
-                retry_count += 1
+                response = await client.request(
+                    method,
+                    api_url,
+                    headers=headers,
+                    json=json_payload,
+                    follow_redirects=True,
+                )
 
-                if refresh_successful:
-                    # Re-read the potentially updated token from config via accessor
-                    auth_token = config.get_sy_api_token()
-                    if not auth_token:  # Should not happen, but check
-                        print(
-                            "!!! Config reported refresh success on 401, but token is still None."
-                        )
-                        return f"{API_ERROR_PREFIX} Unauthorized (401) and subsequent refresh state mismatch."
-
-                    headers["Authorization"] = (
-                        f"Bearer {auth_token}"  # Update header for retry
-                    )
-                    print("Token refreshed via config trigger. Retrying API call...")
-                    await asyncio.sleep(0.5)
-                    continue  # Retry the request with the new token
-                else:
-                    print("Token refresh failed via config trigger. Aborting retries.")
-                    return f"{API_ERROR_PREFIX} Unauthorized (401) and token refresh failed."
-
-            else:
-                # --- Error Message Extraction ---
-                status_code = response.status_code
-                error_message_detail = ""
-                try:
-                    # Attempt to parse JSON body first
-                    error_json = response.json()
-                    if isinstance(error_json, dict):
-                        # Look for common error message keys
-                        if "message" in error_json:
-                            # Handle nested JSON string in message field
-                            if isinstance(error_json["message"], str):
-                                try:
-                                    nested_error = json.loads(error_json["message"])
-                                    if (
-                                        isinstance(nested_error, dict)
-                                        and "Error" in nested_error
-                                    ):
-                                        error_message_detail = (
-                                            f" Detail: {nested_error['Error']}"
-                                        )
-                                    else:
-                                        # Use raw message if nested parse fails
-                                        error_message_detail = (
-                                            f" Detail: {error_json['message'][:200]}"
-                                        )
-                                except json.JSONDecodeError:
-                                    # Use raw message if not valid JSON string
-                                    error_message_detail = (
-                                        f" Detail: {error_json['message'][:200]}"
-                                    )
-
-                            else:
-                                # Use the message directly if not a string or nested JSON isn't found
-                                error_message_detail = (
-                                    f" Detail: {str(error_json['message'])[:200]}"
-                                )
-
-                        elif "error" in error_json:
-                            error_message_detail = (
-                                f" Detail: {str(error_json['error'])[:200]}"
-                            )
-                        elif "detail" in error_json:
-                            error_message_detail = (
-                                f" Detail: {str(error_json['detail'])[:200]}"
-                            )
-                        else:
-                            # Fallback to string representation of the dict if no known key
-                            error_message_detail = f" Detail: {str(error_json)[:200]}"
-                    else:
-                        # If JSON but not a dict, use string representation
-                        error_message_detail = f" Detail: {str(error_json)[:200]}"
-
-                except json.JSONDecodeError:
-                    # If body is not JSON, use raw text
+                # Handle successful responses (2xx)
+                if 200 <= response.status_code < 300:
+                    # Attempt to parse JSON, handle empty 200/204
                     try:
-                        error_message_detail = f" Detail: {response.text[:200]}"
-                    except Exception:
-                        error_message_detail = " Detail: [Could not read response body]"
-                except Exception:
-                    # Catch any other parsing errors
-                    error_message_detail = " Detail: [Error parsing response body]"
+                        # Handle 204 No Content or empty body explicitly
+                        if response.status_code == 204 or not response.content:
+                            # For specific endpoints, a 200/204 without body might be OK
+                            # Return a standard success dict/list marker if needed, or response object
+                            # We might need endpoint-specific handling here later.
+                            # For now, let's return the raw response for the caller to decide.
+                            print(
+                                f"    - SY API Success ({response.status_code} No Content/Empty Body)"
+                            )
+                            # Return a standard success dict if no body expected
+                            # This aligns with SuccessResponse Pydantic model
+                            if (
+                                response.request.method == "POST"
+                            ):  # Typical for creates/updates
+                                return {
+                                    "success": True,
+                                    "message": "Operation successful (No Content)",
+                                }
+                            else:  # Return raw response for GET/DELETE etc. that might expect no body
+                                return response
+                        else:
+                            json_response = response.json()
+                            # Validate expected type (Dict or List)
+                            if isinstance(json_response, (dict, list)):
+                                print(
+                                    f"    - SY API Success ({response.status_code} JSON Parsed)"
+                                )
+                                return json_response
+                            else:
+                                return f"{API_ERROR_PREFIX} Unexpected JSON type: {type(json_response).__name__}. Expected Dict or List."
+                    except json.JSONDecodeError:
+                        # This case should be rare if content check above works
+                        # but good to have as fallback.
+                        return f"{API_ERROR_PREFIX} Success status ({response.status_code}) but failed to decode non-empty response as JSON."
 
-                # Construct the final error message
-                if status_code == 400:
-                    return (
-                        f"{API_ERROR_PREFIX} Bad Request (400).{error_message_detail}"
+                # Handle 401 Unauthorized - attempt refresh ONLY ONCE
+                elif response.status_code == 401 and attempt < max_retries:
+                    print(
+                        "    - SY API Error (401 Unauthorized) - Attempting token refresh..."
                     )
-                elif (
-                    status_code == 401
-                ):  # Should only hit this if retries failed or max_retries=0
-                    return f"{API_ERROR_PREFIX} Unauthorized (401) after retries.{error_message_detail}"
-                elif status_code == 403:
-                    return f"{API_ERROR_PREFIX} Forbidden (403).{error_message_detail}"
-                elif status_code == 404:
-                    return f"{API_ERROR_PREFIX} Not Found (404).{error_message_detail}"
-                elif status_code >= 500:
-                    return f"{API_ERROR_PREFIX} Server Error ({status_code}).{error_message_detail}"
+                    # Import the refresh function locally ONLY WHEN NEEDED
+                    from src.services.sy_refresh_token import refresh_sy_token
+
+                    refresh_successful = await refresh_sy_token()
+                    if refresh_successful:
+                        new_token = config.get_sy_api_token()
+                        if new_token:
+                            print(
+                                "    - Token refreshed successfully. Retrying request..."
+                            )
+                            headers["Authorization"] = f"Bearer {new_token}"
+                            continue  # Go to next iteration of the loop to retry
+                        else:
+                            # Should not happen if refresh_successful is True, but safety check
+                            return f"{API_ERROR_PREFIX} Refresh reported success but token is still None."
+                    else:
+                        print("    - Token refresh failed. Aborting request.")
+                        return f"{API_ERROR_PREFIX} Authentication failed (401) and token refresh failed."
+
+                # Handle other client/server errors (4xx, 5xx)
                 else:
-                    return f"{API_ERROR_PREFIX} Unexpected HTTP {status_code}.{error_message_detail}"
+                    error_detail = f"Status: {response.status_code}"
+                    try:
+                        # Try to get more detail from response body
+                        error_body = response.json()
+                        error_detail += f", Body: {json.dumps(error_body)[:200]}"
+                    except json.JSONDecodeError:
+                        error_detail += f", Body: {response.text[:200]}"
+                    # Provide specific error messages
+                    if response.status_code == 400:
+                        return f"{API_ERROR_PREFIX} Bad Request (400): {error_detail}"
+                    elif response.status_code == 404:
+                        return f"{API_ERROR_PREFIX} Not Found (404): {error_detail}"
+                    elif response.status_code == 403:
+                        return f"{API_ERROR_PREFIX} Forbidden (403): {error_detail}"
+                    elif 500 <= response.status_code < 600:
+                        return f"{API_ERROR_PREFIX} Server Error ({response.status_code}): {error_detail}"
+                    else:
+                        return f"{API_ERROR_PREFIX} Request failed: {error_detail}"
 
-        except httpx.TimeoutException:
-            return f"{API_ERROR_PREFIX} Request timed out."
-        except httpx.RequestError as req_err:
-            # Provide more specific network error info if possible
-            return f"{API_ERROR_PREFIX} Network/Connection Error: {req_err}"
-        except json.JSONDecodeError:  # Should be less likely to hit here now
-            status_code_str = str(response.status_code) if response else "Unknown"
-            raw_text = response.text[:200] if response else "[No Response]"
-            return f"{API_ERROR_PREFIX} Failed to decode response as JSON. Status: {status_code_str}. Body starts: {raw_text}"
-        except Exception as e:
-            traceback.print_exc()
-            return f"{API_ERROR_PREFIX} Unexpected error in request helper: {type(e).__name__} - {e}"
+            # Handle client-side exceptions (timeout, connection errors)
+            except httpx.TimeoutException:
+                return f"{API_ERROR_PREFIX} Request timed out."
+            except httpx.RequestError as req_err:
+                # Provide more specific network error info if possible
+                return f"{API_ERROR_PREFIX} Network/Connection Error: {req_err}"
+            except json.JSONDecodeError:  # Should be less likely to hit here now
+                status_code_str = str(response.status_code) if response else "Unknown"
+                raw_text = response.text[:200] if response else "[No Response]"
+                return f"{API_ERROR_PREFIX} Failed to decode response as JSON. Status: {status_code_str}. Body starts: {raw_text}"
+            except Exception as e:
+                traceback.print_exc()
+                return f"{API_ERROR_PREFIX} Unexpected error in request helper: {type(e).__name__} - {e}"
 
-    # Fallback if loop finishes unexpectedly (should ideally not happen)
-    return f"{API_ERROR_PREFIX} API request helper finished unexpectedly."
+        # Fallback if loop finishes unexpectedly (should ideally not happen)
+        return f"{API_ERROR_PREFIX} API request helper finished unexpectedly."
 
 
 # --- Tool Functions (Refactored to use _make_sy_api_request) ---

@@ -1,10 +1,14 @@
+"""Centralized service for managing agent interactions and state."""
+
 # agent_service.py
 import traceback
-import uuid # Added for generating conversation IDs
-import re # Import regex module
-from typing import Sequence, Optional, Dict, Union, ClassVar, Any # Added Any for state
+import uuid  # Added for generating conversation IDs
+import re  # Import regex module
+from typing import Sequence, Optional, Dict, Union, ClassVar, Any  # Added Any for state
 
 # AutoGen imports
+from autogen_agentchat.ui import Console
+from autogen_core.memory import ListMemory, MemoryContent, MemoryMimeType
 from autogen_agentchat.agents import UserProxyAgent, AssistantAgent
 from autogen_agentchat.base import TaskResult
 from autogen_agentchat.conditions import MaxMessageTermination, TextMentionTermination
@@ -13,14 +17,20 @@ from autogen_agentchat.teams import SelectorGroupChat
 from autogen_core import CancellationToken
 from autogen_core.models import ModelInfo
 from autogen_ext.models.openai import OpenAIChatCompletionClient
-from autogen_agentchat.ui import Console
-from autogen_core.memory import ListMemory, MemoryContent, MemoryMimeType
 
 # Agents
-from src.agents.hubspot.hubspot_agent import create_hubspot_agent, HUBSPOT_AGENT_NAME
-from src.agents.planner.planner_agent import create_planner_agent, PLANNER_AGENT_NAME
-from src.agents.stickeryou.sy_api_agent import create_sy_api_agent, SY_API_AGENT_NAME
-from src.agents.product.product_agent import create_product_agent, PRODUCT_AGENT_NAME
+from src.agents.hubspot.hubspot_agent import create_hubspot_agent
+from src.agents.planner.planner_agent import create_planner_agent
+from src.agents.stickeryou.sy_api_agent import create_sy_api_agent
+from src.agents.product.product_agent import create_product_agent
+
+# Import Agent Name
+from src.agents.agent_names import (
+    HUBSPOT_AGENT_NAME,
+    SY_API_AGENT_NAME,
+    PRODUCT_AGENT_NAME,
+    PLANNER_AGENT_NAME,
+)
 
 # Config imports
 from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_FAMILY, LLM_MODEL_NAME
@@ -31,16 +41,20 @@ AgentType = Union[AssistantAgent, UserProxyAgent]
 # Define User Proxy Name Constant
 USER_PROXY_AGENT_NAME = "user_proxy"
 
+
 class AgentService:
     """
     Manages the setup and execution of AutoGen chat sessions using shared class attributes
     to ensure shared state (model client, agents) across all instances.
     """
+
     # --- Class Attributes for Shared State ---
     model_client: ClassVar[Optional[OpenAIChatCompletionClient]] = None
-    conversation_states: ClassVar[Dict[str, Any]] = {} # In-memory state store (stores state dicts)
+    conversation_states: ClassVar[Dict[str, Any]] = (
+        {}
+    )  # In-memory state store (stores state dicts)
 
-    _initialized: ClassVar[bool] = False # Flag for one-time initialization
+    _initialized: ClassVar[bool] = False  # Flag for one-time initialization
 
     # --- Initialization Method ---
     @staticmethod
@@ -65,13 +79,15 @@ class AgentService:
                     json_output=False,
                     family=LLM_MODEL_FAMILY,
                     structured_output=True,
-                    multiple_system_messages=True
+                    multiple_system_messages=True,
                 ),
             )
             AgentService._initialized = True
 
         except Exception as e:
-            print(f"\n\n!!! CRITICAL ERROR during AgentService shared state initialization: {e}")
+            print(
+                f"\n\n!!! CRITICAL ERROR during AgentService shared state initialization: {e}"
+            )
             traceback.print_exc()
 
             # Reset state on failure
@@ -91,7 +107,11 @@ class AgentService:
     def _get_termination_condition():
         """Helper to define the termination condition."""
         max_message_termination = MaxMessageTermination(max_messages=30)
-        text_termination = TextMentionTermination("TASK FAILED") | TextMentionTermination("TASK COMPLETE") | TextMentionTermination("<UserProxyAgent>")
+        text_termination = (
+            TextMentionTermination("TASK FAILED")
+            | TextMentionTermination("TASK COMPLETE")
+            | TextMentionTermination("<UserProxyAgent>")
+        )
         # The chat should naturally stop when UserProxyAgent turn comes and it has no input.
         return max_message_termination | text_termination
 
@@ -99,7 +119,9 @@ class AgentService:
 
     # Next speaker selector
     @staticmethod
-    def custom_speaker_selector(messages: Sequence[BaseAgentEvent | BaseChatMessage]) -> str | None:
+    def custom_speaker_selector(
+        messages: Sequence[BaseAgentEvent | BaseChatMessage],
+    ) -> str | None:
         """Determines the next speaker based on explicit rules and message content.
 
         Rules:
@@ -114,7 +136,9 @@ class AgentService:
         4. Fallback: If none of the above, let the LLM decide (should be rare).
         """
         if not AgentService._initialized:
-            print("<- WARN: custom_speaker_selector called before AgentService fully initialized. Defaulting to Planner.")
+            print(
+                "<- WARN: custom_speaker_selector called before AgentService fully initialized. Defaulting to Planner."
+            )
             return PLANNER_AGENT_NAME
 
         # Ensure messages list is not empty
@@ -144,17 +168,19 @@ class AgentService:
                 match = re.match(r"^<(\w+?)>", content)
 
                 if match:
-                    delegated_agent_name = match.group(1) # Extracts the name inside <>
-                    
-                    if delegated_agent_name == PRODUCT_AGENT_NAME: 
+                    delegated_agent_name = match.group(1)  # Extracts the name inside <>
+
+                    if delegated_agent_name == PRODUCT_AGENT_NAME:
                         return PRODUCT_AGENT_NAME
                     elif delegated_agent_name == SY_API_AGENT_NAME:
                         return SY_API_AGENT_NAME
                     elif delegated_agent_name == HUBSPOT_AGENT_NAME:
                         return HUBSPOT_AGENT_NAME
                     else:
-                        print(f"<- WARN: Selector found delegation pattern but agent '{delegated_agent_name}' is unknown. Defaulting to Planner.")
-                        return PLANNER_AGENT_NAME # Fallback if agent name invalid
+                        print(
+                            f"<- WARN: Selector found delegation pattern but agent '{delegated_agent_name}' is unknown. Defaulting to Planner."
+                        )
+                        return PLANNER_AGENT_NAME  # Fallback if agent name invalid
                 else:
                     # Planner spoke, but no delegation found. Let LLM decide
                     # print("Selector: Planner spoke, no delegation found. Letting LLM decide (likely pause for user)." )
@@ -168,15 +194,26 @@ class AgentService:
         return None
 
     # Start or continue a chat session
-    async def run_chat_session(self, user_message: str, show_console: bool = False, conversation_id: Optional[str] = None) -> tuple[Optional[TaskResult], Optional[str], Optional[str]]:
+    async def run_chat_session(
+        self,
+        user_message: str,
+        show_console: bool = False,
+        conversation_id: Optional[str] = None,
+    ) -> tuple[Optional[TaskResult], Optional[str], Optional[str]]:
         """Runs or continues a chat session using the SHARED group_chat instance and agents, handling state."""
         if not AgentService._initialized or not AgentService.model_client:
-            return None, "AgentService shared state (client) not initialized properly.", conversation_id
+            return (
+                None,
+                "AgentService shared state (client) not initialized properly.",
+                conversation_id,
+            )
 
         task_result = None
         error_message = None
         current_conversation_id = conversation_id
-        group_chat: Optional[SelectorGroupChat] = None # Will be instantiated per request
+        group_chat: Optional[SelectorGroupChat] = (
+            None  # Will be instantiated per request
+        )
         saved_state_dict: Optional[Dict] = None
 
         try:
@@ -188,18 +225,31 @@ class AgentService:
                 # --- Attempt to Load State --- #
                 if current_conversation_id in AgentService.conversation_states:
                     # print(f"<--- Loading state for conversation ID: {current_conversation_id} --->")
-                    saved_state_dict = AgentService.conversation_states[current_conversation_id]
+                    saved_state_dict = AgentService.conversation_states[
+                        current_conversation_id
+                    ]
                 else:
                     # ID provided, but no state found - treat as new conversation with this ID
-                    print(f"<--- New conversation started with provided ID: {current_conversation_id} (no prior state found) --->")
+                    print(
+                        f"<--- New conversation started with provided ID: {current_conversation_id} (no prior state found) --->"
+                    )
 
             # Create memory for this request, containing the conversation ID
             request_memory = ListMemory()
-            await request_memory.add(MemoryContent(content=f"Current_HubSpot_Thread_ID: {current_conversation_id}", mime_type=MemoryMimeType.TEXT))
+            await request_memory.add(
+                MemoryContent(
+                    content=f"Current_HubSpot_Thread_ID: {current_conversation_id}",
+                    mime_type=MemoryMimeType.TEXT,
+                )
+            )
 
             # --- Create Agent Instances for this request --- #
-            planner_assistant = create_planner_agent(AgentService.model_client, memory=[request_memory])
-            hubspot_agent = create_hubspot_agent(AgentService.model_client, memory=[request_memory])
+            planner_assistant = create_planner_agent(
+                AgentService.model_client, memory=[request_memory]
+            )
+            hubspot_agent = create_hubspot_agent(
+                AgentService.model_client, memory=[request_memory]
+            )
             sy_api_agent = create_sy_api_agent(AgentService.model_client)
             product_agent = create_product_agent(AgentService.model_client)
 
@@ -225,7 +275,7 @@ class AgentService:
                 except Exception as load_err:
                     error_message = f"Error loading state into new chat instance for {current_conversation_id}: {load_err}. Starting fresh."
                     print(f"    - WARN: {error_message}")
-                    await group_chat.reset() # Reset the new instance
+                    await group_chat.reset()  # Reset the new instance
                     # Clear the invalid state from storage
                     AgentService.conversation_states.pop(current_conversation_id, None)
 
@@ -233,18 +283,24 @@ class AgentService:
             # The user_message represents the *next* input in the conversation
             # Manually create a message with the expected source name for the selector
             # Use TextMessage instead of UserMessage to avoid potential type issues with run_stream
-            next_message = TextMessage(content=user_message, source=USER_PROXY_AGENT_NAME)
+            next_message = TextMessage(
+                content=user_message, source=USER_PROXY_AGENT_NAME
+            )
 
             cancellation_token = CancellationToken()
 
             # Run the chat - use run() for API flow, run_stream() wrapped in Console for terminal
             if show_console:
                 task_result = await Console(
-                    group_chat.run_stream(task=next_message, cancellation_token=cancellation_token)
+                    group_chat.run_stream(
+                        task=next_message, cancellation_token=cancellation_token
+                    )
                 )
             else:
                 # Run the chat. The `next_message` kicks off the next round.
-                task_result = await group_chat.run(task=next_message, cancellation_token=cancellation_token)
+                task_result = await group_chat.run(
+                    task=next_message, cancellation_token=cancellation_token
+                )
 
             # --- Save State --- #
             # Save state from the instance we just ran
@@ -255,7 +311,7 @@ class AgentService:
             error_message = f"Error during AutoGen task execution: {e}"
             print(f"\n\n!!! {error_message}")
             traceback.print_exc()
-            task_result = None # Ensure result is None on error
+            task_result = None  # Ensure result is None on error
 
         # Return result, error, and the ID used (new or existing)
         return task_result, error_message, current_conversation_id
@@ -280,8 +336,8 @@ class AgentService:
 try:
     AgentService._initialize_shared_state()
 except Exception as init_err:
-     print(f"!!! FAILED to initialize AgentService state on module import: {init_err}")
-     # Decide if the application should stop or continue in a degraded state
+    print(f"!!! FAILED to initialize AgentService state on module import: {init_err}")
+    # Decide if the application should stop or continue in a degraded state
 
 # --- Create an instance for convenience ---
 agent_service = AgentService()

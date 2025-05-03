@@ -4,7 +4,8 @@
 import os
 from dotenv import load_dotenv
 
-from src.agents.hubspot.hubspot_agent import HUBSPOT_AGENT_NAME
+# Import Agent Name
+from src.agents.agent_names import HUBSPOT_AGENT_NAME
 
 # Load necessary environment variables
 load_dotenv()
