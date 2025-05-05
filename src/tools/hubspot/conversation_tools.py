@@ -1,10 +1,12 @@
-''' Tools for interacting with HubSpot Conversations API '''
+"""Tools for interacting with HubSpot Conversations API"""
+
 # agents/hubspot/tools/conversation_tools.py
 import asyncio
 from typing import Optional, List, Union, Dict, Any
 
 # Import config for client and defaults
 import config
+from src.services.clean_agent_tags import clean_agent_output
 
 # Import Pydantic models for request/response validation
 from .dto_responses import (
@@ -23,12 +25,12 @@ from .dto_responses import (
     ChannelAccountDetailResponse,
     MessageDetailResponse,
     OriginalMessageContentResponse,
-    CreateMessageResponse
+    CreateMessageResponse,
 )
 from .dto_requests import (
     BatchReadActorsRequest,
     CreateMessageRequest,
-    UpdateThreadRequest
+    UpdateThreadRequest,
 )
 
 # Standardized Error Prefix
@@ -36,12 +38,13 @@ ERROR_PREFIX = "HUBSPOT_TOOL_FAILED:"
 
 # --- Internal Helper Function --- #
 
+
 async def _make_hubspot_api_request(
     method: str,
     api_path: str,
     query_params: Optional[Dict[str, Any]] = None,
-    json_payload: Optional[Dict[str, Any]] = None
-) -> Union[Dict, List, str, None]: # Can return None on 204 No Content
+    json_payload: Optional[Dict[str, Any]] = None,
+) -> Union[Dict, List, str, None]:  # Can return None on 204 No Content
     """Internal helper to make HubSpot API requests via the API client.
 
     Args:
@@ -63,7 +66,7 @@ async def _make_hubspot_api_request(
         "method": method.upper(),
         "path": api_path,
         "query_params": query_params or {},
-        "body": json_payload
+        "body": json_payload,
     }
 
     try:
@@ -72,15 +75,17 @@ async def _make_hubspot_api_request(
         # Handle successful 204 No Content (e.g., DELETE archive_thread)
         # The HubSpot API might return None directly for 204
         if response is None and method.upper() == "DELETE":
-            print(f"DEBUG: Received None response for {method} {api_path}. Assuming 204 OK.")
-            return None # Indicate successful deletion/no content
+            print(
+                f"DEBUG: Received None response for {method} {api_path}. Assuming 204 OK."
+            )
+            return None  # Indicate successful deletion/no content
 
         # Handle cases where API returns the raw response object
-        if hasattr(response, 'status_code'):
+        if hasattr(response, "status_code"):
             status_code = response.status_code
             if 200 <= status_code < 300:
                 if status_code == 204:
-                    return None # Explicitly return None for 204
+                    return None  # Explicitly return None for 204
                 try:
                     # Try parsing JSON for other 2xx codes
                     return response.json()
@@ -97,7 +102,9 @@ async def _make_hubspot_api_request(
                     body_str = response.text
                 except Exception:
                     body_str = "[Could not read response text]"
-                return f"{ERROR_PREFIX} API Error Status {status_code}. Body: {body_str}"
+                return (
+                    f"{ERROR_PREFIX} API Error Status {status_code}. Body: {body_str}"
+                )
 
         # Handle cases where API returns pre-parsed dict/list (more common)
         elif isinstance(response, (dict, list)):
@@ -110,23 +117,31 @@ async def _make_hubspot_api_request(
 
     except Exception as e:
         # Handle exceptions raised by the API client
-        if hasattr(e, 'status'):
+        if hasattr(e, "status"):
             status_code = e.status
-            error_body = getattr(e, 'body', 'No body')
-            error_reason = getattr(e, 'reason', 'No reason')
+            error_body = getattr(e, "body", "No body")
+            error_reason = getattr(e, "reason", "No reason")
             try:
-                body_str = error_body.decode('utf-8', errors='replace') if isinstance(error_body, bytes) else str(error_body)
+                body_str = (
+                    error_body.decode("utf-8", errors="replace")
+                    if isinstance(error_body, bytes)
+                    else str(error_body)
+                )
             except Exception:
                 body_str = "[Could not decode error body]"
             # Check for 204 raised as exception (possible API behavior)
             if status_code == 204 and method.upper() == "DELETE":
-                print(f"DEBUG: Caught Exception with status 204 for {method} {api_path}. Assuming Success.")
-                return None # Treat as successful deletion
+                print(
+                    f"DEBUG: Caught Exception with status 204 for {method} {api_path}. Assuming Success."
+                )
+                return None  # Treat as successful deletion
             return f"{ERROR_PREFIX} API Error Status {status_code}. Reason: {error_reason}. Body: {body_str}"
 
         return f"{ERROR_PREFIX} Unexpected error during API request to {api_path}: {type(e).__name__} - {e}"
 
+
 # --- Actor Tools --- #
+
 
 async def get_actor_details(actor_id: str) -> Union[ActorDetailResponse, str]:
     """Retrieves details for a specific actor.
@@ -140,7 +155,7 @@ async def get_actor_details(actor_id: str) -> Union[ActorDetailResponse, str]:
     api_path = f"/conversations/v3/conversations/actors/{actor_id}"
     result = await _make_hubspot_api_request("GET", api_path)
 
-    if isinstance(result, str): # Error string from helper
+    if isinstance(result, str):  # Error string from helper
         return result
     elif isinstance(result, dict):
         try:
@@ -149,6 +164,7 @@ async def get_actor_details(actor_id: str) -> Union[ActorDetailResponse, str]:
             return f"{ERROR_PREFIX} Failed to validate successful response for get_actor_details: {parse_err}. Data: {str(result)[:200]}..."
     else:
         return f"{ERROR_PREFIX} Unexpected successful response type from helper for get_actor_details: {type(result).__name__}"
+
 
 async def get_actors_batch(actor_ids: List[str]) -> Union[BatchReadActorsResponse, str]:
     """Retrieves details for multiple actors in a batch.
@@ -165,9 +181,11 @@ async def get_actors_batch(actor_ids: List[str]) -> Union[BatchReadActorsRespons
     except Exception as pydantic_err:
         return f"{ERROR_PREFIX} Failed to create request body for batch actors: {pydantic_err}"
 
-    result = await _make_hubspot_api_request("POST", api_path, json_payload=request_body)
+    result = await _make_hubspot_api_request(
+        "POST", api_path, json_payload=request_body
+    )
 
-    if isinstance(result, str): # Error string from helper
+    if isinstance(result, str):  # Error string from helper
         return result
     elif isinstance(result, dict):
         try:
@@ -178,9 +196,13 @@ async def get_actors_batch(actor_ids: List[str]) -> Union[BatchReadActorsRespons
     else:
         return f"{ERROR_PREFIX} Unexpected successful response type from helper for get_actors_batch: {type(result).__name__}"
 
+
 # --- Channel Tools --- #
 
-async def get_channel_account_details(channel_account_id: str) -> Union[ChannelAccountDetailResponse, str]:
+
+async def get_channel_account_details(
+    channel_account_id: str,
+) -> Union[ChannelAccountDetailResponse, str]:
     """Retrieves details for a specific channel account instance.
     Allowed Scopes: [Dev, Internal]
     Args: channel_account_id: The unique ID of the channel account.
@@ -201,6 +223,7 @@ async def get_channel_account_details(channel_account_id: str) -> Union[ChannelA
             return f"{ERROR_PREFIX} Failed to validate successful response for get_channel_account_details: {parse_err}. Data: {str(result)[:200]}..."
     else:
         return f"{ERROR_PREFIX} Unexpected successful response type from helper for get_channel_account_details: {type(result).__name__}"
+
 
 async def get_channel_details(channel_id: str) -> Union[ChannelDetailResponse, str]:
     """Retrieves details for a specific channel.
@@ -224,11 +247,12 @@ async def get_channel_details(channel_id: str) -> Union[ChannelDetailResponse, s
     else:
         return f"{ERROR_PREFIX} Unexpected successful response type from helper for get_channel_details: {type(result).__name__}"
 
+
 async def list_channel_accounts(
     channel_id: Optional[str] = None,
     inbox_id: Optional[str] = None,
     limit: Optional[int] = None,
-    after: Optional[str] = None
+    after: Optional[str] = None,
 ) -> Union[ListChannelAccountsResponse, str]:
     """Retrieves a list of channel accounts (instances of channels).
     Allowed Scopes: [Dev, Internal]
@@ -241,16 +265,20 @@ async def list_channel_accounts(
     """
     api_path = "/conversations/v3/conversations/channel-accounts"
     query_params = {}
-    if channel_id: query_params['channelId'] = channel_id
-    if inbox_id: query_params['inboxId'] = inbox_id
-    if limit: query_params['limit'] = limit
-    if after: query_params['after'] = after
+    if channel_id:
+        query_params["channelId"] = channel_id
+    if inbox_id:
+        query_params["inboxId"] = inbox_id
+    if limit:
+        query_params["limit"] = limit
+    if after:
+        query_params["after"] = after
 
     result = await _make_hubspot_api_request("GET", api_path, query_params=query_params)
 
     if isinstance(result, str):
         return result
-    elif isinstance(result, dict): # Response is a dict containing 'results'
+    elif isinstance(result, dict):  # Response is a dict containing 'results'
         try:
             return ListChannelAccountsResponse.model_validate(result)
         except Exception as parse_err:
@@ -258,9 +286,9 @@ async def list_channel_accounts(
     else:
         return f"{ERROR_PREFIX} Unexpected successful response type from helper for list_channel_accounts: {type(result).__name__}"
 
+
 async def list_channels(
-    limit: Optional[int] = None,
-    after: Optional[str] = None
+    limit: Optional[int] = None, after: Optional[str] = None
 ) -> Union[ListChannelsResponse, str]:
     """Retrieves a list of channels connected to inboxes.
     Allowed Scopes: [Dev, Internal]
@@ -271,14 +299,16 @@ async def list_channels(
     """
     api_path = "/conversations/v3/conversations/channels"
     query_params = {}
-    if limit: query_params['limit'] = limit
-    if after: query_params['after'] = after
+    if limit:
+        query_params["limit"] = limit
+    if after:
+        query_params["after"] = after
 
     result = await _make_hubspot_api_request("GET", api_path, query_params=query_params)
 
     if isinstance(result, str):
         return result
-    elif isinstance(result, dict): # Response is a dict containing 'results'
+    elif isinstance(result, dict):  # Response is a dict containing 'results'
         try:
             return ListChannelsResponse.model_validate(result)
         except Exception as parse_err:
@@ -286,7 +316,9 @@ async def list_channels(
     else:
         return f"{ERROR_PREFIX} Unexpected successful response type from helper for list_channels: {type(result).__name__}"
 
+
 # --- Inbox Tools --- #
+
 
 async def get_inbox_details(inbox_id: str) -> Union[InboxDetailResponse, str]:
     """Retrieves details for a specific inbox.
@@ -310,9 +342,9 @@ async def get_inbox_details(inbox_id: str) -> Union[InboxDetailResponse, str]:
     else:
         return f"{ERROR_PREFIX} Unexpected successful response type from helper for get_inbox_details: {type(result).__name__}"
 
+
 async def list_inboxes(
-    limit: Optional[int] = None,
-    after: Optional[str] = None
+    limit: Optional[int] = None, after: Optional[str] = None
 ) -> Union[ListInboxesResponse, str]:
     """Retrieves a list of conversation inboxes.
     Allowed Scopes: [Dev, Internal]
@@ -323,14 +355,16 @@ async def list_inboxes(
     """
     api_path = "/conversations/v3/conversations/inboxes"
     query_params = {}
-    if limit: query_params['limit'] = limit
-    if after: query_params['after'] = after
+    if limit:
+        query_params["limit"] = limit
+    if after:
+        query_params["after"] = after
 
     result = await _make_hubspot_api_request("GET", api_path, query_params=query_params)
 
     if isinstance(result, str):
         return result
-    elif isinstance(result, dict): # Response is dict with 'results'
+    elif isinstance(result, dict):  # Response is dict with 'results'
         try:
             return ListInboxesResponse.model_validate(result)
         except Exception as parse_err:
@@ -338,11 +372,12 @@ async def list_inboxes(
     else:
         return f"{ERROR_PREFIX} Unexpected successful response type from helper for list_inboxes: {type(result).__name__}"
 
+
 # --- Message Tools --- #
 
+
 async def get_message_details(
-    thread_id: str,
-    message_id: str
+    thread_id: str, message_id: str
 ) -> Union[MessageDetailResponse, str]:
     """Retrieves a specific message within a given thread.
     Allowed Scopes: [Dev, Internal]
@@ -356,7 +391,9 @@ async def get_message_details(
     if not message_id:
         return f"{ERROR_PREFIX} message_id is required."
 
-    api_path = f"/conversations/v3/conversations/threads/{thread_id}/messages/{message_id}"
+    api_path = (
+        f"/conversations/v3/conversations/threads/{thread_id}/messages/{message_id}"
+    )
     result = await _make_hubspot_api_request("GET", api_path)
 
     if isinstance(result, str):
@@ -369,9 +406,9 @@ async def get_message_details(
     else:
         return f"{ERROR_PREFIX} Unexpected successful response type from helper for get_message_details: {type(result).__name__}"
 
+
 async def get_original_message_content(
-    thread_id: str,
-    message_id: str
+    thread_id: str, message_id: str
 ) -> Union[OriginalMessageContentResponse, str]:
     """Retrieves the original text/richText content of a potentially truncated message.
     Allowed Scopes: [Dev, Internal]
@@ -398,7 +435,9 @@ async def get_original_message_content(
     else:
         return f"{ERROR_PREFIX} Unexpected successful response type from helper for get_original_message_content: {type(result).__name__}"
 
+
 # --- Thread Tools --- #
+
 
 async def archive_thread(thread_id: str) -> str:
     """Archives a single conversation thread.
@@ -414,15 +453,15 @@ async def archive_thread(thread_id: str) -> str:
 
     if result is None:
         return "HUBSPOT_TOOL_SUCCESS: Thread successfully archived (No Content)."
-    elif isinstance(result, str): # Error string from helper
+    elif isinstance(result, str):  # Error string from helper
         return result
     else:
         # Unexpected if DELETE didn't return None or error string
         return f"{ERROR_PREFIX} Unexpected response type from helper for archive_thread: {type(result).__name__}. Expected None or error string."
 
+
 async def get_thread_details(
-    thread_id: str,
-    association: Optional[str] = None
+    thread_id: str, association: Optional[str] = None
 ) -> Union[ThreadDetail, str]:
     """Retrieves details for a single conversation thread.
     Allowed Scopes: [Dev, Internal]
@@ -436,7 +475,8 @@ async def get_thread_details(
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}"
     query_params = {}
-    if association: query_params['association'] = association
+    if association:
+        query_params["association"] = association
 
     result = await _make_hubspot_api_request("GET", api_path, query_params=query_params)
 
@@ -450,11 +490,12 @@ async def get_thread_details(
     else:
         return f"{ERROR_PREFIX} Unexpected successful response type from helper for get_thread_details: {type(result).__name__}"
 
+
 async def get_thread_messages(
     thread_id: str,
     limit: Optional[int] = None,
     after: Optional[str] = None,
-    sort: Optional[str] = None
+    sort: Optional[str] = None,
 ) -> Union[ListMessagesResponse, str]:
     """Retrieves message history for a thread.
     Allowed Scopes: [Dev, Internal]
@@ -470,21 +511,25 @@ async def get_thread_messages(
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}/messages"
     query_params = {}
-    if limit: query_params['limit'] = limit
-    if after: query_params['after'] = after
-    if sort: query_params['sort'] = sort
+    if limit:
+        query_params["limit"] = limit
+    if after:
+        query_params["after"] = after
+    if sort:
+        query_params["sort"] = sort
 
     result = await _make_hubspot_api_request("GET", api_path, query_params=query_params)
 
     if isinstance(result, str):
         return result
-    elif isinstance(result, dict): # Response is dict with 'results'
+    elif isinstance(result, dict):  # Response is dict with 'results'
         try:
             return ListMessagesResponse.model_validate(result)
         except Exception as parse_err:
             return f"{ERROR_PREFIX} Failed to validate successful response for get_thread_messages: {parse_err}. Data: {str(result)[:200]}..."
     else:
         return f"{ERROR_PREFIX} Unexpected successful response type from helper for get_thread_messages: {type(result).__name__}"
+
 
 async def list_threads(
     limit: Optional[int] = None,
@@ -493,7 +538,7 @@ async def list_threads(
     inbox_id: Optional[str] = None,
     associated_contact_id: Optional[str] = None,
     sort: Optional[str] = None,
-    association: Optional[str] = None
+    association: Optional[str] = None,
 ) -> Union[ListThreadsResponse, str]:
     """Retrieves a list of conversation threads with filtering and pagination.
     Allowed Scopes: [Dev, Internal]
@@ -514,25 +559,33 @@ async def list_threads(
 
     api_path = "/conversations/v3/conversations/threads"
     query_params = {}
-    if limit: query_params['limit'] = limit
-    if after: query_params['after'] = after
-    if thread_status: query_params['threadStatus'] = thread_status
-    if inbox_id: query_params['inboxId'] = inbox_id
-    if associated_contact_id: query_params['associatedContactId'] = associated_contact_id
-    if sort: query_params['sort'] = sort
-    if association: query_params['association'] = association
+    if limit:
+        query_params["limit"] = limit
+    if after:
+        query_params["after"] = after
+    if thread_status:
+        query_params["threadStatus"] = thread_status
+    if inbox_id:
+        query_params["inboxId"] = inbox_id
+    if associated_contact_id:
+        query_params["associatedContactId"] = associated_contact_id
+    if sort:
+        query_params["sort"] = sort
+    if association:
+        query_params["association"] = association
 
     result = await _make_hubspot_api_request("GET", api_path, query_params=query_params)
 
     if isinstance(result, str):
         return result
-    elif isinstance(result, dict): # Response is dict with 'results'
+    elif isinstance(result, dict):  # Response is dict with 'results'
         try:
             return ListThreadsResponse.model_validate(result)
         except Exception as parse_err:
             return f"{ERROR_PREFIX} Failed to validate successful response for list_threads: {parse_err}. Data: {str(result)[:200]}..."
     else:
         return f"{ERROR_PREFIX} Unexpected successful response type from helper for list_threads: {type(result).__name__}"
+
 
 async def send_message_to_thread(
     thread_id: str,
@@ -543,7 +596,7 @@ async def send_message_to_thread(
     rich_text: Optional[str] = None,
     subject: Optional[str] = None,
     recipients: Optional[List[dict]] = None,
-    attachments: Optional[List[dict]] = None
+    attachments: Optional[List[dict]] = None,
 ) -> Union[CreateMessageResponse, str]:
     """Sends a message or comment to a HubSpot conversation thread.
     If the message_text contains 'HANDOFF' or 'COMMENT' (case-insensitive), it sends the message
@@ -563,11 +616,13 @@ async def send_message_to_thread(
     """
     # Use config values for defaults
     final_channel_id = channel_id or config.HUBSPOT_DEFAULT_CHANNEL
-    final_channel_account_id = channel_account_id or config.HUBSPOT_DEFAULT_CHANNEL_ACCOUNT
+    final_channel_account_id = (
+        channel_account_id or config.HUBSPOT_DEFAULT_CHANNEL_ACCOUNT
+    )
     final_sender_actor_id = sender_actor_id or config.HUBSPOT_DEFAULT_SENDER_ACTOR_ID
 
     # --- Input Validation ---
-    if not thread_id or not isinstance(thread_id, str) or thread_id.lower() == 'unknown':
+    if not thread_id or not isinstance(thread_id, str):
         return f"{ERROR_PREFIX} Valid HubSpot thread ID was not provided."
     if not final_channel_id or not isinstance(final_channel_id, str):
         return f"{ERROR_PREFIX} Valid HubSpot channel ID was not provided."
@@ -583,45 +638,56 @@ async def send_message_to_thread(
     if "HANDOFF" in message_text.upper() or "COMMENT" in message_text.upper():
         message_type = "COMMENT"
 
+    cleaned_message_text = clean_agent_output(message_text)
     # --- Prepare Payload ---
     api_path = f"/conversations/v3/conversations/threads/{thread_id}/messages"
     payload_dict = {
         "type": message_type,
-        "text": message_text,
+        "text": cleaned_message_text,
         "senderActorId": final_sender_actor_id,
         "channelId": final_channel_id,
-        "channelAccountId": final_channel_account_id
+        "channelAccountId": final_channel_account_id,
     }
-    if rich_text: payload_dict["richText"] = rich_text
-    if subject: payload_dict["subject"] = subject
-    if recipients: payload_dict["recipients"] = recipients
-    if attachments: payload_dict["attachments"] = attachments
+    if rich_text:
+        payload_dict["richText"] = rich_text
+    if subject:
+        payload_dict["subject"] = subject
+    if recipients:
+        payload_dict["recipients"] = recipients
+    if attachments:
+        payload_dict["attachments"] = attachments
 
     try:
-        request_body = CreateMessageRequest(**payload_dict).model_dump(exclude_none=True)
+        request_body = CreateMessageRequest(**payload_dict).model_dump(
+            exclude_none=True
+        )
     except Exception as pydantic_err:
         return f"{ERROR_PREFIX} Failed to create request body for sending message: {pydantic_err}. Payload attempted: {payload_dict}"
 
     # --- Make API Call --- #
-    result = await _make_hubspot_api_request("POST", api_path, json_payload=request_body)
+    result = await _make_hubspot_api_request(
+        "POST", api_path, json_payload=request_body
+    )
 
     if isinstance(result, str):
         return result
-    elif isinstance(result, dict):
+
+    if isinstance(result, dict):
         try:
             # Response should be the created message detail (201 Created usually)
             return CreateMessageResponse.model_validate(result)
         except Exception as parse_err:
             return f"{ERROR_PREFIX} Failed to validate successful response for send_message_to_thread: {parse_err}. Data: {str(result)[:200]}..."
-    else:
-        # POST should return a dict on success
-        return f"{ERROR_PREFIX} Unexpected successful response type from helper for send_message_to_thread: {type(result).__name__}"
+
+    # POST should return a dict on success
+    return f"{ERROR_PREFIX} Unexpected successful response type from helper for send_message_to_thread: {type(result).__name__}"
+
 
 async def update_thread(
     thread_id: str,
     status: Optional[str] = None,
     archived: Optional[bool] = None,
-    is_currently_archived: bool = False
+    is_currently_archived: bool = False,
 ) -> Union[UpdateThreadResponse, str]:
     """Updates a thread's status or restores it from archive.
     Allowed Scopes: [Dev Only]
@@ -642,15 +708,16 @@ async def update_thread(
     if status is not None:
         if status not in ["OPEN", "CLOSED"]:
             return f"{ERROR_PREFIX} Invalid status '{status}'."
-        payload_dict['status'] = status
+        payload_dict["status"] = status
     if archived is not None:
-        payload_dict['archived'] = archived
+        payload_dict["archived"] = archived
     if archived is False and not is_currently_archived:
         return f"{ERROR_PREFIX} To restore (archived=false), set 'is_currently_archived=true'."
 
     api_path = f"/conversations/v3/conversations/threads/{thread_id}"
     query_params = {}
-    if is_currently_archived: query_params['archived'] = 'true'
+    if is_currently_archived:
+        query_params["archived"] = "true"
 
     try:
         request_body = UpdateThreadRequest(**payload_dict).model_dump(exclude_none=True)
@@ -658,7 +725,9 @@ async def update_thread(
         return f"{ERROR_PREFIX} Failed to create request body for updating thread: {pydantic_err}. Payload attempted: {payload_dict}"
 
     # --- Make API Call --- #
-    result = await _make_hubspot_api_request("PATCH", api_path, query_params=query_params, json_payload=request_body)
+    result = await _make_hubspot_api_request(
+        "PATCH", api_path, query_params=query_params, json_payload=request_body
+    )
 
     if isinstance(result, str):
         return result

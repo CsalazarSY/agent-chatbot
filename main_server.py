@@ -3,6 +3,7 @@
 # main_server.py
 
 # System imports
+from typing import Optional
 from contextlib import asynccontextmanager
 import json
 import uvicorn
@@ -11,6 +12,14 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 
+# Import specific message types for reply extraction
+from autogen_agentchat.messages import (
+    BaseChatMessage,
+    ToolCallExecutionEvent,
+    TextMessage,
+    ThoughtEvent,
+)
+
 # Types
 from src.models.chat_api import ChatRequest, ChatResponse  # /chat endpoint
 from src.models.hubspot_webhooks import (
@@ -18,13 +27,15 @@ from src.models.hubspot_webhooks import (
     HubSpotSubscriptionType,
 )  # /hubspot/webhooks endpoint
 
+
 # Centralized Agent Service
 from src.agents.agents_services import agent_service
+from src.agents.agent_names import PLANNER_AGENT_NAME
 
 
 # Import the webhook processing function and its necessary globals
+from src.services.clean_agent_tags import clean_agent_output
 from src.services.hubspot_webhook_handler import (
-    clean_agent_output,
     process_incoming_hubspot_message,
     is_message_being_processed,
     add_message_to_processing,
@@ -140,24 +151,62 @@ async def chat_endpoint(request: ChatRequest):
         print(f"          - Stop Reason: {stop_reason}")
         print(f"          - Number of Messages: {len(task_result.messages)}")
 
-        # Extract the last message's content for the reply
-        if task_result.messages:
-            last_message = task_result.messages[-1]  # Get the last message object
-            # Extract content safely, handling different message types
-            if hasattr(last_message, "content"):
-                final_reply_content = (
-                    last_message.content
-                    if isinstance(last_message.content, str)
-                    else json.dumps(last_message.content)
-                )
-                # Clean up internal tags if they are not meant for the user
-                if isinstance(final_reply_content, str):
-                    final_reply_content = clean_agent_output(final_reply_content)
-            else:
-                final_reply_content = f"[{type(last_message).__name__} type message received]"  # More informative default
+        # --- Find the message BEFORE the final 'end_planner_turn' tool call --- #
+        reply_message: Optional[BaseChatMessage] = None
+        messages = task_result.messages
+        end_turn_event_index = -1
+
+        # First, find the index of the end_planner_turn execution event
+        for i in range(len(messages) - 1, -1, -1):
+            current_msg = messages[i]
+            if isinstance(current_msg, ToolCallExecutionEvent):
+                if any(
+                    exec_result.name == "end_planner_turn"
+                    for exec_result in getattr(current_msg, "content", [])
+                    if hasattr(exec_result, "name")
+                ):
+                    end_turn_event_index = i
+                    break
+
+        # If found, search backwards from the event index for the Planner's message
+        if end_turn_event_index > 0:
+            for i in range(end_turn_event_index - 1, -1, -1):
+                potential_reply_msg = messages[i]
+                # Look for the last TextMessage or ThoughtEvent from the Planner
+                if potential_reply_msg.source == PLANNER_AGENT_NAME and isinstance(
+                    potential_reply_msg, (TextMessage, ThoughtEvent)
+                ):
+                    reply_message = potential_reply_msg
+                    print(
+                        f"    - Found Planner message at index {i} (type: {type(reply_message).__name__}) before end_turn event."
+                    )
+                    break  # Found the most recent relevant message
+
+        # Fallback if the specific sequence wasn't found (should be rare)
+        if not reply_message and messages:
+            print(
+                "    - WARN: Could not reliably find Planner message before end_turn event. Falling back to last message."
+            )
+            reply_message = messages[-1]
+        # --- End of Finding Reply Message --- #
+
+        # Extract the reply content from the identified message
+        if reply_message and hasattr(reply_message, "content"):
+            final_reply_content = (
+                reply_message.content
+                if isinstance(reply_message.content, str)
+                else json.dumps(reply_message.content)
+            )
+            # Clean up internal tags if they are not meant for the user
+            if isinstance(final_reply_content, str):
+                final_reply_content = clean_agent_output(final_reply_content)
         else:
-            print(">>> No messages found in TaskResult. <<<")
-            final_reply_content = "The conversation generated no messages."
+            final_reply_content = (
+                f"[{type(reply_message).__name__} type message found, but no content]"
+                if reply_message
+                else "No suitable reply message found in TaskResult."
+            )
+
     else:
         print(
             ">>> TaskResult was not obtained (task might have failed before completion or service error) <<<"
@@ -188,27 +237,23 @@ async def hubspot_webhook_endpoint(
     Validates, deduplicates, and triggers background processing.
     """
     print("\n--- HubSpot Webhook Received ---")
-    print(f"    - Payload: {payload}")
 
     # Process individual events (assuming HubSpot might send multiple)
-    for event in payload.events:
+    # The payload *is* the list of events
+    for event in payload:
         print(
-            f" -> Processing Event: Type={event.subscriptionType}, Attempt={event.attemptNumber}, ID={event.eventId}"
+            f" -> Processing Event: Type={event.subscriptionType}, Attempt={event.attemptNumber}, Event ID={event.eventId}"
         )
 
         # Only process new message events
         if event.subscriptionType == HubSpotSubscriptionType.CONVERSATION_NEW_MESSAGE:
-            conversation_id = event.objectId
-            message_id = event.messageId
+            conversation_id = str(event.objectId)
+            message_id = str(event.messageId)
 
             # Input validation
             if not conversation_id or not message_id:
                 print("    !! Skipping event: Missing conversationId or messageId.")
                 continue
-
-            print(
-                f"    - New message event: ConvID={conversation_id}, MsgID={message_id}"
-            )
 
             # Deduplication check using helper functions
             is_processing = await is_message_being_processed(message_id)
@@ -222,7 +267,7 @@ async def hubspot_webhook_endpoint(
 
             # Schedule background task to fetch details and process
             print(
-                f"    > Scheduling background task for message {message_id} in thread {conversation_id}"
+                f"    > Scheduling background task: ConvID={conversation_id}, MsgID={message_id}"
             )
             background_tasks.add_task(
                 process_incoming_hubspot_message,
@@ -231,7 +276,7 @@ async def hubspot_webhook_endpoint(
             )
 
         else:
-            print(f"    - Skipping event type: {event.subscriptionType}")
+            print(f"    < Skipping event type: {event.subscriptionType}")
 
     # Return 200 OK immediately for HubSpot webhook best practice
     return {"status": "Webhook received and processing initiated"}

@@ -104,7 +104,7 @@ This file contains example messages to test the different functionalities and wo
 **2. Failure / Handoff Scenarios (User Encounters Problem)**
 
 *   **Product Not Found:**
-    * "How much for 200 glitter gum stickers sized 4x4 inches?"
+    * "How much for 200 transparent paper stickers sized 4x4 inches?"
       * Expected: Planner -> ProductAgent (Find ID) -> Not Found -> Planner -> HubSpotAgent (Send Comment) -> TASK FAILED (Handoff)
     * "Price for polyester stickers?"
       * Expected: Planner -> ProductAgent (Find ID) -> Not Found -> Planner -> HubSpotAgent (Send Comment) -> TASK FAILED (Handoff)

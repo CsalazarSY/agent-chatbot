@@ -12,6 +12,7 @@ from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 # --- First Party Imports ---
 from src.agents.planner.system_message import PLANNER_ASSISTANT_SYSTEM_MESSAGE
+from src.tools.planner.planner_tools import end_planner_turn
 
 # Import Agent Name
 from src.agents.agent_names import PLANNER_AGENT_NAME
@@ -38,6 +39,7 @@ def create_planner_agent(
         system_message=PLANNER_ASSISTANT_SYSTEM_MESSAGE,
         model_client=model_client,
         memory=memory,
-        reflect_on_tool_use=True,
+        tools=[end_planner_turn],
+        reflect_on_tool_use=False,
     )
     return planner_assistant

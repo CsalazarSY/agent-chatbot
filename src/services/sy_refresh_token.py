@@ -4,7 +4,7 @@
 
 # Import necessary components from the config and tools
 from pydantic import ValidationError
-from src.tools.sticker_api.dto_responses import LoginResponse
+from src.tools.sticker_api.dtos.responses import LoginResponse
 from src.tools.sticker_api.sy_api import sy_perform_login, API_ERROR_PREFIX
 
 # Import config accessors/mutators

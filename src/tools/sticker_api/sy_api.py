@@ -8,7 +8,7 @@ import httpx
 import config
 
 # Import specific DTOs using absolute paths from src
-from src.tools.sticker_api.dto_responses import (
+from src.tools.sticker_api.dtos.responses import (
     LoginResponse,
     LoginStatusResponse,
     CountriesResponse,
@@ -56,9 +56,6 @@ async def _make_sy_api_request(
         response: Optional[httpx.Response] = None
         for attempt in range(max_retries + 1):
             try:
-                print(
-                    f" -> SY API Request ({method} {api_url}) Attempt {attempt + 1}..."
-                )
                 response = await client.request(
                     method,
                     api_url,
@@ -73,13 +70,6 @@ async def _make_sy_api_request(
                     try:
                         # Handle 204 No Content or empty body explicitly
                         if response.status_code == 204 or not response.content:
-                            # For specific endpoints, a 200/204 without body might be OK
-                            # Return a standard success dict/list marker if needed, or response object
-                            # We might need endpoint-specific handling here later.
-                            # For now, let's return the raw response for the caller to decide.
-                            print(
-                                f"    - SY API Success ({response.status_code} No Content/Empty Body)"
-                            )
                             # Return a standard success dict if no body expected
                             # This aligns with SuccessResponse Pydantic model
                             if (
@@ -89,18 +79,17 @@ async def _make_sy_api_request(
                                     "success": True,
                                     "message": "Operation successful (No Content)",
                                 }
-                            else:  # Return raw response for GET/DELETE etc. that might expect no body
-                                return response
+                            # Return raw response for GET/DELETE etc. that might expect no body
+                            return response
+
                         else:
                             json_response = response.json()
                             # Validate expected type (Dict or List)
                             if isinstance(json_response, (dict, list)):
-                                print(
-                                    f"    - SY API Success ({response.status_code} JSON Parsed)"
-                                )
                                 return json_response
-                            else:
-                                return f"{API_ERROR_PREFIX} Unexpected JSON type: {type(json_response).__name__}. Expected Dict or List."
+                            # Return error if unexpected JSON type
+                            return f"{API_ERROR_PREFIX} Unexpected JSON type: {type(json_response).__name__}. Expected Dict or List."
+
                     except json.JSONDecodeError:
                         # This case should be rare if content check above works
                         # but good to have as fallback.
@@ -108,19 +97,13 @@ async def _make_sy_api_request(
 
                 # Handle 401 Unauthorized - attempt refresh ONLY ONCE
                 elif response.status_code == 401 and attempt < max_retries:
-                    print(
-                        "    - SY API Error (401 Unauthorized) - Attempting token refresh..."
-                    )
-                    # Import the refresh function locally ONLY WHEN NEEDED
+                    # Import the refresh function locally ** ONLY WHEN NEEDED **
                     from src.services.sy_refresh_token import refresh_sy_token
 
                     refresh_successful = await refresh_sy_token()
                     if refresh_successful:
                         new_token = config.get_sy_api_token()
                         if new_token:
-                            print(
-                                "    - Token refreshed successfully. Retrying request..."
-                            )
                             headers["Authorization"] = f"Bearer {new_token}"
                             continue  # Go to next iteration of the loop to retry
                         else:

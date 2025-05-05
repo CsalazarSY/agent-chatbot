@@ -11,7 +11,11 @@ from autogen_agentchat.ui import Console
 from autogen_core.memory import ListMemory, MemoryContent, MemoryMimeType
 from autogen_agentchat.agents import UserProxyAgent, AssistantAgent
 from autogen_agentchat.base import TaskResult
-from autogen_agentchat.conditions import MaxMessageTermination, TextMentionTermination
+from autogen_agentchat.conditions import (
+    MaxMessageTermination,
+    FunctionCallTermination,
+    TextMentionTermination,
+)
 from autogen_agentchat.messages import BaseAgentEvent, BaseChatMessage, TextMessage
 from autogen_agentchat.teams import SelectorGroupChat
 from autogen_core import CancellationToken
@@ -30,6 +34,7 @@ from src.agents.agent_names import (
     SY_API_AGENT_NAME,
     PRODUCT_AGENT_NAME,
     PLANNER_AGENT_NAME,
+    USER_PROXY_AGENT_NAME,
 )
 
 # Config imports
@@ -37,9 +42,6 @@ from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_FAMILY, LLM_MODEL_NAME
 
 # Define AgentType alias for clarity
 AgentType = Union[AssistantAgent, UserProxyAgent]
-
-# Define User Proxy Name Constant
-USER_PROXY_AGENT_NAME = "user_proxy"
 
 
 class AgentService:
@@ -104,16 +106,26 @@ class AgentService:
 
     # Termination Condition
     @staticmethod
-    def _get_termination_condition():
-        """Helper to define the termination condition."""
-        max_message_termination = MaxMessageTermination(max_messages=30)
-        text_termination = (
+    def _get_text_termination_condition():
+        """Helper to define the termination condition using string mentions."""
+        return (
             TextMentionTermination("TASK FAILED")
             | TextMentionTermination("TASK COMPLETE")
             | TextMentionTermination("<UserProxyAgent>")
+            | TextMentionTermination(f"<{USER_PROXY_AGENT_NAME}>")
         )
-        # The chat should naturally stop when UserProxyAgent turn comes and it has no input.
-        return max_message_termination | text_termination
+
+    @staticmethod
+    def _get_termination_condition():
+        """Helper to define the termination condition using FunctionCallTermination."""
+        # Terminate after 30 messages
+        max_message_termination = MaxMessageTermination(max_messages=30)
+        # Terminate when the Planner calls 'end_planner_turn'
+        function_call_termination = FunctionCallTermination(
+            function_name="end_planner_turn"
+        )
+        # Combine the conditions
+        return max_message_termination | AgentService._get_text_termination_condition()
 
     # --- Core Agent Logic Methods ---
 
