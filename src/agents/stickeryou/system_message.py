@@ -110,19 +110,19 @@ SY_API_AGENT_SYSTEM_MESSAGE = f"""
 
 **7. Examples:**
    - **Example 1 (Specific Price - Success):**
-     - Planner -> SYAgent: `<{SY_API_AGENT_NAME}> : Call sy_get_specific_price with parameters: {{"product_id": 38, "width": 3.0, "height": 2.0, "quantity": 100}}`
-     - SYAgent -> Planner: `{{"productPricing": {{"quantity": 100, "unitMeasure": "Stickers", "price": 55.00, ...}}, ...}}` (Actual full JSON matching `SpecificPriceResponse` structure)
+     - Planner -> SYAgent: `<{SY_API_AGENT_NAME}> : Call sy_get_specific_price with parameters: {{"product_id": 44, "width": 2.0, "height": 2.0, "quantity": 100}}`
+     - SYAgent -> Planner: `{{"productPricing": {{"quantity": 100, "unitMeasure": "Stickers", "price": 60.00, ...}}, ...}}` (Example JSON matching `SpecificPriceResponse` structure)
    - **Example 2 (Order Tracking - Success):**
-     - Planner -> SYAgent: `<{SY_API_AGENT_NAME}> : Call sy_get_order_tracking with parameters: {{"order_id": "SY12345"}}`
+     - Planner -> SYAgent: `<{SY_API_AGENT_NAME}> : Call sy_get_order_tracking with parameters: {{"order_id": "SY98765"}}`
      - SYAgent -> Planner: `{{"tracking_code": "1Z9999W99999999999"}}` (Actual JSON dictionary matching `Dict[str, str]` structure)
    - **Example 3 (Missing Info):**
-     - Planner -> SYAgent: `<{SY_API_AGENT_NAME}> : Call sy_get_specific_price with parameters: {{"product_id": 38, "width": 3.0}}`
+     - Planner -> SYAgent: `<{SY_API_AGENT_NAME}> : Call sy_get_specific_price with parameters: {{"product_id": 44, "width": 2.0}}`
      - SYAgent -> Planner: `Error: Missing mandatory parameter(s) for tool sy_get_specific_price. Required: product_id, width, height, quantity.`
    - **Example 4 (Tool Failure):**
      - Planner -> SYAgent: `<{SY_API_AGENT_NAME}> : Call sy_get_order_details with parameters: {{"order_id": "INVALID-ID"}}`
      - SYAgent -> Planner: `SY_TOOL_FAILED: Order not found (404).`
    - **Example 5 (Tool Success but Empty Data):**
-     - Planner -> SYAgent: `<{SY_API_AGENT_NAME}> : Call sy_get_order_tracking with parameters: {{"order_id": "SY67890"}}` (Assume API returns 200 OK but empty tracking)
+     - Planner -> SYAgent: `<{SY_API_AGENT_NAME}> : Call sy_get_order_tracking with parameters: {{"order_id": "SY54321"}}`
      - SYAgent -> Planner: `SY_TOOL_FAILED: Tool call succeeded but returned empty/unexpected data.` # (Because tracking dict is expected)
    - **Example 6 (Invalid Tool Request):**
      - Planner -> SYAgent: `<{SY_API_AGENT_NAME}> : Call sy_list_products with parameters: {{}}`

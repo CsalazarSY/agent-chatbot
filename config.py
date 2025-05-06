@@ -41,8 +41,8 @@ DEFAULT_CURRENCY_CODE = os.getenv("DEFAULT_CURRENCY_CODE", "USD")
 # --- LLM Configuration ---
 LLM_BASE_URL = os.getenv("LLM_BASE_URL")
 LLM_API_KEY = os.getenv("LLM_API_KEY")
-LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME")
-LLM_MODEL_FAMILY = os.getenv("LLM_MODEL_FAMILY")
+LLM_MODEL_NAME = "google/gemini-2.5-flash-preview"  # os.getenv("LLM_MODEL_NAME")
+LLM_MODEL_FAMILY = "unknown"  # os.getenv("LLM_MODEL_FAMILY")
 
 # --- HubSpot Configuration ---
 HUBSPOT_API_TOKEN = os.getenv("HUBSPOT_API_TOKEN")

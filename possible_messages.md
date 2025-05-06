@@ -13,6 +13,22 @@ This file contains example messages to test the different functionalities and wo
 *   `[DEFAULT_SENDER_ACTOR_ID]` - The configured default HubSpot sender actor ID.
 ---
 
+### Available Test Order IDs (Prod env)
+
+#### Cancelled Status
+
+* `SHO26994` - items: 1
+
+#### Error Status
+
+* `BVO45864` - items: 1
+* `MINE44771` - items: 1
+* `MINE48173` - items: 1
+* `MINE49129` - items: 1
+* `WON11274` - items: 1
+* `WON18670` - items: 1
+---
+
 ## Customer Service Scenarios
 
 *(Simulates end-user interactions)*

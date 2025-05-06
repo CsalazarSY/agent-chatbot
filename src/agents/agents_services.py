@@ -263,7 +263,7 @@ class AgentService:
                 AgentService.model_client, memory=[request_memory]
             )
             sy_api_agent = create_sy_api_agent(AgentService.model_client)
-            product_agent = create_product_agent(AgentService.model_client)
+            product_agent = await create_product_agent(AgentService.model_client)
 
             # --- Create GroupChat Instance for this request --- #
             active_participants = [
