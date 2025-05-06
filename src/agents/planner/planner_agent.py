@@ -35,11 +35,11 @@ def create_planner_agent(
 
     planner_assistant = AssistantAgent(
         name=PLANNER_AGENT_NAME,
-        description="The orchestrator, it coordinates between StickerYou API agent, Hubspot agent, Product Agent and the user",
+        description="The orchestrator, it coordinates between StickerYou API agent, Hubspot agent, Product Agent and talks directly with the user",
         system_message=PLANNER_ASSISTANT_SYSTEM_MESSAGE,
         model_client=model_client,
         memory=memory,
-        tools=[end_planner_turn],
+        # tools=[end_planner_turn],
         reflect_on_tool_use=False,
     )
     return planner_assistant
