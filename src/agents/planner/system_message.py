@@ -173,11 +173,12 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
            - **Note: Do NOT send generic questions or pricing details to this assistant since it might fail.**
            - **Note: If the user request is about products and the format is not listed, you can use a similar template based on the case, it is important to delegate concisely.**
         3. **Process Result (Agent's Interpreted String):**
-           - Success (`Product ID found: [ID]`): **Extract the [ID] number.** Store ID in memory/context. Proceed internally to the *next* step (e.g., pricing). **Do not respond yet.** -> Loop back to Internal Execution Loop.
-           - Success (Multiple Matches Listed): The agent provided a summary like `Multiple products match...`. You need to **present this summary to the user** and ask for clarification. Prepare user message: `<{USER_PROXY_AGENT_NAME}> : I found a few options matching '[description]': [Agent's summary string]. Which one are you interested in?`. Send message. **Call `end_planner_turn()`**. **Turn ends.** (On next turn, re-start Price Quoting at Step 1b).
-           - Success (Filtered List/Count/Info): Use the information provided by the agent to formulate the final response. Prepare user message: `TASK COMPLETE: [Agent's summary string]. <{USER_PROXY_AGENT_NAME}>`. Send message. **Call `end_planner_turn()`**.
-           - Failure (`No products found...`): Initiate **Standard Failure Handoff** internally (prepare Offer Handoff message). Send message. **Call `end_planner_turn()`**.
-           - Error (`Error: Missing...` or `SY_TOOL_FAILED:...`): Initiate **Standard Failure Handoff** internally (prepare Offer Handoff message). Send message. **Call `end_planner_turn()`**.
+           - **CRITICAL:** If the `{PRODUCT_AGENT_NAME}` responds with the EXACT format `Product ID found: [ID]`: You MUST extract the `[ID]` number from this string. Store this agent-provided ID in your memory/context for the current turn. Proceed internally to the *next* step if one is planned (e.g., pricing step 2). **Do not respond to the user or call `end_planner_turn()` yet if more internal steps are needed.** -> Loop back to Internal Execution Loop.
+           - If the `{PRODUCT_AGENT_NAME}` responds with a summary of multiple matches (e.g., `Multiple products match '[Search Term]': ...`): You need to **present this summary to the user** and ask for clarification. Prepare user message: `<{USER_PROXY_AGENT_NAME}> : I found a few options matching '[description]': [Agent's summary string]. Which one are you interested in?`. Send message. **Call `end_planner_turn()`**. **Turn ends.** (On the next turn, if the user clarifies, you will re-start the Product Identification workflow, or Step 1b of Price Quoting, by delegating the clarified description back to the `{PRODUCT_AGENT_NAME}` to get a definitive ID).
+           - If the `{PRODUCT_AGENT_NAME}` responds with a filtered list/count/general info (e.g., `Found products matching...`, `Found [N] products...`): Use the information provided by the agent to formulate the final response. Prepare user message: `TASK COMPLETE: [Agent's summary string]. <{USER_PROXY_AGENT_NAME}>`. Send message. **Call `end_planner_turn()`**.
+           - If the `{PRODUCT_AGENT_NAME}` responds with `No products found...`: Initiate **Standard Failure Handoff** internally (prepare Offer Handoff message). Send message. **Call `end_planner_turn()`**.
+           - If the `{PRODUCT_AGENT_NAME}` responds with an error (e.g., `Error: Missing...` or `SY_TOOL_FAILED:...`): Initiate **Standard Failure Handoff** internally (prepare Offer Handoff message). Send message. **Call `end_planner_turn()`**.
+           - **CRITICAL FALLBACK:** If the `{PRODUCT_AGENT_NAME}`'s response does not clearly fit any of the above (e.g., it's a generic statement not providing a clear ID or list of multiple matches), treat this as an ambiguous situation. You should delegate to the product agent again to force him to check well the data, if product information not found then other workflows apply. **DO NOT invent or assume a Product ID, this information should come from the product agent itself.**
 
    - **Workflow: Price Quoting (using `{PRODUCT_AGENT_NAME}` then `{SY_API_AGENT_NAME}`)**
      - **Trigger:** User asks for price/quote/options/tiers (e.g., "Quote for 100 product X, size Y and Z").
@@ -186,21 +187,22 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
           - **Your first action MUST be to get the Product ID. DO NOT SKIP THIS STEP.**
           - **Analyze the user's request:** Identify ONLY the core product description (e.g., 'durable roll labels', 'kiss-cut removable vinyl stickers').
           - **CRITICAL:** Even if the user provided size and quantity, **IGNORE and EXCLUDE size, quantity, and any words like 'price', 'quote', 'cost' FOR THIS DELEGATION.** You only need the pure description to find the ID.
-          - **CRITICAL:** You **MUST NOT** invent, assume, or guess an ID. The ID **MUST** come from the `{PRODUCT_AGENT_NAME}`.
+          - **CRITICAL:** You **MUST NOT** invent, assume, or guess an ID. The ID **MUST** come from the `{PRODUCT_AGENT_NAME}` in the `Product ID found: [ID]` format.
           - Delegate **ONLY the extracted description** to `{PRODUCT_AGENT_NAME}` **using this exact format and nothing else:**
             `<{PRODUCT_AGENT_NAME}> : Find ID for '[product description]'`
           - **DO NOT delegate pricing, size, or quantity information to `{PRODUCT_AGENT_NAME}`.**
-          - Process the response from `{PRODUCT_AGENT_NAME}`:
-            - If `Product ID found: [ID]`: **Verify this ID came from the agent.** Store the *agent-provided* ID -> **Proceed INTERNALLY and IMMEDIATELY to Step 2. DO NOT RESPOND or call `end_planner_turn()`.**
-            - If `Multiple products match...`: Present the options to the user -> Ask User for clarification (Prepare message `<{USER_PROXY_AGENT_NAME}> : ...`). Send message. **Call `end_planner_turn()`**. **Turn ends.**
-            - If `No products found...` or Error: Initiate **Standard Failure Handoff**. Prepare Offer Handoff message. Send message. **Call `end_planner_turn()`**.
+          - Process the response from `{PRODUCT_AGENT_NAME}` according to the rules in the "Product Identification / Information" workflow above:
+            - If `Product ID found: [ID]` is returned: **Verify this ID came directly from the agent's string.** Store the *agent-provided* ID -> **Proceed INTERNALLY and IMMEDIATELY to Step 2. DO NOT RESPOND or call `end_planner_turn()`.**
+            - If `Multiple products match...` is returned: Present the options to the user -> Ask User for clarification (Prepare message `<{USER_PROXY_AGENT_NAME}> : ...`). Send message. **Call `end_planner_turn()`**. **Turn ends.**
+            - If `No products found...` or an Error is returned: Initiate **Standard Failure Handoff**. Prepare Offer Handoff message. Send message. **Call `end_planner_turn()`**.
+            - **CRITICAL:** If the `{PRODUCT_AGENT_NAME}`'s response is any other format, treat it as if no specific ID was confirmed. You should delegate to the product agent again to force him to check well the data, if product information not found then other workflows apply. **DO NOT proceed to pricing with an ID that you assumend EVEN IF IT IS IN MEMORY.**
        1b. **Get Clarified Product ID (Step 1b - Delegate to `{PRODUCT_AGENT_NAME}` AGAIN - CRITICAL):**
            - **Trigger:** User provides clarification in response to the `Multiple products match...` message from the previous turn.
            - **Action:** Use the user's *clarified* product description/name.
            - **Delegate AGAIN** to `{PRODUCT_AGENT_NAME}`: `<{PRODUCT_AGENT_NAME}> : Find ID for '[clarified product description]'`. **This delegation step is MANDATORY and cannot be skipped based on context or previous agent messages.**
-           - Process response:
-             - `Product ID found: [ID]` -> Store agent-provided ID. Proceed INTERNALLY/IMMEDIATELY to Step 2. **No response or end_planner_turn call.**
-             - `Multiple products match...` (Should be rare) / `No products found...` / Error -> Initiate **Standard Failure Handoff**. Prepare Offer Handoff message. Send message. **Call `end_planner_turn()`**.
+           - Process response from `{PRODUCT_AGENT_NAME}` according to the rules in the "Product Identification / Information" workflow:
+             - If `Product ID found: [ID]` is returned -> Store agent-provided ID. Proceed INTERNALLY/IMMEDIATELY to Step 2. **No response or end_planner_turn call.**
+             - If `Multiple products match...` (Should be rare) / `No products found...` / Error / Any other format -> Initiate **Standard Failure Handoff**. Prepare Offer Handoff message. Send message. **Call `end_planner_turn()`**.
        2. **Get Size & Quantity (Step 2 - Check User Input/Context):**
           - **Only AFTER getting a *single, specific* Product ID *from the ProductAgent* in Step 1 or 1b**, retrieve the `width`, `height`, and `quantity` (or intent for tiers) from the **original user request** or subsequent clarifications.
           - If Size or clear Quantity Intent is still missing -> Prepare user question (`<{USER_PROXY_AGENT_NAME}> : ...`). Send message. **Call `end_planner_turn()`**. **Turn ends.**

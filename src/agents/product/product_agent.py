@@ -1,7 +1,6 @@
 """Product agent creation"""
 
 # /src/agents/product/product_agent.py
-import asyncio
 import json
 from typing import Optional
 
@@ -37,15 +36,13 @@ async def create_product_agent(
         An configured AssistantAgent instance.
     """
     # Number of chunks to split the product list into
-    NUM_CHUNKS = 3
+    NUM_CHUNKS = 10
 
     product_list_memory: Optional[ListMemory] = None
     try:
         product_list_result = await sy_list_products()
 
         if isinstance(product_list_result, list):
-            product_list_json = json.dumps(product_list_result)
-
             total_products = len(product_list_result)
             chunk_size = (
                 total_products + NUM_CHUNKS - 1
