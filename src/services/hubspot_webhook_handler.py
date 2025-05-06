@@ -64,9 +64,9 @@ async def process_agent_response(
     Helper coroutine to process the agent's result and send the final reply to HubSpot.
     Runs in the background after the webhook returns 200 OK.
     """
-    print(
-        f"    -> HB Webhook Background task: Process agent response and reply for {conversation_id}"
-    )
+    # print(
+    #     f"    -> HB Webhook Background task: Process agent response and reply for {conversation_id}"
+    # )
 
     final_reply_to_send = "Sorry, I encountered an issue and couldn't process your message."  # Default error reply
 
@@ -99,9 +99,9 @@ async def process_agent_response(
                     potential_reply_msg, (TextMessage, ThoughtEvent)
                 ):
                     reply_message = potential_reply_msg
-                    print(
-                        f"      - Found Planner message at index {i} (type: {type(reply_message).__name__}) before end_turn event."
-                    )
+                    # print(
+                    #     f"      - Found Planner message at index {i} (type: {type(reply_message).__name__}) before end_turn event."
+                    # )
                     break
 
         # Fallback
@@ -150,12 +150,12 @@ async def process_agent_response(
             print(
                 f"!!!! FAILED to send reply to HubSpot Thread {conversation_id}: {send_result_model}"
             )
-        elif isinstance(
-            send_result_model, MessageDetail
-        ):  # Use the specific model type
-            print(
-                f"        > Successfully sent reply (Message ID: {send_result_model.id}) to thread {conversation_id}"
-            )
+        # elif isinstance(
+        #     send_result_model, MessageDetail
+        # ):  # Use the specific model type
+        #     print(
+        #         f"        > Successfully sent reply (Message ID: {send_result_model.id}) to thread {conversation_id}"
+        #     )
         else:
             # Handle unexpected return types if necessary
             print(
@@ -175,29 +175,29 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
     Runs in a background task. Ensures message_id is removed from processing set on completion.
     """
     try:
-        print(
-            f"    -> HB Webhook Background task: Process incoming HubSpot message {message_id} for thread {conversation_id}"
-        )
+        # print(
+        #     f"    -> HB Webhook Background task: Process incoming HubSpot message {message_id} for thread {conversation_id}"
+        # )
         message_content = None
         is_relevant_message = False
 
         # 1. Fetch message details
         try:
-            print(f"        - Fetching message details ({message_id})...")
+            # print(f"        - Fetching message details ({message_id})...")
             msg_details_model = await get_message_details(
                 thread_id=conversation_id, message_id=message_id
             )
 
             if isinstance(msg_details_model, MessageDetail):
                 message_content = msg_details_model.text
-                print(
-                    f"            - Content: {message_content[:20] if message_content else ''}..."
-                )
-                print(f"            - Type: {msg_details_model.type}")
-                print(f"            - Direction: {msg_details_model.direction}")
-                print(
-                    f"            - Sender: {msg_details_model.senders[0].actorId if msg_details_model.senders else 'N/A'}"
-                )
+                # print(
+                #     f"            - Content: {message_content[:20] if message_content else ''}..."
+                # )
+                # print(f"            - Type: {msg_details_model.type}")
+                # print(f"            - Direction: {msg_details_model.direction}")
+                # print(
+                #     f"            - Sender: {msg_details_model.senders[0].actorId if msg_details_model.senders else 'N/A'}"
+                # )
 
                 # 2. Check if the message is relevant for agent processing
                 is_message_type = msg_details_model.type == MessageType.MESSAGE
@@ -212,10 +212,6 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
 
                 if is_message_type and is_incoming and is_visitor_sender:
                     is_relevant_message = True
-                else:
-                    print(
-                        f"        - Message {message_id} is NOT relevant. Skipping agent trigger. (Type Match: {is_message_type}, Direction Match: {is_incoming}, Sender Match: {is_visitor_sender})"
-                    )
 
             elif isinstance(msg_details_model, str) and msg_details_model.startswith(
                 "HUBSPOT_TOOL_FAILED"
@@ -234,9 +230,9 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
 
         # 3. Trigger agent if relevant and content exists
         if is_relevant_message and message_content:
-            print(
-                f"        > Triggering agent processing for thread {conversation_id}...\n\n"
-            )
+            # print(
+            #     f"        > Triggering agent processing for thread {conversation_id}...\n\n"
+            # )
             task_result, error_message, _ = await agent_service.run_chat_session(
                 user_message=message_content,
                 show_console=True,

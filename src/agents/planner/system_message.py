@@ -208,11 +208,23 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
           - If Size or clear Quantity Intent is still missing -> Prepare user question (`<{USER_PROXY_AGENT_NAME}> : ...`). Send message. **Call `end_planner_turn()`**. **Turn ends.**
        3. **Get Price (Step 3 - Delegate to `{SY_API_AGENT_NAME}`):**
           - **Only AFTER getting a validated ID (Step 1/1b) AND Size/Quantity (Step 2)**.
-          - **Verification Check:** Ensure you have valid `product_id`, `width`, `height`, `quantity`/tier intent.
+          - **Verification Check:** Ensure you have valid `product_id`, `width`, `height`, `quantity` or tier/options intent.
           - **Internal Specific Price Delegation:**
             - If specific `quantity`: Delegate `<{SY_API_AGENT_NAME}> : Call sy_get_specific_price with parameters: {{"product_id": [Stored_ID], "width": [Width], "height": [Height], "quantity": [Quantity], ...}}`
-            - Process Result (Expect `SpecificPriceResponse` object): **Access `response.productPricing.price` and `.currency`**. -> Prepare `TASK COMPLETE` message. Send message. **Call `end_planner_turn()`**.
-            - Failure (`SY_TOOL_FAILED`)? Analyze error. If actionable (e.g., min qty), explain to user (`<{USER_PROXY_AGENT_NAME}> : ...`). Send message. **Call `end_planner_turn()`**. If not actionable, trigger **Standard Failure Handoff** (Offer Handoff). Prepare Offer message. Send message. **Call `end_planner_turn()`**.
+            - Process and interpret the result(Expect `SpecificPriceResponse` object/JSON):
+              - Does the response has the price but a wrong quantity?
+                - **NOTE:** Sometimes the API returns pricing, with a different quantity, usually less. This is a mistake on the API formatting but the pricing might not be wrong, see example below:
+                  - If asked for Y stickers and API returns units for `Stickers` and quantity of Z is different, the endpoint is returning the unit wrong but the price is still the right one. This means that Y stickers cost XX.XX [Currency] and will fit in Z pages. The API unit is wrong because is returnig pages. **THIS DOES NOT APPLY TO EVERY PRODUCT TYPE** but if you come across a less quantity that you asked it means that the price is per page **DO NOT ERROR FOR THIS, CONTINUE NORMAL WORKFLOW**
+                - Continue to build the final message based on the information provided.
+              - Is the quantity the same as requested? Then no problem, that case the unit mesaured was right.
+                  
+            - Failure (`SY_TOOL_FAILED`)?
+              - Analyze error string. 
+                - Check if the error is due to quantity, sizes, etc. It might be product not found (Then the product agent gave a bad id), but in this case do not tell the user just give a general error since he does not need to know any internal thinking/process:
+                - Extract the error and format a user friendly response, without showing internal or sensitive information (Like ID of the product)
+                  - Based on the error explain to user the situation: `<{USER_PROXY_AGENT_NAME}> : [Explain issue (Quantity, size, other error if applicable)]. [Offer alternative (e.g. If minimum quanity issue, then offer that minimun instead with the same parameters as before)]`
+                - Send message and just after this **Call `end_planner_turn()`**.
+              - For other non-actionable `SY_TOOL_FAILED` errors (e.g., product not found by ID, general API error): Trigger **Standard Failure Handoff** (Offer Handoff), do not expose internal sensitive errors. Prepare Offer message. Send message. **Call `end_planner_turn()`**.
           - **Internal Price Tiers Delegation:**
             - If `tiers` or `options`: Delegate `<{SY_API_AGENT_NAME}> : Call sy_get_price_tiers with parameters: {{"product_id": [Stored_ID], "width": [Width], "height": [Height], ...}}`
             - Process Result (Expect `PriceTiersResponse` object): **Access tiers list via `response.productPricing.priceTiers`**. -> Format nicely -> Prepare `TASK COMPLETE` message. Send message. **Call `end_planner_turn()`**.
