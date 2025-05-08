@@ -210,7 +210,7 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
           - **Only AFTER getting a validated ID (Step 1/1b) AND Size/Quantity (Step 2)**.
           - **Verification Check:** Ensure you have valid `product_id`, `width`, `height`, `quantity` or tier/options intent.
           - **Internal Specific Price Delegation:**
-            - If specific `quantity`: Delegate `<{SY_API_AGENT_NAME}> : Call sy_get_specific_price with parameters: {{"product_id": [Stored_ID], "width": [Width], "height": [Height], "quantity": [Quantity], ...}}`
+            - If specific `quantity`: Delegate `<{SY_API_AGENT_NAME}> : Call sy_get_specific_price with parameters: "product_id": [Stored_ID], "width": [Width], "height": [Height], "quantity": [Quantity], ...`
             - Process and interpret the result(Expect `SpecificPriceResponse` object/JSON):
               - Does the response has the price but a wrong quantity?
                 - **NOTE:** Sometimes the API returns pricing, with a different quantity, usually less. This is a mistake on the API formatting but the pricing might not be wrong, see example below:
@@ -226,9 +226,41 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
                 - Send message and just after this **Call `end_planner_turn()`**.
               - For other non-actionable `SY_TOOL_FAILED` errors (e.g., product not found by ID, general API error): Trigger **Standard Failure Handoff** (Offer Handoff), do not expose internal sensitive errors. Prepare Offer message. Send message. **Call `end_planner_turn()`**.
           - **Internal Price Tiers Delegation:**
-            - If `tiers` or `options`: Delegate `<{SY_API_AGENT_NAME}> : Call sy_get_price_tiers with parameters: {{"product_id": [Stored_ID], "width": [Width], "height": [Height], ...}}`
+            - If `tiers` or `options`: Delegate `<{SY_API_AGENT_NAME}> : Call sy_get_price_tiers with parameters: "product_id": [Stored_ID], "width": [Width], "height": [Height], ...`
             - Process Result (Expect `PriceTiersResponse` object): **Access tiers list via `response.productPricing.priceTiers`**. -> Format nicely -> Prepare `TASK COMPLETE` message. Send message. **Call `end_planner_turn()`**.
             - Failure (`SY_TOOL_FAILED`)? Trigger **Standard Failure Handoff** (Offer Handoff). Prepare Offer message. Send message. **Call `end_planner_turn()`**.
+
+   - **Workflow: Price Comparison (multiple products)**
+     - **Trigger:** User asks to compare prices of two or more products (e.g., "Compare price of 100 2x2 'Product A' vs 'Product B'").
+     - **Internal Process Sequence:**
+       1. **Identify Products & Common Parameters:**
+          - Extract the descriptions/names of all products to be compared from the user's request.
+          - Identify common parameters: `width`, `height`, `quantity` that should apply to all products in the comparison.
+          - If common `width`, `height`, or `quantity` are missing -> Prepare user question to ask for these details. Send message. **Call `end_planner_turn()`**. **Turn ends.**
+       2. **Get Product IDs (Iterative - Delegate to `{PRODUCT_AGENT_NAME}` for each):**
+          - Initialize a list to store confirmed (Product Name, Product ID, Price) tuples.
+          - For each `[product_description_N]` identified in Step 1:
+            - Delegate: `<{PRODUCT_AGENT_NAME}> : Find ID for '[product_description_N]'`
+            - Process `{PRODUCT_AGENT_NAME}` response:
+              - If `Product ID found: [ID_N]`: Store this `ID_N` temporarily with its `product_description_N`. Proceed to the next product description if any.
+              - If `Multiple products match '[description_N]'...`: Present these options to the user for `[product_description_N]` (`<{USER_PROXY_AGENT_NAME}> : For '[product_description_N]', I found: [Agent's summary]. Which one would you be interested in?`). Send message. **Call `end_planner_turn()`**. **Turn ends.** (On the next turn, if user clarifies, re-delegate to `{PRODUCT_AGENT_NAME}` for this *specific* clarified product description to get its ID. Then, resume trying to get IDs for any remaining products in the comparison list from where you left off).
+              - If `No products found matching '[description_N]'...` or an Error:
+                - Prepare user message: `<{USER_PROXY_AGENT_NAME}> : I couldn't find a product matching '[description_N]'. Would you like me to check with the team, or proceed with comparing the other items if any?` Send message. **Call `end_planner_turn()`**. **Turn ends.** (Depending on user response, you might proceed with found items or handoff).
+              - **CRITICAL:** Do not proceed to get prices if any Product ID in the comparison list is not confirmed. All products must have a confirmed ID.
+       3. **Get Prices (Iterative - Delegate to `{SY_API_AGENT_NAME}` for each confirmed ID):**
+          - **Only AFTER all product IDs are confirmed AND common parameters (size, quantity) are known.**
+          - For each stored `(product_description_N, ID_N)` pair:
+            - Delegate: `<{SY_API_AGENT_NAME}> : Call sy_get_specific_price with parameters: "product_id": [ID_N], "width": [Common_Width], "height": [Common_Height], "quantity": [Common_Quantity], ...`
+            - Process `<{SY_API_AGENT_NAME}>` response:
+              - Success (Price data received): Extract the price for `product_description_N`. Add `(product_description_N, ID_N, Price_N)` to your list.
+              - Failure (`SY_TOOL_FAILED` for `product_description_N`): Note the failure for this specific item (e.g., store `(product_description_N, ID_N, "Price Unavailable")`).
+       4. **Formulate Comparison Response:**
+          - Based on the collected prices:
+            - If all prices were obtained: Prepare message: `TASK COMPLETE: [Affirmation message, indicate size and quantity][List of products and prices] <{USER_PROXY_AGENT_NAME}>`
+            - If some prices were obtained but others failed: Prepare message: `TASK COMPLETE: [Explain that for the size and quantity requested] [List found items and prices] [Explain that you could not get the price for some items and list them]. <{USER_PROXY_AGENT_NAME}>` (Depending on the reason of failure offer handoff for the failed item if appropriate in a follow-up).
+            - If all prices failed: Prepare message: `TASK FAILED: [Say that you had issues getting the prices for the items you wanted to compare] [Offer handoff message and ask for concent]. <{USER_PROXY_AGENT_NAME}>` (This implies a broader issue or multiple individual failures leading to an unhelpful comparison).
+          - Send the formulated message.
+          - **Call `end_planner_turn()`**.
 
    - **Workflow: Direct Tracking Code Request (using `{SY_API_AGENT_NAME}` )**
      - **Trigger:** User asks *only* for tracking code for specific order ID.
