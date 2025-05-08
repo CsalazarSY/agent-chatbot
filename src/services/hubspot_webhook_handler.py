@@ -28,6 +28,12 @@ from src.tools.hubspot.conversation_tools import (
 from src.agents.agents_services import agent_service
 from src.agents.agent_names import PLANNER_AGENT_NAME  # Import planner name
 
+# Import HTML Formatting Service
+from src.services.message_to_html import convert_message_to_html
+
+# Import cleaner
+from src.services.clean_agent_tags import clean_agent_output
+
 # --- Globals for Webhook Deduplication ---
 PROCESSING_MESSAGE_IDS = set()
 message_id_lock = asyncio.Lock()
@@ -61,18 +67,20 @@ async def process_agent_response(
     error_message: Optional[str],
 ):
     """
-    Helper coroutine to process the agent's result and send the final reply to HubSpot.
+    Helper coroutine to process the agent's result, format it to HTML,
+    and send the final reply (plain text and HTML) to HubSpot.
     Runs in the background after the webhook returns 200 OK.
     """
     # print(
     #     f"    -> HB Webhook Background task: Process agent response and reply for {conversation_id}"
     # )
 
-    final_reply_to_send = "Sorry, I encountered an issue and couldn't process your message."  # Default error reply
+    raw_text_reply = "Sorry, I encountered an issue and couldn't process your message."  # Default error reply
+    html_reply = f"<p>{raw_text_reply}</p>"  # Default HTML error reply
 
     if error_message:
         print(f"!!! Agent Error for ConvID {conversation_id}: {error_message}")
-        # Use default error reply
+        # Use default error replies
     elif task_result and task_result.messages:
         # --- Find the message BEFORE the final 'end_planner_turn' tool call --- #
         reply_message: Optional[BaseChatMessage] = None
@@ -113,14 +121,16 @@ async def process_agent_response(
         # --- End of Finding Reply Message --- #
 
         if reply_message and hasattr(reply_message, "content"):
-            raw_reply = reply_message.content
+            raw_reply_content = reply_message.content
 
             # Clean up Planner's final output tags
-            if isinstance(raw_reply, str):
-                final_reply_to_send = raw_reply
+            if isinstance(raw_reply_content, str):
+                # Store the cleaned raw text first
+                raw_text_reply = clean_agent_output(raw_reply_content)
+                html_reply = await convert_message_to_html(raw_text_reply)
             else:
                 print(
-                    f"!!! Agent for ConvID {conversation_id} final message content is not a string: {type(raw_reply)}"
+                    f"!!! Agent for ConvID {conversation_id} final message content is not a string: {type(raw_reply_content)}"
                 )
                 # Use default error reply
         else:
@@ -134,13 +144,14 @@ async def process_agent_response(
 
     # Send the final reply (or error message) back to the HubSpot thread
     print(
-        f"      - Sending reply to HubSpot Thread {conversation_id}: '{final_reply_to_send[:30]}...'"
+        f"      - Sending reply to HubSpot Thread {conversation_id}: Text='{raw_text_reply[:30]}...' HTML='{html_reply[:30]}...'"
     )
     try:
-        # Pass only required args + text
-        # Other parameters are better as defaults
+        # Pass text to 'message_text' and HTML to 'rich_text'
         send_result_model = await send_message_to_thread(
-            thread_id=conversation_id, message_text=final_reply_to_send
+            thread_id=conversation_id,
+            message_text=raw_text_reply,  # Send the cleaned, original text
+            rich_text=html_reply,  # Send the HTML formatted version
         )
 
         # Check the actual type returned by the tool
@@ -150,17 +161,9 @@ async def process_agent_response(
             print(
                 f"!!!! FAILED to send reply to HubSpot Thread {conversation_id}: {send_result_model}"
             )
-        # elif isinstance(
-        #     send_result_model, MessageDetail
-        # ):  # Use the specific model type
-        #     print(
-        #         f"        > Successfully sent reply (Message ID: {send_result_model.id}) to thread {conversation_id}"
-        #     )
         else:
             # Handle unexpected return types if necessary
-            print(
-                f"        > Reply sent to thread {conversation_id}, but received unexpected response type: {type(send_result_model)}"
-            )
+            print(f"        > Reply sent to thread {conversation_id}")
 
     except Exception as send_exc:
         print(
@@ -235,7 +238,7 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
             # )
             task_result, error_message, _ = await agent_service.run_chat_session(
                 user_message=message_content,
-                show_console=True,
+                show_console=True,  # Set to False if running purely as backend service
                 conversation_id=conversation_id,
             )
             await process_agent_response(conversation_id, task_result, error_message)

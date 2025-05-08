@@ -3,10 +3,11 @@
 # main_server.py
 
 # System imports
+import json
 from typing import Optional
 from contextlib import asynccontextmanager
-import json
 import uvicorn
+import traceback  # Added for more detailed error logging
 
 # FastAPI imports
 from fastapi import FastAPI, HTTPException, BackgroundTasks
@@ -43,6 +44,9 @@ from src.services.hubspot_webhook_handler import (
 
 # Import the refresh token service function
 from src.services.sy_refresh_token import refresh_sy_token
+
+# Import the new HTML formatting service
+from src.services.message_to_html import convert_message_to_html
 
 
 # --- FastAPI App Setup ---
@@ -199,7 +203,10 @@ async def chat_endpoint(request: ChatRequest):
             )
             # Clean up internal tags if they are not meant for the user
             if isinstance(final_reply_content, str):
-                final_reply_content = clean_agent_output(final_reply_content)
+                cleaned_reply = clean_agent_output(final_reply_content)
+                html_reply = await convert_message_to_html(cleaned_reply)
+
+                final_reply_content = html_reply
         else:
             final_reply_content = (
                 f"[{type(reply_message).__name__} type message found, but no content]"
