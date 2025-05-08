@@ -16,7 +16,8 @@ API_VERSION = os.getenv("API_VERSION", "v1")  # Default to v1 if not set
 # --- SY API Credentials for Dynamic Token ---
 SY_API_USERNAME = os.getenv("SY_API_USERNAME")
 SY_API_PASSWORD = os.getenv("SY_API_PASSWORD")
-# Internal variable for dynamic token (Use UPPER_SNAKE_CASE for module-level state)
+
+# Internal variable for dynamic token
 _SY_API_AUTH_TOKEN: str | None = None
 
 
@@ -28,7 +29,7 @@ def get_sy_api_token() -> str | None:
 
 def set_sy_api_token(new_token: str | None):
     """Updates the internal dynamic StickerYou API token."""
-    global _SY_API_AUTH_TOKEN  # Need to modify the module-level variable
+    global _SY_API_AUTH_TOKEN  # Needed to use the module-level variable
     if new_token:
         _SY_API_AUTH_TOKEN = new_token
     else:
@@ -41,13 +42,18 @@ DEFAULT_CURRENCY_CODE = os.getenv("DEFAULT_CURRENCY_CODE", "USD")
 # --- LLM Configuration ---
 LLM_BASE_URL = os.getenv("LLM_BASE_URL")
 LLM_API_KEY = os.getenv("LLM_API_KEY")
-LLM_MODEL_NAME = (
-    "google/gemini-2.5-flash-preview:thinking"  # os.getenv("LLM_MODEL_NAME")
-)
-LLM_MODEL_FAMILY = "unknown"  # os.getenv("LLM_MODEL_FAMILY")
+
+# Primary LLM
+LLM_PRIMARY_MODEL_NAME = os.getenv("LLM_PRIMARY_MODEL_NAME")
+LLM_PRIMARY_MODEL_FAMILY = os.getenv("LLM_PRIMARY_MODEL_FAMILY")
+
+# Secondary LLM
+LLM_SECONDARY_MODEL_NAME = os.getenv("LLM_SECONDARY_MODEL_NAME")
+LLM_SECONDARY_MODEL_FAMILY = os.getenv("LLM_SECONDARY_MODEL_FAMILY")
 
 # --- HubSpot Configuration ---
 HUBSPOT_API_TOKEN = os.getenv("HUBSPOT_API_TOKEN")
+HUBSPOT_API_SECRET = os.getenv("HUBSPOT_API_SECRET")
 HUBSPOT_DEFAULT_SENDER_ACTOR_ID = os.getenv("HUBSPOT_DEFAULT_SENDER_ACTOR_ID")
 HUBSPOT_DEFAULT_CHANNEL = os.getenv("HUBSPOT_DEFAULT_CHANNEL")
 HUBSPOT_DEFAULT_CHANNEL_ACCOUNT = os.getenv("HUBSPOT_DEFAULT_CHANNEL_ACCOUNT")
@@ -60,17 +66,31 @@ def validate_api_config():
     if not API_BASE_URL:
         raise ValueError("API_BASE_URL environment variable not set in .env file.")
     if not SY_API_USERNAME or not SY_API_PASSWORD:
-        # Changed from Warning to Error - Credentials are now essential
         raise ValueError(
-            "SY_API_USERNAME and SY_API_PASSWORD environment variables must be set "
-            "for dynamic token authentication."
+            "SY_API_USERNAME and SY_API_PASSWORD environment variables must be set for dynamic token authentication."
         )
     if not LLM_BASE_URL:
         raise ValueError("LLM_BASE_URL environment variable not set in .env file.")
+    # Validate Primary LLM
     if not LLM_API_KEY:
         raise ValueError("LLM_API_KEY environment variable not set in .env file.")
-    if not LLM_MODEL_NAME:
-        raise ValueError("LLM_MODEL_NAME environment variable not set in .env file.")
+    if not LLM_PRIMARY_MODEL_NAME:
+        raise ValueError(
+            "LLM_PRIMARY_MODEL_NAME environment variable not set in .env file."
+        )
+    if not LLM_PRIMARY_MODEL_FAMILY:
+        raise ValueError(
+            "LLM_PRIMARY_MODEL_FAMILY environment variable not set in .env file."
+        )
+    # Validate Secondary LLM
+    if not LLM_SECONDARY_MODEL_NAME:
+        raise ValueError(
+            "LLM_SECONDARY_MODEL_NAME environment variable not set in .env file."
+        )
+    if not LLM_SECONDARY_MODEL_FAMILY:
+        raise ValueError(
+            "LLM_SECONDARY_MODEL_FAMILY environment variable not set in .env file."
+        )
     if not HUBSPOT_API_TOKEN:
         raise ValueError("HUBSPOT_API_TOKEN environment variable not set in .env file.")
 

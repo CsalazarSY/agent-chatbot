@@ -38,7 +38,14 @@ from src.agents.agent_names import (
 )
 
 # Config imports
-from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_FAMILY, LLM_MODEL_NAME
+from config import (
+    LLM_BASE_URL,
+    LLM_API_KEY,
+    LLM_PRIMARY_MODEL_NAME,
+    LLM_PRIMARY_MODEL_FAMILY,
+    LLM_SECONDARY_MODEL_NAME,
+    LLM_SECONDARY_MODEL_FAMILY,
+)
 
 # Define AgentType alias for clarity
 AgentType = Union[AssistantAgent, UserProxyAgent]
@@ -51,7 +58,9 @@ class AgentService:
     """
 
     # --- Class Attributes for Shared State ---
-    model_client: ClassVar[Optional[OpenAIChatCompletionClient]] = None
+    primary_model_client: ClassVar[Optional[OpenAIChatCompletionClient]] = None
+    secondary_model_client: ClassVar[Optional[OpenAIChatCompletionClient]] = None
+
     conversation_states: ClassVar[Dict[str, Any]] = (
         {}
     )  # In-memory state store (stores state dicts)
@@ -60,7 +69,7 @@ class AgentService:
 
     # --- Initialization Method ---
     @staticmethod
-    def _initialize_shared_state():
+    def initialize_shared_state():
         """Initializes the shared class attributes ONCE."""
 
         if AgentService._initialized:
@@ -68,9 +77,9 @@ class AgentService:
             return
 
         try:
-            # Create model client
-            AgentService.model_client = OpenAIChatCompletionClient(
-                model=LLM_MODEL_NAME,
+            # Create primary model client
+            AgentService.primary_model_client = OpenAIChatCompletionClient(
+                model=LLM_PRIMARY_MODEL_NAME,
                 base_url=LLM_BASE_URL,
                 api_key=LLM_API_KEY,
                 temperature=0,
@@ -79,11 +88,29 @@ class AgentService:
                     vision=False,
                     function_calling=True,
                     json_output=False,
-                    family=LLM_MODEL_FAMILY,
+                    family=LLM_PRIMARY_MODEL_FAMILY,
                     structured_output=True,
                     multiple_system_messages=True,
                 ),
             )
+
+            # Create secondary model client
+            AgentService.secondary_model_client = OpenAIChatCompletionClient(
+                model=LLM_SECONDARY_MODEL_NAME,
+                base_url=LLM_BASE_URL,
+                api_key=LLM_API_KEY,
+                temperature=0,
+                timeout=600,
+                model_info=ModelInfo(
+                    vision=False,
+                    function_calling=True,
+                    json_output=False,
+                    family=LLM_SECONDARY_MODEL_FAMILY,
+                    structured_output=True,
+                    multiple_system_messages=True,
+                ),
+            )
+
             AgentService._initialized = True
 
         except Exception as e:
@@ -93,7 +120,8 @@ class AgentService:
             traceback.print_exc()
 
             # Reset state on failure
-            AgentService.model_client = None
+            AgentService.primary_model_client = None
+            AgentService.secondary_model_client = None
             AgentService.conversation_states = {}
             AgentService._initialized = False
             raise e
@@ -102,7 +130,7 @@ class AgentService:
     def __init__(self):
         # Ensure shared state is initialized if it hasn't been already
         if not AgentService._initialized:
-            AgentService._initialize_shared_state()
+            AgentService.initialize_shared_state()
 
     # Termination Condition
     @staticmethod
@@ -213,10 +241,14 @@ class AgentService:
         conversation_id: Optional[str] = None,
     ) -> tuple[Optional[TaskResult], Optional[str], Optional[str]]:
         """Runs or continues a chat session using the SHARED group_chat instance and agents, handling state."""
-        if not AgentService._initialized or not AgentService.model_client:
+        if (
+            not AgentService._initialized
+            or not AgentService.primary_model_client
+            or not AgentService.secondary_model_client
+        ):
             return (
                 None,
-                "AgentService shared state (client) not initialized properly.",
+                "AgentService shared state (clients) not initialized properly.",
                 conversation_id,
             )
 
@@ -252,18 +284,23 @@ class AgentService:
                 MemoryContent(
                     content=f"Current_HubSpot_Thread_ID: {current_conversation_id}",
                     mime_type=MemoryMimeType.TEXT,
+                    metadata={"priority": "critical", "source": "hubspot"},
                 )
             )
 
             # --- Create Agent Instances for this request --- #
+            # Planner uses the primary (more capable) model
             planner_assistant = create_planner_agent(
-                AgentService.model_client, memory=[request_memory]
+                AgentService.primary_model_client, memory=[request_memory]
             )
+            # Other agents use the secondary model
             hubspot_agent = create_hubspot_agent(
-                AgentService.model_client, memory=[request_memory]
+                AgentService.secondary_model_client, memory=[request_memory]
             )
-            sy_api_agent = create_sy_api_agent(AgentService.model_client)
-            product_agent = await create_product_agent(AgentService.model_client)
+            sy_api_agent = create_sy_api_agent(AgentService.secondary_model_client)
+            product_agent = await create_product_agent(
+                AgentService.primary_model_client
+            )
 
             # --- Create GroupChat Instance for this request --- #
             active_participants = [
@@ -274,7 +311,7 @@ class AgentService:
             ]
             group_chat = SelectorGroupChat(
                 participants=active_participants,
-                model_client=AgentService.model_client,
+                model_client=AgentService.primary_model_client,
                 termination_condition=AgentService._get_termination_condition(),
                 allow_repeated_speaker=False,
                 selector_func=AgentService.custom_speaker_selector,
@@ -332,21 +369,52 @@ class AgentService:
     @classmethod
     async def close_client(cls):
         """Closes the shared underlying model client connection."""
-        if cls.model_client:
+        closed_primary = False
+        closed_secondary = False
+
+        if cls.primary_model_client:
             try:
-                await cls.model_client.close()
-                cls.model_client = None
-                print("--- Shared Model Client closed successfully. ---")
+                await cls.primary_model_client.close()
+                cls.primary_model_client = None
+                print("\n--- Shared Primary Model Client closed successfully. ---")
+                closed_primary = True
             except Exception as e:
-                print(f"--- Error closing shared model client: {e} ---")
+                print(f"\n--- Error closing shared Primary Model Client: {e} ---")
         else:
-            print("--- Shared Model Client already closed or never initialized. ---")
+            print(
+                "--- Shared Primary Model Client already closed or never initialized. ---"
+            )
+            closed_primary = (
+                True  # Considered 'closed' if never initialized or already None
+            )
+
+        if cls.secondary_model_client:
+            try:
+                await cls.secondary_model_client.close()
+                cls.secondary_model_client = None
+                print("\n--- Shared Secondary Model Client closed successfully. ---")
+                closed_secondary = True
+            except Exception as e:
+                print(f"\n--- Error closing shared Secondary Model Client: {e} ---")
+        else:
+            print(
+                "--- Shared Secondary Model Client already closed or never initialized. ---"
+            )
+            closed_secondary = (
+                True  # Considered 'closed' if never initialized or already None
+            )
+
+        # Optionally, reset the main initialized flag if both are successfully closed or were not set
+        if closed_primary and closed_secondary:
+            cls._initialized = (
+                False  # Or handle this based on desired re-initialization logic
+            )
 
 
 # --- Perform One-Time Initialization on Module Import ---
 # Ensure this runs reliably
 try:
-    AgentService._initialize_shared_state()
+    AgentService.initialize_shared_state()
 except Exception as init_err:
     print(f"!!! FAILED to initialize AgentService state on module import: {init_err}")
     # Decide if the application should stop or continue in a degraded state
