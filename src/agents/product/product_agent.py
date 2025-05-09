@@ -1,21 +1,34 @@
 """Product agent creation"""
 
 # /src/agents/product/product_agent.py
-import json
 from typing import Optional
+import os  # Added for path
+from pathlib import Path  # Added for path
 
 from autogen_agentchat.agents import AssistantAgent
-from autogen_core.memory import ListMemory, MemoryContent, MemoryMimeType
+
+# Removed ListMemory, MemoryContent, MemoryMimeType as we are moving to ChromaDB
+from autogen_ext.memory.chromadb import (
+    ChromaDBVectorMemory,
+    PersistentChromaDBVectorMemoryConfig,
+)
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 # Import tools/functions
-from src.tools.sticker_api.sy_api import sy_list_products, API_ERROR_PREFIX
+from src.tools.sticker_api.sy_api import sy_list_products
 
 # Import system message string
 from src.agents.product.system_message import PRODUCT_ASSISTANT_SYSTEM_MESSAGE
 
 # Import Agent Name
 from src.agents.agent_names import PRODUCT_AGENT_NAME
+
+# Import ChromaDB config from main config file
+from config import (
+    CHROMA_DB_PATH_CONFIG,
+    CHROMA_COLLECTION_NAME_CONFIG,
+    CHROMA_EMBEDDING_MODEL_NAME_CONFIG,
+)
 
 # --- Tool list ---
 all_product_tools = [sy_list_products]
@@ -26,8 +39,7 @@ async def create_product_agent(
     model_client: OpenAIChatCompletionClient,
 ) -> AssistantAgent:
     """
-    Creates and configures the product Assistant Agent.
-    Attempts to preload the product list into memory, splitting it into chunks.
+    Creates and configures the product Assistant Agent, now using ChromaDBVectorMemory.
 
     Args:
         model_client: An initialized OpenAIChatCompletionClient instance.
@@ -35,59 +47,52 @@ async def create_product_agent(
     Returns:
         An configured AssistantAgent instance.
     """
-    # Number of chunks to split the product list into
-    NUM_CHUNKS = 10
-
-    product_list_memory: Optional[ListMemory] = None
+    product_rag_memory: Optional[ChromaDBVectorMemory] = None
     try:
-        product_list_result = await sy_list_products()
-
-        if isinstance(product_list_result, list):
-            total_products = len(product_list_result)
-            chunk_size = (
-                total_products + NUM_CHUNKS - 1
-            ) // NUM_CHUNKS  # Ceiling division
-
-            product_list_memory = ListMemory()
-            for i in range(NUM_CHUNKS):
-                start_index = i * chunk_size
-                end_index = min((i + 1) * chunk_size, total_products)
-                if start_index >= total_products:
-                    break  # Avoid creating empty chunks
-
-                chunk = product_list_result[start_index:end_index]
-                chunk_json = json.dumps(chunk)
-
-                await product_list_memory.add(
-                    MemoryContent(
-                        content=chunk_json,  # Store the JSON string of the chunk directly
-                        mime_type=MemoryMimeType.JSON,
-                        metadata={
-                            "source": "preloaded_product_list_chunk",
-                            "chunk_index": i,
-                            "total_chunks": NUM_CHUNKS,
-                        },
-                    )
-                )
-        elif isinstance(product_list_result, str) and product_list_result.startswith(
-            API_ERROR_PREFIX
+        # Ensure the parent directory for ChromaDB exists (taken from config)
+        if (
+            not CHROMA_DB_PATH_CONFIG
+            or not CHROMA_COLLECTION_NAME_CONFIG
+            or not CHROMA_EMBEDDING_MODEL_NAME_CONFIG
         ):
-            print(f"    ! WARN: Failed to preload product list: {product_list_result}")
-        else:
-            print(
-                f"    ! WARN: Unexpected result type from sy_list_products: {type(product_list_result)}. Cannot preload."
+            raise ValueError(
+                "ChromaDB configuration missing in config.py or .env file."
             )
 
+        db_path = Path(CHROMA_DB_PATH_CONFIG)
+        db_parent_path = db_path.parent
+        os.makedirs(db_parent_path, exist_ok=True)
+        print(f"    Initializing ChromaDBVectorMemory at: {db_path}")
+        print(
+            f"    Using collection: {CHROMA_COLLECTION_NAME_CONFIG}, Embedding: {CHROMA_EMBEDDING_MODEL_NAME_CONFIG}"
+        )
+
+        chroma_config = PersistentChromaDBVectorMemoryConfig(
+            collection_name=CHROMA_COLLECTION_NAME_CONFIG,
+            persistence_path=str(db_path),  # Ensure it's a string
+            embedding_model_name=CHROMA_EMBEDDING_MODEL_NAME_CONFIG,
+            k=5,  # Retrieve top 5 results by default, can be tuned
+            score_threshold=0.4,  # Minimum similarity score for retrieval, can be tuned
+        )
+        product_rag_memory = ChromaDBVectorMemory(config=chroma_config)
+        # We are not clearing the memory here (`await product_rag_memory.clear()`)
+        # because we assume the chromaRAG pipeline is responsible for populating and maintaining it.
+        # This agent is a consumer of that pre-populated DB.
+
     except Exception as e:
-        print(f"    ! ERROR: Exception during product list preloading: {e}")
+        print(f"    ! ERROR: Exception during ChromaDBVectorMemory initialization: {e}")
+        import traceback
+
+        traceback.print_exc()
+        # Optionally, decide if the agent should be created without memory or raise error
 
     product_assistant = AssistantAgent(
         name=PRODUCT_AGENT_NAME,
-        description="Interprets product data from the live StickerYou API (using sy_list_products tool OR preloaded memory). Finds Product IDs based on descriptions, lists/filters products by criteria, counts products, and summarizes product details. Does NOT handle pricing.",
-        system_message=PRODUCT_ASSISTANT_SYSTEM_MESSAGE,
+        description="Interprets product data by querying a ChromaDB vector store (populated with website content) and can also use the live StickerYou API (sy_list_products tool) as a fallback. Finds Product IDs, lists/filters products, counts products, and summarizes product details. Does NOT handle pricing.",
+        system_message=PRODUCT_ASSISTANT_SYSTEM_MESSAGE,  # This will need updates
         model_client=model_client,
-        memory=[product_list_memory] if product_list_memory else None,
-        tools=all_product_tools,
+        memory=[product_rag_memory] if product_rag_memory else None,
+        tools=all_product_tools,  # sy_list_products can be a fallback or for specific live checks
         reflect_on_tool_use=True,
     )
     return product_assistant

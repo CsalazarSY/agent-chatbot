@@ -51,6 +51,12 @@ LLM_PRIMARY_MODEL_FAMILY = os.getenv("LLM_PRIMARY_MODEL_FAMILY")
 LLM_SECONDARY_MODEL_NAME = os.getenv("LLM_SECONDARY_MODEL_NAME")
 LLM_SECONDARY_MODEL_FAMILY = os.getenv("LLM_SECONDARY_MODEL_FAMILY")
 
+# --- ChromaDB RAG Configuration (for ProductAgent) ---
+CHROMA_DB_PATH_CONFIG = os.getenv("CHROMA_DB_PATH")
+CHROMA_COLLECTION_NAME_CONFIG = os.getenv("CHROMA_COLLECTION_NAME")
+CHROMA_EMBEDDING_MODEL_NAME_CONFIG = os.getenv("CHROMA_EMBEDDING_MODEL_NAME")
+
+
 # --- HubSpot Configuration ---
 HUBSPOT_API_TOKEN = os.getenv("HUBSPOT_API_TOKEN")
 HUBSPOT_API_SECRET = os.getenv("HUBSPOT_API_SECRET")
@@ -93,6 +99,17 @@ def validate_api_config():
         )
     if not HUBSPOT_API_TOKEN:
         raise ValueError("HUBSPOT_API_TOKEN environment variable not set in .env file.")
+    # Validate ChromaDB RAG Config
+    if not CHROMA_DB_PATH_CONFIG:
+        raise ValueError("CHROMA_DB_PATH environment variable not set in .env file.")
+    if not CHROMA_COLLECTION_NAME_CONFIG:
+        raise ValueError(
+            "CHROMA_COLLECTION_NAME environment variable not set in .env file."
+        )
+    if not CHROMA_EMBEDDING_MODEL_NAME_CONFIG:
+        raise ValueError(
+            "CHROMA_EMBEDDING_MODEL_NAME environment variable not set in .env file."
+        )
 
 
 # Run on import

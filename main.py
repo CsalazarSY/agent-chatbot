@@ -1,3 +1,5 @@
+"""Main CLI interface for the agent chatbot."""
+
 # main.py
 import asyncio
 import json
@@ -17,145 +19,107 @@ from autogen_agentchat.messages import (
 
 # --- First Party Imports ---
 # Centralized Agent Service
-# Corrected import path
-from src.agents.agents_services import agent_service
-from src.agents.agent_names import PLANNER_AGENT_NAME  # Import planner name
+from src.agents.agents_services import (
+    agent_service,
+    AgentService,
+)  # Keep AgentService for close_client
+from src.agents.agent_names import (
+    PLANNER_AGENT_NAME,
+    USER_PROXY_AGENT_NAME,
+)  # Ensure UserProxyAgent is also available if needed for prompts
 
 
 # --- --- Main Execution --- --- #
-async def main():
-    """
-    Main execution loop for the chatbot in CLI mode.
-    """
-    # --- Define Task ---
-    conversation_id: Optional[str] = None  # Initialize conversation ID
-    task_result = None
-    error_message = None
+async def main_cli():
+    """Main CLI loop for interacting with the AgentService."""
+    print("--- AutoGen Agent Chat CLI ---")
+    print("Type 'exit' or 'quit' to end the session.")
+    print("A new conversation will start if no ID is provided or found.")
+    print("Continuing a conversation will load its previous state if an ID is entered.")
 
-    while True:
-        # Prompt user for input, showing conversation ID if it exists
-        if conversation_id:
-            prompt = f"User (ConvID: {conversation_id}): "
-        else:
-            prompt = "User: "
-        user_input = input(prompt)
+    conversation_id: Optional[str] = None
 
-        if user_input.lower() == "exit":
-            print("Exiting chat.")
-            break
+    try:
+        while True:
+            if conversation_id:
+                prompt = f"User (ConvID: {conversation_id}): "
+            else:
+                prompt = f"User (New Conversation - or enter existing ID to continue): "
 
-        try:
-            print("\n")
-            task_result, error_message, returned_conversation_id = (
+            user_input = input(prompt).strip()
+
+            if user_input.lower() in ["exit", "quit"]:
+                print("Exiting CLI.")
+                break
+
+            # Check if user entered a potential conversation ID to continue
+            # This is a simple check; a more robust way might be a specific command
+            if (
+                not conversation_id and len(user_input) > 20 and "-" in user_input
+            ):  # Basic check for UUID-like string
+                try_conv_id = (
+                    input(
+                        f"It looks like you entered an ID. Continue with '{user_input}' as Conversation ID? (y/n): "
+                    )
+                    .strip()
+                    .lower()
+                )
+                if try_conv_id == "y":
+                    conversation_id = user_input
+                    print(
+                        f"Attempting to continue conversation with ID: {conversation_id}"
+                    )
+                    user_input = input(
+                        f"Your message for {USER_PROXY_AGENT_NAME} (Conversation: {conversation_id}): "
+                    ).strip()
+                    if not user_input:
+                        print(
+                            "No message entered after setting ID. Please provide input."
+                        )
+                        continue
+                # If not 'y', the original input will be treated as a new message for a new conversation
+
+            if not user_input:
+                print("No message entered. Try again or type 'exit'.")
+                continue
+
+            task_result, error_message, returned_conv_id = (
                 await agent_service.run_chat_session(
-                    user_input, show_console=True, conversation_id=conversation_id
+                    user_message=user_input,
+                    show_console=True,
+                    conversation_id=conversation_id,
                 )
             )
-            conversation_id = (
-                returned_conversation_id  # Update conversation_id for the next loop
-            )
-            print("\n")
 
-            # --- Process and Display Result --- #
+            if returned_conv_id:
+                conversation_id = returned_conv_id
+
             if error_message:
-                print(f"    ERROR: {error_message}")
+                print(f"\n!!! CLI Error: {error_message}")
             elif task_result:
-                # print(f"    - Stop Reason: {task_result.stop_reason}")
-                # --- Find the message BEFORE the final 'end_planner_turn' tool call --- #
-                reply_message: Optional[BaseChatMessage] = None
-                messages = task_result.messages
-                end_turn_event_index = -1
-
-                # Find the index of the end_planner_turn execution event
-                for i in range(len(messages) - 1, -1, -1):
-                    current_msg = messages[i]
-                    if isinstance(current_msg, ToolCallExecutionEvent):
-                        if any(
-                            exec_result.name == "end_planner_turn"
-                            for exec_result in getattr(current_msg, "content", [])
-                            if hasattr(exec_result, "name")
-                        ):
-                            end_turn_event_index = i
-                            break
-
-                # Search backwards for the Planner's message
-                if end_turn_event_index > 0:
-                    for i in range(end_turn_event_index - 1, -1, -1):
-                        potential_reply_msg = messages[i]
-                        if (
-                            potential_reply_msg.source == PLANNER_AGENT_NAME
-                            and isinstance(
-                                potential_reply_msg, (TextMessage, ThoughtEvent)
-                            )
-                        ):
-                            reply_message = potential_reply_msg
-                            break  # Found it
-
-                # Fallback
-                if not reply_message and messages:
-                    print(
-                        "    - WARN: Did not find Planner message before end_turn event. Falling back to last message for display."
-                    )
-                    reply_message = messages[-1]
-                # --- End of Finding Reply Message --- #
-
-                if reply_message and hasattr(reply_message, "content"):
-                    final_content = (
-                        reply_message.content
-                        if isinstance(reply_message.content, str)
-                        else json.dumps(reply_message.content)
-                    )
-                    # Clean up internal tags for display
-                    display_reply = final_content.replace(
-                        "<UserProxyAgent>", ""
-                    ).strip()
-                    if display_reply.startswith("TASK COMPLETE:"):
-                        display_reply = display_reply[len("TASK COMPLETE:") :].strip()
-                    if display_reply.startswith("TASK FAILED:"):
-                        display_reply = display_reply[len("TASK FAILED:") :].strip()
-                    print(f"Agent: {display_reply}")  # Print cleaned reply
-                else:
-                    print(f"Agent: [{type(reply_message).__name__} with no content]")
+                # Output is largely handled by show_console=True in run_chat_session
+                # but we can still print a final summary or stop reason if desired.
+                # For now, the detailed log from show_console=True should suffice.
+                # print(f"\n--- Task Result Summary ---")
+                # print(f"Stop Reason: {task_result.stop_reason}")
+                # if task_result.messages and hasattr(task_result.messages[-1], 'content'):
+                #     print(f"Final Message from Planner: {task_result.messages[-1].content}")
+                pass
             else:
-                print("    TaskResult was not obtained.")
+                print("\n!!! Task finished without a clear result or error.")
 
-        except asyncio.CancelledError:
-            print("--- Task Cancelled --- ")
-            break
-
-        except Exception as e:
-            print(f"\n!!! ERROR during agent execution: {e}")
-            traceback.print_exc()
-
-        finally:
-            # Ensure the client is closed on script exit, regardless of how main() finished
-            print("\n--- Attempting final client cleanup ---")
-            try:
-                # Use asyncio.run for the class method if the loop is already stopped
-                asyncio.run(agent_service.close_client())
-            except RuntimeError as ex:
-                if "cannot call run_in_executor from a running event loop" in str(
-                    ex
-                ) or "cannot run coroutine" in str(ex):
-                    # If loop is running or already closed in an unexpected way, might need adjustment
-                    # For simplicity, just print the issue. Proper handling might need event loop access.
-                    print(
-                        f"--- Could not run async close_client cleanly in finally: {ex} ---"
-                    )
-                else:
-                    raise ex
-            except Exception as e:
-                print(f"--- Error during final client cleanup: {e} ---")
-
-            print("--- Script Finished ---\n\n")
-
-
-# --- Main Execution --- #
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n   Process interrupted by user.")
+        print("\n--- Session interrupted by user. Exiting. ---")
     except Exception as e:
-        print(f"\n Top-level error: {e}")
+        print(f"\n--- An unexpected error occurred in the CLI: {e} ---")
         traceback.print_exc()
+    finally:
+        print("--- Closing resources... ---")
+        # Use the class method for closing, as AgentService instance might not be directly available
+        # or the loop might exit before instance cleanup.
+        await AgentService.close_client()
+        print("--- CLI session ended. ---")
+
+
+if __name__ == "__main__":
+    asyncio.run(main_cli())
