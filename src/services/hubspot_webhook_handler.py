@@ -16,10 +16,14 @@ from autogen_agentchat.messages import (
 )
 
 # Models/Types
-from src.tools.hubspot.dto_responses import MessageDetail, MessageType, MessageDirection
+from src.tools.hubspot.conversation.dto_responses import (
+    MessageDetail,
+    MessageType,
+    MessageDirection,
+)
 
 # HubSpot Tools used in webhook handler
-from src.tools.hubspot.conversation_tools import (
+from src.tools.hubspot.conversation.conversation_tools import (
     get_message_details,
     send_message_to_thread,
 )

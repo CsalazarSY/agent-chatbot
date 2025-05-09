@@ -8,7 +8,7 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 # Import ALL tool functions
-from src.tools.hubspot.conversation_tools import (
+from src.tools.hubspot.conversation.conversation_tools import (
     get_actor_details,
     get_actors_batch,
     get_channel_account_details,
@@ -27,6 +27,11 @@ from src.tools.hubspot.conversation_tools import (
     update_thread,
 )
 
+# Import Ticket tools
+from src.tools.hubspot.tickets.ticket_tools import (
+    create_support_ticket_for_conversation,
+)
+
 # Import system message
 from src.agents.hubspot.system_message import hubspot_agent_system_message
 
@@ -34,7 +39,8 @@ from src.agents.hubspot.system_message import hubspot_agent_system_message
 from src.agents.agent_names import HUBSPOT_AGENT_NAME
 
 # --- Collect all tool functions ---
-all_hubspot_tools: List[Callable] = [
+# Conversation Tools
+conversation_tools: List[Callable] = [
     send_message_to_thread,
     get_thread_details,
     get_thread_messages,
@@ -53,13 +59,22 @@ all_hubspot_tools: List[Callable] = [
     get_original_message_content,
 ]
 
+# Ticket Tools
+ticket_tools: List[Callable] = [
+    create_support_ticket_for_conversation,
+]
+
+# Combined list of all tools for the agent
+all_hubspot_tools: List[Callable] = conversation_tools + ticket_tools
+
 
 # --- Agent Creation Function ---
 def create_hubspot_agent(
     model_client: OpenAIChatCompletionClient, memory: Optional[List[Memory]] = None
 ) -> AssistantAgent:
     """
-    Creates and configures the HubSpot Agent with an expanded toolkit.
+    Creates and configures the HubSpot Agent with an expanded toolkit
+    for managing conversations and tickets.
 
     Args:
         model_client: An initialized OpenAIChatCompletionClient instance.
@@ -70,7 +85,7 @@ def create_hubspot_agent(
     """
     hubspot_assistant = AssistantAgent(
         name=HUBSPOT_AGENT_NAME,
-        description="Interacts with the HubSpot Conversations API. Manages threads (get, list, update/archive [DevOnly]), messages (get, send COMMENT/MESSAGE), actors, channels, and inboxes. Primarily used for internal operations (like handoffs) or dev requests. Returns raw dicts/lists or confirmation strings.",
+        description="Interacts with HubSpot APIs. Manages conversation threads (get, list, update/archive [DevOnly]), messages (get, send COMMENT/MESSAGE), actors, channels, and inboxes. Its primary ticket-related function is to create specialized support tickets linked to conversations for handoffs. Returns raw dicts/lists or confirmation strings.",
         system_message=hubspot_agent_system_message,
         model_client=model_client,
         memory=memory,
