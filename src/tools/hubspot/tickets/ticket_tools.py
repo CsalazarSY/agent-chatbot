@@ -56,7 +56,19 @@ def _format_error(tool_name: str, e: Exception) -> str:
 def _transform_sdk_response_to_dto(sdk_ticket) -> TicketDetailResponse:
     """Transforms an SDK SimplePublicObject to our TicketDetailResponse DTO."""
     props = sdk_ticket.properties if sdk_ticket.properties else {}
-    # Ensure all fields expected by TicketPropertiesResponse are present or None
+    props_clean = dict(props)
+    for k in [
+        "subject",
+        "content",
+        "hs_pipeline",
+        "hs_pipeline_stage",
+        "hs_ticket_priority",
+        "createdate",
+        "lastmodifieddate",
+        "hs_object_id",
+    ]:
+        props_clean.pop(k, None)
+
     ticket_props_dto = TicketPropertiesResponse(
         subject=props.get("subject"),
         content=props.get("content"),
@@ -66,7 +78,7 @@ def _transform_sdk_response_to_dto(sdk_ticket) -> TicketDetailResponse:
         createdate=props.get("createdate"),
         lastmodifieddate=props.get("lastmodifieddate"),
         hs_object_id=props.get("hs_object_id", sdk_ticket.id),
-        **props,  # Include any other properties
+        **props_clean,  # Only pass the remaining properties
     )
 
     associations_dto = None
