@@ -75,9 +75,6 @@ async def _make_hubspot_api_request(
         # Handle successful 204 No Content (e.g., DELETE archive_thread)
         # The HubSpot API might return None directly for 204
         if response is None and method.upper() == "DELETE":
-            print(
-                f"DEBUG: Received None response for {method} {api_path}. Assuming 204 OK."
-            )
             return None  # Indicate successful deletion/no content
 
         # Handle cases where API returns the raw response object
@@ -131,9 +128,6 @@ async def _make_hubspot_api_request(
                 body_str = "[Could not decode error body]"
             # Check for 204 raised as exception (possible API behavior)
             if status_code == 204 and method.upper() == "DELETE":
-                print(
-                    f"DEBUG: Caught Exception with status 204 for {method} {api_path}. Assuming Success."
-                )
                 return None  # Treat as successful deletion
             return f"{ERROR_PREFIX} API Error Status {status_code}. Reason: {error_reason}. Body: {body_str}"
 

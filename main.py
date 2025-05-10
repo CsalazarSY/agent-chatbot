@@ -55,7 +55,7 @@ async def main_cli():
             # Check if user entered a potential conversation ID to continue
             # This is a simple check; a more robust way might be a specific command
             if (
-                not conversation_id and len(user_input) > 20 and "-" in user_input
+                not conversation_id and len(user_input) > 10 and "-" in user_input
             ):  # Basic check for UUID-like string
                 try_conv_id = (
                     input(

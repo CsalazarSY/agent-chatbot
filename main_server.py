@@ -269,7 +269,7 @@ async def hubspot_webhook_endpoint(
                     message_id
                 )  # Add before scheduling task
             else:
-                print(f"    - Skipping duplicate message ID: {message_id}")
+                print(f"     < Skipping duplicate message ID: {message_id}")
                 continue
 
             # Schedule background task to fetch details and process

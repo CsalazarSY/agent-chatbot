@@ -60,12 +60,12 @@ async def create_product_agent(
             )
 
         db_path = Path(CHROMA_DB_PATH_CONFIG)
-        db_parent_path = db_path.parent
-        os.makedirs(db_parent_path, exist_ok=True)
-        print(f"    Initializing ChromaDBVectorMemory at: {db_path}")
-        print(
-            f"    Using collection: {CHROMA_COLLECTION_NAME_CONFIG}, Embedding: {CHROMA_EMBEDDING_MODEL_NAME_CONFIG}"
-        )
+        # db_parent_path = db_path.parent
+        # os.makedirs(db_parent_path, exist_ok=True)
+        # print(f"    Initializing ChromaDBVectorMemory at: {db_path}")
+        # print(
+        #     f"    Using collection: {CHROMA_COLLECTION_NAME_CONFIG}, Embedding: {CHROMA_EMBEDDING_MODEL_NAME_CONFIG}"
+        # )
 
         chroma_config = PersistentChromaDBVectorMemoryConfig(
             collection_name=CHROMA_COLLECTION_NAME_CONFIG,
