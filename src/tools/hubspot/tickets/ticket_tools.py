@@ -53,53 +53,6 @@ def _format_error(tool_name: str, e: Exception) -> str:
     )
 
 
-def _transform_sdk_response_to_dto(sdk_ticket) -> TicketDetailResponse:
-    """Transforms an SDK SimplePublicObject to our TicketDetailResponse DTO."""
-    props = sdk_ticket.properties if sdk_ticket.properties else {}
-    props_clean = dict(props)
-    for k in [
-        "subject",
-        "content",
-        "hs_pipeline",
-        "hs_pipeline_stage",
-        "hs_ticket_priority",
-        "createdate",
-        "lastmodifieddate",
-        "hs_object_id",
-    ]:
-        props_clean.pop(k, None)
-
-    ticket_props_dto = TicketPropertiesResponse(
-        subject=props.get("subject"),
-        content=props.get("content"),
-        hs_pipeline=props.get("hs_pipeline"),
-        hs_pipeline_stage=props.get("hs_pipeline_stage"),
-        hs_ticket_priority=props.get("hs_ticket_priority"),
-        createdate=props.get("createdate"),
-        lastmodifieddate=props.get("lastmodifieddate"),
-        hs_object_id=props.get("hs_object_id", sdk_ticket.id),
-        **props_clean,  # Only pass the remaining properties
-    )
-
-    associations_dto = None
-    if sdk_ticket.associations:
-        associations_dto = {}
-        for obj_type, assoc_data in sdk_ticket.associations.items():
-            associations_dto[obj_type] = [
-                TicketAssociationDetail(id=assoc.id, type=assoc.type)
-                for assoc in assoc_data.results
-            ]
-
-    return TicketDetailResponse(
-        id=sdk_ticket.id,
-        properties=ticket_props_dto,
-        associations=associations_dto,
-        createdAt=sdk_ticket.created_at.isoformat() if sdk_ticket.created_at else None,
-        updatedAt=sdk_ticket.updated_at.isoformat() if sdk_ticket.updated_at else None,
-        archived=sdk_ticket.archived if hasattr(sdk_ticket, "archived") else False,
-    )
-
-
 async def create_ticket(req: CreateTicketRequest) -> Union[TicketDetailResponse, str]:
     """
     Creates a new HubSpot ticket with the given properties and associations.
@@ -138,8 +91,8 @@ async def create_ticket(req: CreateTicketRequest) -> Union[TicketDetailResponse,
     ```
 
     Returns:
-        A `TicketDetailResponse` dictionary on successful creation, or an error string prefixed
-        with `HUBSPOT_TICKET_TOOL_ERROR_PREFIX` on failure.
+        A HubSpot SDK `SimplePublicObject` (the `api_response`) on successful creation,
+        or an error string prefixed with `HUBSPOT_TICKET_TOOL_ERROR_PREFIX` on failure.
     """
     if not HUBSPOT_CLIENT:
         return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} create_ticket - HUBSPOT_CLIENT not initialized."
@@ -192,7 +145,8 @@ async def create_ticket(req: CreateTicketRequest) -> Union[TicketDetailResponse,
             HUBSPOT_CLIENT.crm.tickets.basic_api.create,
             simple_public_object_input_for_create=simple_public_object_input,
         )
-        return _transform_sdk_response_to_dto(api_response)
+        # Return the raw SDK response object on success
+        return api_response
 
     except ApiException as e:
         return _format_error("create_ticket", e)
@@ -218,7 +172,7 @@ async def create_support_ticket_for_conversation(
             - `hs_ticket_priority: str`: The priority of the ticket (e.g., 'HIGH', 'MEDIUM', 'LOW').
 
     Returns:
-        A `TicketDetailResponse` dictionary on successful creation, or an error string prefixed
+        A HubSpot SDK `SimplePublicObject` on successful creation, or an error string prefixed
         with `HUBSPOT_TICKET_TOOL_ERROR_PREFIX` on failure.
     """
     if not HUBSPOT_CLIENT:

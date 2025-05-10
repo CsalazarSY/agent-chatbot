@@ -23,7 +23,6 @@ from src.tools.hubspot.conversation.conversation_tools import (
     get_thread_details,
     get_thread_messages,
     list_threads,
-    send_message_to_thread,
     update_thread,
 )
 
@@ -41,7 +40,6 @@ from src.agents.agent_names import HUBSPOT_AGENT_NAME
 # --- Collect all tool functions ---
 # Conversation Tools
 conversation_tools: List[Callable] = [
-    send_message_to_thread,
     get_thread_details,
     get_thread_messages,
     list_threads,
