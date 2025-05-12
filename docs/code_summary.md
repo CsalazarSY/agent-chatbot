@@ -80,7 +80,7 @@ The agent layer is responsible for the conversational logic and task execution.
         *   **Critical Rule**: Must not return empty messages or `None`; defaults to an internal failure error if no valid data or specific error.
 *   **HubSpot Agent (`src/agents/hubspot/`)**: Interacts with the HubSpot Conversations API.
     *   `hubspot_agent.py`: Contains `create_hubspot_agent` to instantiate the HubSpot `AssistantAgent`.
-    *   `system_message.py` (`hubspot_agent_system_message`): Details the HubSpot Agent's role:
+    *   `system_message.py` (`hubspot_agent_system_Message`): Details the HubSpot Agent's role:
         *   **Role & Goal**: Interact with HubSpot Conversations API for threads, messages, actors, channels, inboxes, as instructed by Planner.
         *   **Tool Scopes**: Defines usage scopes (`[Dev, Internal]`, `[Dev Only]`).
         *   **Tools Available**: Lists tools like `send_message_to_thread`, `get_thread_details`, `get_thread_messages`, `list_threads`, `archive_thread`, etc. (all functions from `src.tools.hubspot.conversation_tools`).

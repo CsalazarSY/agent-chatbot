@@ -1,6 +1,42 @@
 # Agent Chatbot
 
-This project implements a multi-agent chatbot system using AutoGen. The goal is to create a conversational AI capable of handling specific user requests related to product pricing and HubSpot interactions.
+This project implements a multi-agent chatbot system using the `autogen` framework designed for customer service interactions, particularly for a company like StickerYou.
+
+## Core Functionality
+
+The system uses a `Planner Agent` to orchestrate conversations. Based on user requests, the Planner delegates tasks to specialized agents:
+
+*   **`Product Agent`**: Answers product-related questions by **querying a ChromaDB vector store** containing website information. Uses a specific tool (`sy_list_products`) only when explicitly asked by the Planner to find a Product ID or list products.
+*   **`SY API Agent`**: Interacts with the StickerYou API for tasks like price calculation, order status checks, and retrieving tracking information.
+*   **`HubSpot Agent`**: Manages interactions with the HubSpot Conversations API, primarily used by the Planner to **create support tickets** during handoffs after collecting the user's email address.
+
+The Planner manages the flow, ensuring correct information is gathered (like Product IDs before pricing), handles errors, and facilitates handoffs to human agents by creating HubSpot tickets when necessary.
+
+## Features
+
+*   Multi-agent architecture using `autogen`.
+*   Specialized agents for distinct tasks (Product Info, SY API, HubSpot).
+*   RAG implementation using **ChromaDB** for the Product Agent.
+*   Detailed workflow management by the Planner Agent.
+*   Error handling and automated handoff via **HubSpot ticket creation**.
+*   Integration with HubSpot Webhooks for real-time chat interaction.
+*   Developer mode (`-dev`) for debugging and direct interaction.
+
+## Setup
+
+1.  Clone the repository.
+2.  Create a virtual environment: `python -m venv venv`
+3.  Activate the environment: `source venv/bin/activate` (or `venv\Scripts\activate` on Windows).
+4.  Install dependencies: `pip install -r requirements.txt`
+5.  Configure environment variables (e.g., in a `.env` file): Set API keys for OpenAI, StickerYou, HubSpot, and configure ChromaDB path/settings.
+6.  Run the main application script (e.g., `python src/main.py`).
+
+## Key Components
+
+*   **Agents (`src/agents/`)**: Definitions and system messages for each agent.
+*   **Tools (`src/tools/`)**: Functions callable by the agents (SY API wrappers, HubSpot tools).
+*   **Configuration (`config.py`, `.env`)**: API keys and settings.
+*   **Main Application (`src/main.py` or similar)**: Server setup (e.g., FastAPI), webhook handling, agent initialization, chat management.
 
 ## System Architecture
 
@@ -100,42 +136,4 @@ It's highly recommended to use a virtual environment.
 
 1.  **Start the FastAPI Server:**
     Open a terminal, ensure your virtual environment is activated, and run:
-    ```bash
-    python main_server.py
     ```
-    The server will typically start on `http://0.0.0.0:8000`. `uvicorn` will provide live reloading for development.
-
-2.  **Expose for HubSpot Webhooks (if needed):**
-    To receive HubSpot webhooks on your local machine, you'll need to expose your local server to the internet. `localtunnel` is one way to achieve this:
-    Open another terminal and run:
-    ```bash
-    npx localtunnel --subdomain api-hubsbot --port 8000
-    ```
-    Replace `api-hubsbot` with your desired subdomain. This will give you a public URL (e.g., `https://api-hubsbot.loca.lt`) that you can configure as your HubSpot webhook URL.
-
-3.  **Testing with CLI (Optional):**
-    To interact with the agent system via the command line for testing:
-    ```bash
-    python main.py
-    ```
-
-## Project Structure
-
-The project is organized into several key directories:
-*   `src/agents/`: Contains the definitions for all AutoGen agents (Planner, Product, SY API, HubSpot) including their creation logic and system messages.
-    *   `agents_services.py`: Manages agent creation, shared state, and chat session execution.
-*   `src/tools/`: Defines the tools (functions) that agents can call to interact with external APIs (StickerYou, HubSpot) or perform specific actions.
-    *   Includes Data Transfer Object (DTO) Pydantic models for API request/response validation.
-*   `src/services/`: Contains utility services like HubSpot webhook handling, SY API token refreshing, and cleaning agent output tags.
-*   `src/models/`: Pydantic models for the FastAPI `/chat` endpoint and HubSpot webhook payloads.
-*   `config.py`: Handles loading and validation of environment variables and API client initialization.
-*   `main_server.py`: FastAPI application entry point.
-*   `main.py`: CLI application entry point.
-
-For a more detailed breakdown of the codebase, please refer to: 
-
-## Usage
-
-- See `possible_messages.md` for example user messages and expected system behavior across various scenarios.
-- Refer to `system_message_template.md` for the standard template used to define agent system messages.
-- For a comprehensive understanding of the codebase, review the detailed **Codebase Summary** document.
