@@ -90,7 +90,7 @@ async def create_product_agent(
         system_message=PRODUCT_ASSISTANT_SYSTEM_MESSAGE,  # This will need updates
         model_client=model_client,
         memory=[product_rag_memory] if product_rag_memory else None,
-        tools=all_product_tools,  # sy_list_products can be a fallback or for specific live checks
+        tools=all_product_tools,
         reflect_on_tool_use=True,
     )
     return product_assistant
