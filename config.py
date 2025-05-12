@@ -5,6 +5,7 @@
 import os
 from dotenv import load_dotenv
 from hubspot import HubSpot
+from pathlib import Path
 
 # Load environment variables from .env file
 load_dotenv()
@@ -52,9 +53,33 @@ LLM_SECONDARY_MODEL_NAME = os.getenv("LLM_SECONDARY_MODEL_NAME")
 LLM_SECONDARY_MODEL_FAMILY = os.getenv("LLM_SECONDARY_MODEL_FAMILY")
 
 # --- ChromaDB RAG Configuration (for ProductAgent) ---
-CHROMA_DB_PATH_CONFIG = os.getenv("CHROMA_DB_PATH")
+# Get the relative path from .env
+_CHROMA_DB_RELATIVE_PATH = os.getenv("CHROMA_DB_PATH")
 CHROMA_COLLECTION_NAME_CONFIG = os.getenv("CHROMA_COLLECTION_NAME")
 CHROMA_EMBEDDING_MODEL_NAME_CONFIG = os.getenv("CHROMA_EMBEDDING_MODEL_NAME")
+
+# Resolve to an absolute path. If _CHROMA_DB_RELATIVE_PATH is None, this will be None.
+CHROMA_DB_PATH_CONFIG: str | None = None
+if _CHROMA_DB_RELATIVE_PATH:
+    try:
+        # Assume config.py is in the project root, same level as .env
+        # Construct path relative to the directory of THIS config file.
+        project_root = Path(__file__).resolve().parent
+        absolute_chroma_path = (project_root / _CHROMA_DB_RELATIVE_PATH).resolve(
+            strict=False
+        )
+        CHROMA_DB_PATH_CONFIG = str(absolute_chroma_path)
+        print(f"!!! ChromaDB path: {CHROMA_DB_PATH_CONFIG}")
+    except FileNotFoundError:
+        # This block might be less likely to be hit if strict=False and we construct from __file__
+        print(
+            f"!!! WARNING: ChromaDB path '{_CHROMA_DB_RELATIVE_PATH}' from .env, relative to {project_root}, does not resolve to an existing location. This might cause issues."
+        )
+        # Fallback to simple absolute if robust resolution fails
+        CHROMA_DB_PATH_CONFIG = str(Path(_CHROMA_DB_RELATIVE_PATH).absolute())
+    except Exception as e:
+        print(f"!!! ERROR resolving ChromaDB path '{_CHROMA_DB_RELATIVE_PATH}': {e}")
+        CHROMA_DB_PATH_CONFIG = None  # Ensure it's None if resolution fails badly
 
 
 # --- HubSpot Configuration ---
@@ -100,8 +125,12 @@ def validate_api_config():
     if not HUBSPOT_API_TOKEN:
         raise ValueError("HUBSPOT_API_TOKEN environment variable not set in .env file.")
     # Validate ChromaDB RAG Config
-    if not CHROMA_DB_PATH_CONFIG:
+    if not _CHROMA_DB_RELATIVE_PATH:  # Check the original env var first
         raise ValueError("CHROMA_DB_PATH environment variable not set in .env file.")
+    if not CHROMA_DB_PATH_CONFIG:  # Then check the resolved path
+        raise ValueError(
+            f"CHROMA_DB_PATH '{_CHROMA_DB_RELATIVE_PATH}' could not be resolved to a valid path."
+        )
     if not CHROMA_COLLECTION_NAME_CONFIG:
         raise ValueError(
             "CHROMA_COLLECTION_NAME environment variable not set in .env file."

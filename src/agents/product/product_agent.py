@@ -59,20 +59,18 @@ async def create_product_agent(
                 "ChromaDB configuration missing in config.py or .env file."
             )
 
-        db_path = Path(CHROMA_DB_PATH_CONFIG)
-        # db_parent_path = db_path.parent
-        # os.makedirs(db_parent_path, exist_ok=True)
-        # print(f"    Initializing ChromaDBVectorMemory at: {db_path}")
-        # print(
-        #     f"    Using collection: {CHROMA_COLLECTION_NAME_CONFIG}, Embedding: {CHROMA_EMBEDDING_MODEL_NAME_CONFIG}"
-        # )
+        db_path = Path(
+            CHROMA_DB_PATH_CONFIG
+        )  # This is now an absolute path from config.py
+        db_parent_path = db_path.parent
+        os.makedirs(db_parent_path, exist_ok=True)
 
         chroma_config = PersistentChromaDBVectorMemoryConfig(
             collection_name=CHROMA_COLLECTION_NAME_CONFIG,
-            persistence_path=str(db_path),  # Ensure it's a string
+            persistence_path=str(db_path),
             embedding_model_name=CHROMA_EMBEDDING_MODEL_NAME_CONFIG,
             k=5,  # Retrieve top 5 results by default, can be tuned
-            score_threshold=0.4,  # Minimum similarity score for retrieval, can be tuned
+            score_threshold=0.35,
         )
         product_rag_memory = ChromaDBVectorMemory(config=chroma_config)
         # We are not clearing the memory here (`await product_rag_memory.clear()`)
