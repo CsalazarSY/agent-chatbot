@@ -15,6 +15,7 @@
     "postman.settings.dotenv-detection-notification-visibility": false,
     "editor.defaultFormatter": "ms-python.black-formatter",
     "notebook.defaultFormatter": "ms-python.pylint",
-    "docker.languageserver.formatter.ignoreMultilineInstructions": true
+    "docker.languageserver.formatter.ignoreMultilineInstructions": true,
+    "terminal.integrated.defaultProfile.windows": "Command Prompt"
   }
 }
