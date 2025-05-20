@@ -6,6 +6,7 @@
 import json
 from typing import Optional
 from contextlib import asynccontextmanager
+from grpc import StatusCode
 import uvicorn
 import traceback  # Added for more detailed error logging
 
@@ -286,7 +287,7 @@ async def hubspot_webhook_endpoint(
             print(f"    < Skipping event type: {event.subscriptionType}")
 
     # Return 200 OK immediately for HubSpot webhook best practice
-    return {"status": "Webhook received and processing initiated"}
+    return {"statusCode": 200, "status": "Webhook received and processing initiated"}
 
 
 # --- --- Run the Server (for local development) --- --- #

@@ -1,6 +1,6 @@
 """Defines and creates the Planner Assistant Agent."""
 
-# agents/planner/planner_agent.py
+# /src/agents/planner/planner_agent.py
 
 # --- Standard Library Imports ---
 from typing import Optional, List
@@ -39,7 +39,7 @@ def create_planner_agent(
         system_message=PLANNER_ASSISTANT_SYSTEM_MESSAGE,
         model_client=model_client,
         memory=memory,
-        # tools=[end_planner_turn],
+        # tools=[end_planner_turn], # Tool is available via function calling in the new AutoGen versions
         reflect_on_tool_use=False,
     )
-    return planner_assistant
+    return planner_assistant 

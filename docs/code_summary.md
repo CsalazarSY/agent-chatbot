@@ -1,6 +1,6 @@
 ## Codebase Summary
 
-This project implements a multi-agent chatbot system using AutoGen, designed to handle customer inquiries related to StickerYou products, pricing, and order management, as well as interactions with HubSpot conversations. The system is exposed via a FastAPI backend.
+This project implements a multi-agent chatbot system using AutoGen, designed to handle customer inquiries related to StickerYou products, pricing, and HubSpot conversations. The system is exposed via a FastAPI backend.
 
 ### 1. Overall Architecture
 
@@ -35,19 +35,19 @@ The agent layer is responsible for the conversational logic and task execution.
 *   **`agents_services.py`**:
     *   Contains the `AgentService` class, which is central to managing agent interactions.
     *   **Shared State**: Initializes and holds shared resources like the `OpenAIChatCompletionClient` and `conversation_states` (an in-memory dictionary to store the state of different conversations).
-    *   **Agent Creation**: Dynamically creates instances of all agents (Planner, HubSpot, StickerYou API, Product) for each request, injecting necessary memory and model clients.
+    *   **Agent Creation**: Dynamically creates instances of all agents (Planner, HubSpot, Price Quote, Product) for each request, injecting necessary memory and model clients.
     *   **Chat Session Management**: The `run_chat_session` method orchestrates the interaction within a `SelectorGroupChat`. It handles loading and saving conversation state.
     *   **Custom Speaker Selection**: Implements `custom_speaker_selector` logic to determine the next agent to speak based on the conversation history and message content, ensuring a structured flow (e.g., Planner processes specialist agent output, specialist agent responds to Planner's delegation).
     *   **Termination Conditions**: Defines conditions for ending a chat round, such as explicit function calls (`end_planner_turn`) or text mentions (`TASK COMPLETE`, `TASK FAILED`).
 *   **`agent_names.py`**:
-    *   Defines string constants for the names of all agents (`HUBSPOT_AGENT_NAME`, `SY_API_AGENT_NAME`, `PLANNER_AGENT_NAME`, `PRODUCT_AGENT_NAME`, `USER_PROXY_AGENT_NAME`). This helps avoid typos and circular dependencies.
+    *   Defines string constants for the names of all agents (`HUBSPOT_AGENT_NAME`, `PRICE_QUOTE_AGENT_NAME`, `PLANNER_AGENT_NAME`, `PRODUCT_AGENT_NAME`, `USER_PROXY_AGENT_NAME`). This helps avoid typos and circular dependencies.
 *   **Planner Agent (`src/agents/planner/`)**: The central orchestrator.
     *   `planner_agent.py`: Contains `create_planner_agent` to instantiate the Planner `AssistantAgent`.
     *   `system_message.py` (`PLANNER_ASSISTANT_SYSTEM_MESSAGE`): Provides a highly detailed system prompt for the Planner Agent. This prompt outlines:
         *   **Role & Goal**: Coordinator for StickerYou, stateless backend operation, single response cycle.
         *   **Interaction Modes**: Customer Service and Developer Interaction (triggered by `-dev`).
         *   **Core Capabilities & Limitations**: Cannot execute tools directly (except `end_planner_turn`), must delegate. Defines scope (product range, no payments).
-        *   **Specialized Agents**: Describes the Product, SY API, and HubSpot agents and when to delegate to them.
+        *   **Specialized Agents**: Describes the Product, Price Quote, and HubSpot agents and when to delegate to them.
         *   **Workflow Strategy**: Detailed workflows for various scenarios, including:
             *   General approach (internal thinking -> single response).
             *   Developer interaction.
@@ -55,8 +55,8 @@ The agent layer is responsible for the conversational logic and task execution.
             *   Standard failure handoffs (tool failure, product not found).
             *   Handling silent agent responses (with retries).
             *   Product identification and information gathering.
-            *   **Price Quoting**: A critical multi-step workflow involving getting a Product ID from the Product Agent *first*, then size/quantity, then price from the SY API Agent. Emphasizes not assuming Product IDs.
-            *   Order status and tracking requests.
+            *   **Price Quoting**: A critical multi-step workflow involving getting a Product ID from the Product Agent *first*, then size/quantity, then price from the Price Quote Agent. Emphasizes not assuming Product IDs.
+            *   Handles requests for order status or tracking by informing the user these features are in development and offering to create a support ticket.
         *   **Output Formats**: Strict formats for delegation messages, final user responses (questions, success, failure), and developer mode answers.
         *   **Critical Rules**: Emphasizes ending the turn correctly with `end_planner_turn`, no internal monologue in user-facing replies, data integrity (no hallucination, mandatory Product ID verification from Product Agent).
 *   **Product Agent (`src/agents/product/`)**: Expert on product information.
@@ -69,12 +69,12 @@ The agent layer is responsible for the conversational logic and task execution.
         *   **Capabilities**: Search/filter product list, identify best matching Product ID.
         *   **Limitations**: **No pricing capabilities.** Interacts only with Planner.
         *   **Output Formats**: Specific formats for returning a single Product ID (`Product ID found: [ID]`), multiple matches, filtered lists, counts, or errors.
-*   **StickerYou API Agent (`src/agents/stickeryou/`)**: Interacts with the StickerYou API.
-    *   `sy_api_agent.py`: Contains `create_sy_api_agent` to instantiate the SY API `AssistantAgent`.
-    *   `system_message.py` (`SY_API_AGENT_SYSTEM_MESSAGE`): Governs the SY API Agent:
-        *   **Role & Goal**: Execute functions for allowed SY API endpoints (orders, pricing, user auth checks). **Does not handle product listing.**
-        *   **Tool Scopes**: Defines usage scopes for its tools (`[User, Dev, Internal]`, `[Dev Only]`, `[Internal Only]`).
-        *   **Tools Available**: Lists tools like `sy_get_specific_price`, `sy_get_price_tiers`, `sy_get_order_details`, `sy_get_order_tracking`, `sy_cancel_order`, etc. (all functions from `src.tools.sticker_api.sy_api`).
+*   **Price Quote Agent (`src/agents/price_quote/`)**: Interacts with the StickerYou API for pricing.
+    *   `price_quote_agent.py`: Contains `create_price_quote_agent` to instantiate the Price Quote `AssistantAgent`.
+    *   `system_message.py` (`PRICE_QUOTE_AGENT_SYSTEM_MESSAGE`): Governs the Price Quote Agent:
+        *   **Role & Goal**: Execute functions for allowed SY API endpoints **specifically for pricing tasks**. Handles getting specific prices, tier pricing, and listing supported countries. Also manages internal user authentication checks. **Does not handle product listing or order management.**
+        *   **Tool Scopes**: Defines usage scopes for its tools (`[User, Dev, Internal]`, `[Internal Only]`).
+        *   **Tools Available**: Lists tools like `sy_get_specific_price`, `sy_get_price_tiers`, `sy_list_countries`, and internal auth tools (`sy_verify_login`, `sy_perform_login`).
         *   **Workflow**: Receive delegation -> Validate parameters -> Call tool -> Validate tool response -> Return exact result (Pydantic model/dict/list or error string).
         *   **Output Formats**: Raw JSON/list for success, or specific error strings (`SY_TOOL_FAILED:...`, `Error: Missing mandatory parameter(s)...`).
         *   **Critical Rule**: Must not return empty messages or `None`; defaults to an internal failure error if no valid data or specific error.
@@ -103,10 +103,11 @@ This directory contains the functions that agents can call to interact with exte
             *   Error handling for various HTTP status codes and network issues, returning standardized error strings prefixed with `API_ERROR_PREFIX`.
         *   **Tool Functions**: Each function maps to a StickerYou API endpoint, such as:
             *   Designs: `sy_create_design`, `sy_get_design_preview`.
-            *   Orders: `sy_list_orders_by_status_get`, `sy_list_orders_by_status_post`, `sy_create_order`, `sy_create_order_from_designs`, `sy_get_order_details`, `sy_cancel_order`, `sy_get_order_item_statuses`, `sy_get_order_tracking`.
             *   Pricing & Products: `sy_list_products` (used by Product Agent for preloading), `sy_get_price_tiers`, `sy_get_specific_price`, `sy_list_countries`.
-            *   Users: `sy_verify_login`, `sy_perform_login` (used for token refresh).
+            *   Users: `sy_verify_login`, `sy_perform_login` (used for token refresh by Price Quote Agent).
+            *   Orders (Available but not actively used by customer-facing agents for status/tracking): `sy_list_orders_by_status_get`, `sy_get_order_detail`, `sy_cancel_order`, `sy_create_order_offline_payment`, `sy_get_order_history`, `sy_get_order_summary_by_id`, `sy_get_order_tracking`, `sy_update_order_address`.
         *   Each tool function uses `_make_sy_api_request` and is typed to return either a Pydantic model representing the successful JSON response or an error string.
+        *   While `sy_api.py` contains a broader set of tools for interacting with the StickerYou API, including extensive order management capabilities, the current agent configuration does not assign these order management tools to any active customer-facing agent. They are present in the codebase but are not part of the primary automated workflows for user queries regarding order status or tracking, which are handled by the Planner as 'features in development'.
     *   **Data Transfer Objects (`src/tools/sticker_api/dtos/`)**: Pydantic models are used extensively for validating and structuring data for API requests and responses.
         *   `common.py`: Defines shared Pydantic models and enums like `OrderStatusId`, `AccessoryOption`, `ShipToAddress`, `OrderItemBase`.
         *   `requests.py`: Defines Pydantic models for SY API **request** bodies (e.g., `LoginRequest`, `SpecificPriceRequest`, `CreateOrderRequest`).

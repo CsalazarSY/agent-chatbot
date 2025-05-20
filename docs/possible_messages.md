@@ -13,7 +13,7 @@ This file contains example messages to test the different functionalities and wo
 *   `[DEFAULT_SENDER_ACTOR_ID]` - The configured default HubSpot sender actor ID.
 ---
 
-### Available Test Order IDs (Prod env)
+### Available Test Order IDs (Prod env) - Note: These are for services OUTSIDE PriceQuoteAgent scope now
 
 #### Cancelled Status
 
@@ -37,11 +37,11 @@ This file contains example messages to test the different functionalities and wo
 
 *   **Pricing - Specific Quantity (Direct Flow):**
     * "How much are 500 durable roll labels, 2 inches by 4 inches?"
-      * Expected: Planner -> ProductAgent (Find ID) -> ID Found (30) -> Planner -> SYAgent (Get Specific Price) -> Extract Price -> TASK COMPLETE (Price Result)
+      * Expected: Planner -> ProductAgent (Find ID) -> ID Found (30) -> Planner -> PriceQuoteAgent (Get Specific Price) -> Extract Price -> TASK COMPLETE (Price Result)
       
 *   **Pricing - Tier Options (Direct Flow):** 
     * "What are the prices for Permanent Holographic 4x4 inch?"
-      * Expected: Planner -> ProductAgent (Find ID) -> ID Found (52) -> Planner -> SYAgent (Get Specific Price) -> Extract Price -> TASK COMPLETE (Price Result)
+      * Expected: Planner -> ProductAgent (Find ID) -> ID Found (52) -> Planner -> PriceQuoteAgent (Get Specific Price) -> Extract Price -> TASK COMPLETE (Price Result)
 
 *   **Pricing - Multi-turn Clarification:**
     * "I need a quote for 75 kiss-cut removable vinyl stickers, 3x3 inches."
@@ -50,10 +50,10 @@ This file contains example messages to test the different functionalities and wo
         2. Planner asks user for clarification -> <UserProxyAgent>.
         3. User clarifies ('Removable Smart Save Kiss-Cut Singles').
         4. Planner -> ProductAgent (Find ID for 'Removable Smart Save Kiss-Cut Singles') -> ID Found (73).
-        5. Planner -> SYAgent (Get Specific Price for ID 73, 3x3, Qty 75) -> SY_TOOL_FAILED (Minimum quantity error, e.g., 500).
+        5. Planner -> PriceQuoteAgent (Get Specific Price for ID 73, 3x3, Qty 75) -> SY_TOOL_FAILED (Minimum quantity error, e.g., 500).
         6. Planner informs user about minimum quantity and asks for confirmation -> <UserProxyAgent>.
         7. User agrees to minimum quantity.
-        8. Planner -> SYAgent (Get Specific Price for ID 73, 3x3, Qty 500) -> Extract Price.
+        8. Planner -> PriceQuoteAgent (Get Specific Price for ID 73, 3x3, Qty 500) -> Extract Price.
         9. TASK COMPLETE (Price Result for 500 units).
 
     * "What are the price options for 2x2 kiss-cut stickers?"
@@ -62,7 +62,7 @@ This file contains example messages to test the different functionalities and wo
         2. Planner asks user for clarification (listing matches) -> <UserProxyAgent>.
         3. User clarifies (e.g., 'Removable Vinyl Sticker Hand-Outs').
         4. Planner -> ProductAgent (Find ID for clarified description) -> ID Found (11).
-        5. Planner -> SYAgent (Get Price Tiers for ID 11, 2x2) -> Extract Tiers.
+        5. Planner -> PriceQuoteAgent (Get Price Tiers for ID 11, 2x2) -> Extract Tiers.
         6. TASK COMPLETE (Formatted Tiers List).
 
     * "Show me prices for different quantities of 3x3 die-cut stickers."
@@ -71,7 +71,7 @@ This file contains example messages to test the different functionalities and wo
         2. Planner asks user for clarification (listing matches) -> <UserProxyAgent>.
         3. User clarifies (e.g., 'Permanent Glow In The Dark Glossy').
         4. Planner -> ProductAgent (Find ID for clarified description) -> ID Found (74).
-        5. Planner -> SYAgent (Get Price Tiers for ID 74, 3x3) -> Extract Tiers.
+        5. Planner -> PriceQuoteAgent (Get Price Tiers for ID 74, 3x3) -> Extract Tiers.
         6. TASK COMPLETE (Formatted Tiers List).
 
     * "I'm not sure how many I need yet. Can you give me pricing tiers for 4x4 removable clear stickers?"
@@ -80,21 +80,20 @@ This file contains example messages to test the different functionalities and wo
         2. Planner asks user for clarification (listing matches and formats) -> <UserProxyAgent>.
         3. User clarifies (e.g., 'Removable Clear Stickers in pages format').
         4. Planner -> ProductAgent (Find ID for clarified description) -> ID Found (2).
-        5. Planner -> SYAgent (Get Price Tiers for ID 2, 4x4) -> Extract Tiers.
+        5. Planner -> PriceQuoteAgent (Get Price Tiers for ID 2, 4x4) -> Extract Tiers.
         6. TASK COMPLETE (Formatted Tiers List, noting stickers per page).
 
     * "Quote for durable roll labels"
       * Expected (Multi-turn):
          1. Planner -> ProductAgent (Find ID) -> ID Found (30) -> Planner asks user for Size & Quantity -> <UserProxyAgent>
          2. "3x3 and 500 units"
-         3. Planner uses context (ID 30) -> SYAgent (Get Specific Price) -> Extract Price -> TASK COMPLETE (Price Result)
+         3. Planner uses context (ID 30) -> PriceQuoteAgent (Get Specific Price) -> Extract Price -> TASK COMPLETE (Price Result)
 
-*   **Order Status - Found:**
+*   **Order Status / Tracking (Feature in Development):**
     * "What is the tracking code of my order OQA12346?"
-      * Expected: Planner -> SYAgent (Get Order Details) -> Extract Status -> Planner -> SYAgent (Get Tracking) -> Extract Tracking -> TASK COMPLETE (Shipped Status + Tracking)
-    
+      * Expected: Planner informs feature is in development, offers ticket -> `<UserProxyAgent>`. (User might accept/decline handoff in next turn).
     * "Can you check on my order OQA12345?"
-      * Expected: Planner -> SYAgent (Get Order Details) -> Extract Status -> TASK COMPLETE (In Progress Status)
+      * Expected: Planner informs feature is in development, offers ticket -> `<UserProxyAgent>`. (User might accept/decline handoff in next turn).
 
 *   **Product Information:**
     * "Which die-cut stickers do you have available?"
@@ -106,42 +105,40 @@ This file contains example messages to test the different functionalities and wo
     * "How many types of vinyl stickers do you offer?"
       * Expected: Planner -> ProductAgent (Count matching material 'Vinyl') -> Agent returns count -> TASK COMPLETE (Count Result)
 
-*   **Context / Memory:**
+*   **Context / Memory (Pricing Focus):**
     * "Price for 50 4x4 die-cut stickers?" 
       * Expected (Multi-turn):
         1. Planner -> ProductAgent (Find ID for 'die-cut stickers') -> Multiple Matches.
         2. Planner asks for clarification -> <UserProxyAgent>.
         3. User clarifies (e.g., 'Permanent Glow In The Dark Glossy').
         4. Planner -> ProductAgent (Find ID for clarified) -> ID Found (e.g., 74).
-        5. Planner -> SYAgent (Get Specific Price ID 74, 4x4, Qty 50) -> Extract Price.
+        5. Planner -> PriceQuoteAgent (Get Specific Price ID 74, 4x4, Qty 50) -> Extract Price.
         6. TASK COMPLETE (Price Result).
-      * (Follow-up) "Okay, what about 250 of those?" # Expected: Planner uses context (ID 74, size 4x4) -> SYAgent (Get Specific Price for 250) -> Extract Price -> TASK COMPLETE (Price Result)
+      * (Follow-up) "Okay, what about 250 of those?" # Expected: Planner uses context (ID 74, size 4x4) -> PriceQuoteAgent (Get Specific Price for 250) -> Extract Price -> TASK COMPLETE (Price Result)
 
 **2. Failure / Handoff Scenarios (User Encounters Problem)**
 
-*   **Product Not Found:**
+*   **Product Not Found (Pricing context):**
     * "How much for 200 transparent paper stickers sized 4x4 inches?"
-      * Expected: Planner -> ProductAgent (Find ID) -> Not Found -> Planner -> HubSpotAgent (Send Comment) -> TASK FAILED (Handoff)
+      * Expected: Planner -> ProductAgent (Find ID) -> Not Found -> Planner offers handoff -> TASK FAILED (Handoff offered/initiated)
     * "Price for polyester stickers?"
-      * Expected: Planner -> ProductAgent (Find ID) -> Not Found -> Planner -> HubSpotAgent (Send Comment) -> TASK FAILED (Handoff)
+      * Expected: Planner -> ProductAgent (Find ID) -> Not Found -> Planner offers handoff -> TASK FAILED (Handoff offered/initiated)
 
-*   **Order Not Found:**
+*   **Order Not Found (When Inquiring about Status/Tracking - Feature in Development):**
     * "Can you check the status of order OQANovalid21?"
-      * Expected: Planner -> SYAgent (Get Order Details) -> SY_TOOL_FAILED (404) -> Planner -> HubSpotAgent (Send Comment) -> TASK FAILED (Handoff)
-    * "What's the tracking on order 999999?"
-      * Expected: Planner -> SYAgent (Get Order Details or Get Tracking) -> SY_TOOL_FAILED (404) -> Planner -> HubSpotAgent (Send Comment) -> TASK FAILED (Handoff)
+      * Expected: Planner informs feature (order status/tracking) is in development, even if an order ID is provided. Offers ticket -> `<UserProxyAgent>`.
 
-*   **SY API Failure (Simulated):**
-    * "How much for 100 3x3 die-cut stickers?" *(Requires simulating internal SY API failure -> Standard Failure Handoff)*
-      * Expected: Planner -> ProductAgent (Find ID) -> ID Found -> Planner -> SYAgent (Get Specific Price) -> SY_TOOL_FAILED (e.g., Timeout) -> Planner -> HubSpotAgent (Send Comment) -> TASK FAILED (Handoff)
+*   **PriceQuoteAgent API Failure (Simulated for Pricing):**
+    * "How much for 100 3x3 die-cut stickers?" *(Requires simulating internal PriceQuoteAgent API failure for pricing -> Standard Failure Handoff)*
+      * Expected: Planner -> ProductAgent (Find ID) -> ID Found -> Planner -> PriceQuoteAgent (Get Specific Price) -> SY_TOOL_FAILED (e.g., Timeout) -> Planner offers handoff -> TASK FAILED (Handoff offered/initiated)
 
 *   **Dissatisfaction:**
-    * "My order is taking forever! I'm really angry! Where is it?!" # Expected: Planner -> acknowledge frustratin -> Ask for order ID
-      * (Follow-up - Order ID) 893498313
-         * Expected: Planner -> SYAgent (Get Order Details) -> Extract Status -> Planner offers handoff -> <UserProxyAgent>
-      * (Follow-up - Accept Handoff) "Yes, have someone call me!"
-         * Expected: Planner -> HubSpotAgent (Send Comment) -> TASK FAILED (Handoff Confirmed)
-      * (Follow-up - Decline Handoff) "No, just find my order!"
+    * "Your website is confusing for prices! I'm really angry!" # Expected: Planner -> acknowledge frustration -> Ask if they need help with a specific quote
+      * (Follow-up - if user provides product for quote that leads to error) e.g. "Quote for 10 non-existent stickers"
+         * Expected: Planner -> ProductAgent (Find ID) -> Not Found -> Planner explains inability to find product, offers handoff -> <UserProxyAgent>
+      * (Follow-up - Accept Handoff) "Yes, have someone help me!"
+         * Expected: Planner -> Asks for email -> User provides email -> HubSpotAgent (Create Ticket) -> TASK FAILED (Handoff Confirmed)
+      * (Follow-up - Decline Handoff) "No, I'll figure it out!"
          * Expected: Planner acknowledges politely -> <UserProxyAgent>
 
 *   **Out of Scope:**
@@ -152,9 +149,7 @@ This file contains example messages to test the different functionalities and wo
 
 *   **Requesting Dev-Only Action:**
     * "Please cancel my order ORD-67890."
-      * Expected: Planner explains inability and offers handoff -> <UserProxyAgent>
-    * "Can you close my chat thread?"
-      * Expected: Planner explains inability and offers handoff -> <UserProxyAgent>
+      * Expected: Planner states it cannot perform order cancellations (as no agent has this tool now) and that order management features like this are generally under review/development. Offers to create a ticket for the request.
 
 ---
 
@@ -164,27 +159,15 @@ This file contains example messages to test the different functionalities and wo
 
 **1. Success Scenarios (Dev Expects Result/Confirmation)**
 
-*   **Test SY API Tools:**
+*   **Test PriceQuoteAgent Tools (Pricing Focused):**
     * "-dev Get price: product_id=38, width=3, height=3, quantity=555" 
-      * Expected: Planner -> SYAgent (Get Specific Price) -> Raw JSON Result -> TASK COMPLETE (Formatted summary + Raw JSON)
+      * Expected: Planner -> PriceQuoteAgent (Get Specific Price) -> Raw JSON Result -> TASK COMPLETE (Formatted summary + Raw JSON)
     * "-dev Get price tiers: product_id=30, width=2, height=4" 
-      * Expected: Planner -> SYAgent (Get Price Tiers) -> Raw JSON Result -> TASK COMPLETE (Formatted summary + Raw JSON)
+      * Expected: Planner -> PriceQuoteAgent (Get Price Tiers) -> Raw JSON Result -> TASK COMPLETE (Formatted summary + Raw JSON)
     * "-dev List supported countries" 
-      * Expected: Planner -> SYAgent (List Countries) -> Raw JSON Result -> TASK COMPLETE (Formatted summary + Raw JSON)
-    * "-dev Get order details for ORD-12345" 
-      * Expected: Planner -> SYAgent (Get Order Details) -> Raw JSON Result -> TASK COMPLETE (Formatted summary + Raw JSON)
-    * "-dev Get tracking for ORD-12345" 
-      * Expected: Planner -> SYAgent (Get Tracking) -> Raw JSON Result -> TASK COMPLETE (Formatted summary + Raw JSON)
-    * "-dev Get item statuses for ORD-67890" 
-      * Expected: Planner -> SYAgent (Get Item Statuses) -> Raw JSON Result -> TASK COMPLETE (Formatted summary + Raw JSON)
-    * "-dev Get design preview for [DESIGN_ID]" 
-      * Expected: Planner -> SYAgent (Get Design Preview) -> Raw JSON Result -> TASK COMPLETE (Formatted summary + Raw JSON)
-    * "-dev List orders via GET with status 30" 
-      * Expected: Planner -> SYAgent (List Orders GET) -> Raw JSON Result -> TASK COMPLETE (Formatted summary + Raw JSON)
-    * "-dev List orders via POST: status=50, take=10, skip=5" 
-      * Expected: Planner -> SYAgent (List Orders POST) -> Raw JSON Result -> TASK COMPLETE (Formatted summary + Raw JSON)
-    * "-dev Cancel order ORD-67890" *(Use a non-critical/test order)* 
-      * Expected: Planner -> SYAgent (Cancel Order) -> Raw JSON Result -> TASK COMPLETE (Formatted summary + Raw JSON)
+      * Expected: Planner -> PriceQuoteAgent (List Countries) -> Raw JSON Result -> TASK COMPLETE (Formatted summary + Raw JSON)
+    * "-dev Verify login status"
+      * Expected: Planner -> PriceQuoteAgent (sy_verify_login) -> Raw JSON Result -> TASK COMPLETE (Formatted summary + Raw JSON)
 
 *   **Test HubSpot Tools:**
     * "-dev Send message 'Test dev message' to thread [THREAD_ID]" 
@@ -235,24 +218,30 @@ This file contains example messages to test the different functionalities and wo
       * Expected: Planner -> ProductAgent (Summarize differences) -> Agent returns natural language summary -> TASK COMPLETE (Agent's summary)
 
 *   **Test Planner Internals/Knowledge:**
-    * "-dev What was the result of the last SY API call?"
+    * "-dev What was the result of the last PriceQuoteAgent API call?"
       * Expected: Planner answers based on memory -> TASK COMPLETE (Answer)
     * "-dev Which agent handles pricing?"
-      * Expected: Planner answers based on system message -> TASK COMPLETE (Answer: SYAPIAgent)
+      * Expected: Planner answers based on system message -> TASK COMPLETE (Answer: PriceQuoteAgent)
     * "-dev Explain the standard failure handoff workflow."
       * Expected: Planner explains based on system message -> TASK COMPLETE (Explanation)
     * "-dev What is the configured default SY country code?"
       * Expected: Planner answers based on config -> TASK COMPLETE (Answer: US/Default)
 
+*   **Test "Feature in Development" Workflows (Order/Tracking):**
+    *   "-dev What is the tracking for order SY123?"
+        *   Expected: Planner responds with `TASK FAILED: This feature (Direct Tracking Code Request) is currently marked as 'in development'. No agent is assigned to handle this directly in the current configuration. <{USER_PROXY_AGENT_NAME}>`
+    *   "-dev What is the status of my order ORD456?"
+        *   Expected: Planner responds with `TASK FAILED: This feature (Order Status Check) is currently marked as 'in development'. No agent is assigned to handle this directly in the current configuration. <{USER_PROXY_AGENT_NAME}>`
+
 **2. Failure / Handoff Scenarios (Dev Expects Error/Failure Message)**
 
-*   **API Failures:**
-    * "-dev Get order details for ORD-NONEXISTENT"
-      * Expected: Planner -> SYAgent -> SY_TOOL_FAILED (404) -> TASK FAILED (Reason: SY_TOOL_FAILED...)
-    * "-dev Send message 'Test' to thread INVALID_THREAD"
-      * Expected: Planner -> HubSpotAgent -> HUBSPOT_TOOL_FAILED (...) -> TASK FAILED (Reason: HUBSPOT_TOOL_FAILED...)
-    * "-dev Get price: product_id=9999, width=1, height=1, quantity=1"
-      * Expected: Planner -> SYAgent -> SY_TOOL_FAILED (...) -> TASK FAILED (Reason: SY_TOOL_FAILED...)
+*   **API Failures (Pricing Context):**
+    * "-dev Get price: product_id=99999, width=1, height=1, quantity=100" *(Simulating a non-existent product ID for pricing)*
+      * Expected: Planner -> PriceQuoteAgent (Get Specific Price) -> SY_TOOL_FAILED (e.g., Product not found) -> TASK FAILED (Raw error from PriceQuoteAgent)
+
+*   **Tool Parameter Errors (Pricing Context):**
+    * "-dev Get price: product_id=38, quantity=50"
+      * Expected: Planner -> PriceQuoteAgent (Get Specific Price) -> Error: Missing mandatory parameter(s)... -> TASK FAILED (Raw error from PriceQuoteAgent)
 
 *   **Agent/Planner Errors:**
     * "-dev Find ID for 'stickers'" *(Requires simulating internal SY API failure)*

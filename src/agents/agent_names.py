@@ -2,7 +2,7 @@
 
 # Agent Names
 HUBSPOT_AGENT_NAME = "hubspot_assistant"
-SY_API_AGENT_NAME = "sy_api_assistant"
+PRICE_QUOTE_AGENT_NAME = "price_quote_assistant"
 PLANNER_AGENT_NAME = "planner_assistant"
 PRODUCT_AGENT_NAME = "product_assistant"
 MESSAGE_SUPERVISOR_AGENT_NAME = "message_supervisor_assistant"

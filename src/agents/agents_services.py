@@ -4,7 +4,7 @@
 import traceback
 import uuid  # Added for generating conversation IDs
 import re  # Import regex module
-from typing import Sequence, Optional, Dict, Union, ClassVar, Any  # Added Any for state
+from typing import Sequence, Optional, Dict, Union, ClassVar, Any
 
 # AutoGen imports
 from autogen_agentchat.ui import Console
@@ -25,13 +25,13 @@ from autogen_ext.models.openai import OpenAIChatCompletionClient
 # Agents
 from src.agents.hubspot.hubspot_agent import create_hubspot_agent
 from src.agents.planner.planner_agent import create_planner_agent
-from src.agents.stickeryou.sy_api_agent import create_sy_api_agent
+from src.agents.price_quote.price_quote_agent import create_price_quote_agent
 from src.agents.product.product_agent import create_product_agent
 
 # Import Agent Name
 from src.agents.agent_names import (
     HUBSPOT_AGENT_NAME,
-    SY_API_AGENT_NAME,
+    PRICE_QUOTE_AGENT_NAME,
     PRODUCT_AGENT_NAME,
     PLANNER_AGENT_NAME,
     USER_PROXY_AGENT_NAME,
@@ -134,7 +134,7 @@ class AgentService:
 
     # Termination Condition
     @staticmethod
-    def _get_text_termination_condition():
+    def get_text_termination_condition():
         """Helper to define the termination condition using string mentions."""
         return (
             TextMentionTermination("TASK FAILED")
@@ -144,7 +144,7 @@ class AgentService:
         )
 
     @staticmethod
-    def _get_termination_condition():
+    def get_termination_condition():
         """Helper to define the termination condition using FunctionCallTermination."""
         # Terminate after 30 messages
         max_message_termination = MaxMessageTermination(max_messages=30)
@@ -153,7 +153,7 @@ class AgentService:
             function_name="end_planner_turn"
         )
         # Combine the conditions
-        return max_message_termination | AgentService._get_text_termination_condition()
+        return max_message_termination | AgentService.get_text_termination_condition()
 
     # --- Core Agent Logic Methods ---
 
@@ -194,7 +194,7 @@ class AgentService:
             return PLANNER_AGENT_NAME
 
         # Rule 2: Specialist spoke -> Planner processes
-        specialist_agents = {PRODUCT_AGENT_NAME, SY_API_AGENT_NAME, HUBSPOT_AGENT_NAME}
+        specialist_agents = {PRODUCT_AGENT_NAME, PRICE_QUOTE_AGENT_NAME, HUBSPOT_AGENT_NAME}
         if last_message.source in specialist_agents:
             # print(f"Selector: Specialist {last_message.source} spoke, Planner next.")
             return PLANNER_AGENT_NAME
@@ -212,8 +212,8 @@ class AgentService:
 
                     if delegated_agent_name == PRODUCT_AGENT_NAME:
                         return PRODUCT_AGENT_NAME
-                    elif delegated_agent_name == SY_API_AGENT_NAME:
-                        return SY_API_AGENT_NAME
+                    elif delegated_agent_name == PRICE_QUOTE_AGENT_NAME:
+                        return PRICE_QUOTE_AGENT_NAME
                     elif delegated_agent_name == HUBSPOT_AGENT_NAME:
                         return HUBSPOT_AGENT_NAME
                     else:
@@ -297,7 +297,7 @@ class AgentService:
             hubspot_agent = create_hubspot_agent(
                 AgentService.secondary_model_client, memory=[request_memory]
             )
-            sy_api_agent = create_sy_api_agent(AgentService.secondary_model_client)
+            price_quote_agent = create_price_quote_agent(AgentService.secondary_model_client)
             product_agent = await create_product_agent(
                 AgentService.primary_model_client
             )
@@ -305,14 +305,14 @@ class AgentService:
             # --- Create GroupChat Instance for this request --- #
             active_participants = [
                 planner_assistant,
-                sy_api_agent,
+                price_quote_agent,
                 product_agent,
                 hubspot_agent,
             ]
             group_chat = SelectorGroupChat(
                 participants=active_participants,
                 model_client=AgentService.primary_model_client,
-                termination_condition=AgentService._get_termination_condition(),
+                termination_condition=AgentService.get_termination_condition(),
                 allow_repeated_speaker=False,
                 selector_func=AgentService.custom_speaker_selector,
             )

@@ -7,15 +7,15 @@ This project implements a multi-agent chatbot system using the `autogen` framewo
 The system uses a `Planner Agent` to orchestrate conversations. Based on user requests, the Planner delegates tasks to specialized agents:
 
 *   **`Product Agent`**: Answers product-related questions by **querying a ChromaDB vector store** containing website information. Uses a specific tool (`sy_list_products`) only when explicitly asked by the Planner to find a Product ID or list products.
-*   **`SY API Agent`**: Interacts with the StickerYou API for tasks like price calculation, order status checks, and retrieving tracking information.
+*   **`Price Quote Agent`**: Interacts with the StickerYou API for tasks like price calculation (specific prices, tier pricing) and listing supported countries. It no longer handles order status or tracking.
 *   **`HubSpot Agent`**: Manages interactions with the HubSpot Conversations API, primarily used by the Planner to **create support tickets** during handoffs after collecting the user's email address.
 
-The Planner manages the flow, ensuring correct information is gathered (like Product IDs before pricing), handles errors, and facilitates handoffs to human agents by creating HubSpot tickets when necessary.
+The Planner manages the flow, ensuring correct information is gathered (like Product IDs before pricing), handles errors, informs users about features currently in development (such as order status/tracking) by offering to create support tickets, and facilitates handoffs to human agents by creating HubSpot tickets when necessary.
 
 ## Features
 
 *   Multi-agent architecture using `autogen`.
-*   Specialized agents for distinct tasks (Product Info, SY API, HubSpot).
+*   Specialized agents for distinct tasks (Product Info, Price Quotes, HubSpot).
 *   RAG implementation using **ChromaDB** for the Product Agent.
 *   Detailed workflow management by the Planner Agent.
 *   Error handling and automated handoff via **HubSpot ticket creation**.
@@ -27,24 +27,24 @@ The Planner manages the flow, ensuring correct information is gathered (like Pro
 1.  Clone the repository.
 2.  Create a virtual environment: `python -m venv venv`
 3.  Activate the environment: `source venv/bin/activate` (or `venv\Scripts\activate` on Windows).
-4.  Install dependencies: `pip install -r requirements.txt`
+4.  Install dependencies: `pip install -r requirements.txt` (or use `conda env update --file environment.yml --prune` if using Conda with the provided file)
 5.  Configure environment variables (e.g., in a `.env` file): Set API keys for OpenAI, StickerYou, HubSpot, and configure ChromaDB path/settings.
-6.  Run the main application script (e.g., `python src/main.py`).
+6.  Run the main application script (e.g., `python src/main.py` or `python main_server.py` for the server).
 
 ## Key Components
 
 *   **Agents (`src/agents/`)**: Definitions and system messages for each agent.
-*   **Tools (`src/tools/`)**: Functions callable by the agents (SY API wrappers, HubSpot tools).
+*   **Tools (`src/tools/`)**: Functions callable by the agents (SY API wrappers for pricing; HubSpot tools). Note: Order management tools exist in `sy_api.py` but are not used by the `PriceQuoteAgent`.
 *   **Configuration (`config.py`, `.env`)**: API keys and settings.
-*   **Main Application (`src/main.py` or similar)**: Server setup (e.g., FastAPI), webhook handling, agent initialization, chat management.
+*   **Main Application (`src/main.py` or `main_server.py`)**: Server setup (e.g., FastAPI), webhook handling, agent initialization, chat management.
 
 ## System Architecture
 
 The system consists of several specialized agents coordinated by a central Planner Agent:
 
-- **Planner Agent:** Orchestrates the conversation flow, analyzes user intent, delegates tasks to specialized agents, and communicates results back to the user.
+- **Planner Agent:** Orchestrates the conversation flow, analyzes user intent, delegates tasks to specialized agents, informs users if a requested feature (e.g., order tracking) is in development and offers support tickets, and communicates results back to the user.
 - **Product Agent:** Identifies product IDs based on user descriptions using a predefined data source or live API calls. It can also list, filter, and count products.
-- **StickerYou API Agent (SY API Agent):** Interacts with the StickerYou API for tasks like fetching price quotes (specific and tiered), managing orders (details, tracking, cancellation), and listing supported countries. It does not handle product listing/interpretation.
+- **Price Quote Agent (formerly SY API Agent):** Interacts with the StickerYou API for tasks like fetching price quotes (specific and tiered) and listing supported countries. It does not handle product listing/interpretation or order management.
 - **HubSpot Agent:** Interacts with the HubSpot Conversations API to manage threads, send messages/comments, and retrieve information about actors, channels, and inboxes.
 - **User Proxy Agent:** Represents the user within the AutoGen framework.
 
@@ -66,10 +66,15 @@ It's highly recommended to use a virtual environment.
 **Using Conda:**
 
 1.  Install Conda if you haven't already.
-2.  Create and activate a new Conda environment:
+2.  Create and activate a new Conda environment from the `environment.yml` file:
     ```bash
-    conda create -n autogen python=3.12
-    conda activate autogen
+    conda env create -f environment.yml
+    conda activate autogen-chatbot # Or the name specified in environment.yml
+    ```
+    If you prefer to create it manually first:
+    ```bash
+    conda create -n autogen-chatbot python=3.12 # Ensure this matches your project's Python version
+    conda activate autogen-chatbot
     ```
 3.  To deactivate the environment later:
     ```bash
@@ -100,26 +105,23 @@ It's highly recommended to use a virtual environment.
 ### Installation
 
 1.  **Install dependencies:**
-    The primary way to install dependencies is using the `environment.yml` file with Conda:
+    If using Conda and you created the environment with `environment.yml`, dependencies are already installed.
+    If you created the Conda environment manually or are using `venv`, install dependencies using the `environment.yml` for consistency (pip can also be used if you manage a requirements.txt):
     ```bash
-    conda env update --file environment.yml --prune
+    conda env update --file environment.yml --prune # If in an existing Conda env
+    # or pip install -r requirements.txt (if you generate one)
     ```
-    This will install all necessary packages including:
-    *   `autogen-agentchat==0.5.5`
-    *   `autogen-core==0.5.5`
-    *   `autogen-ext==0.5.5` (includes OpenAI, Azure, and MCP extensions)
+    Key packages include:
+    *   `autogen-agentchat`
+    *   `autogen-core`
+    *   `autogen-ext` (includes OpenAI, Azure, and MCP extensions)
     *   `fastapi`
     *   `uvicorn`
     *   `httpx`
-    *   `hubspot-api-client==11.1.0`
-    *   `pydantic==2.11.3` (and related `pydantic-core`, `pydantic-settings`)
-    *   `python-dotenv==1.1.0`
+    *   `hubspot-api-client`
+    *   `pydantic`
+    *   `python-dotenv`
     *   `black` (for code formatting)
-
-    If you prefer using `pip` directly after setting up a Python 3.12 environment:
-    ```bash
-    pip install -U autogen-agentchat autogen-core autogen-ext[azure,mcp,openai] fastapi uvicorn httpx hubspot-api-client pydantic python-dotenv black
-    ```
 
 ### Configuration
 
@@ -136,4 +138,21 @@ It's highly recommended to use a virtual environment.
 
 1.  **Start the FastAPI Server:**
     Open a terminal, ensure your virtual environment is activated, and run:
+    ```bash
+    uvicorn main_server:app --reload
     ```
+    The application will typically be available at `http://127.0.0.1:8000`.
+
+2.  **Run the CLI (for testing):**
+    Open another terminal, ensure your virtual environment is activated, and run:
+    ```bash
+    python main.py
+    ```
+
+## Project Structure Overview
+
+
+## Delete __pycache__ folders
+```bash
+for /d /r . %d in (__pycache__) do @if exist "%d" rd /s /q "%d"
+```
