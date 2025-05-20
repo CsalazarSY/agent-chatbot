@@ -1,6 +1,6 @@
 """Pydantic models for HubSpot Conversations API responses."""
 
-# src/tools/hubspot/dto_responses.py
+# /src/tools/hubspot/conversation/dto_responses.py
 from typing import Optional, List, Dict, Any
 from enum import Enum
 from pydantic import BaseModel, Field

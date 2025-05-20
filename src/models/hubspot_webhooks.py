@@ -1,6 +1,6 @@
 """Types for hubspot webhooks"""
 
-# types/hubspot_types.py
+# /src/models/hubspot_webhooks.py
 from typing import Optional, List
 from enum import Enum
 from pydantic import BaseModel

@@ -1,6 +1,7 @@
 """
 Response DTOs for HubSpot Ticket tools.
 """
+# /src/tools/hubspot/tickets/dto_responses.py
 
 from typing import Optional, Dict, List, Any
 from pydantic import BaseModel, Field

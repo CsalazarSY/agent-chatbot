@@ -1,5 +1,5 @@
 """""Defines common Pydantic models and enums shared between StickerYou API requests and responses."""
-# src/tools/sticker_api/dto_common.py
+# src/tools/sticker_api/common.py
 
 from typing import List, Optional
 from enum import IntEnum

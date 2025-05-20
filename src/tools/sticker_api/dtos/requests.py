@@ -1,6 +1,6 @@
 """Defines Pydantic models specifically for StickerYou API **request** bodies / payloads."""
 
-# src/tools/sticker_api/dto_requests.py
+# src/tools/sticker_api/requests.py
 
 from typing import List, Optional
 from pydantic import BaseModel, Field

@@ -1,6 +1,6 @@
 """Hubspot Agent System Message"""
 
-# agents/hubspot/system_message.py
+# /src/agents/hubspot/system_message.py
 import os
 from dotenv import load_dotenv
 

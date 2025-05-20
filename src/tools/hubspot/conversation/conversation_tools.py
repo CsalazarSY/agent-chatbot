@@ -1,6 +1,6 @@
 """Tools for interacting with HubSpot Conversations API"""
 
-# agents/hubspot/tools/conversation_tools.py
+# /src/tools/hubspot/conversation/conversation_tools.py
 import asyncio
 from typing import Optional, List, Union, Dict, Any
 

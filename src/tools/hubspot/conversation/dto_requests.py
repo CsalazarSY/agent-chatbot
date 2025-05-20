@@ -1,5 +1,5 @@
 """ Pydantic models for HubSpot Conversations API **request** bodies. """
-# /src/tools/hubspot/dto_requests.py
+# /src/tools/hubspot/conversation/sdto_requests.py
 from typing import Optional, List
 from pydantic import BaseModel, Field
 

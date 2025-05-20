@@ -1,5 +1,5 @@
 ''' Custom API types for the agent chatbot (/chat)'''
-# types/api_types.py
+# /src/models/chat_api.py
 from typing import Optional
 from pydantic import BaseModel
 

@@ -1,6 +1,6 @@
 """Defines Pydantic models for StickerYou API **responses** and common types."""
 
-# src/tools/sticker_api/dto_responses.py
+# src/tools/sticker_api/responses.py
 
 from typing import List, Optional
 from pydantic import BaseModel, Field, RootModel
