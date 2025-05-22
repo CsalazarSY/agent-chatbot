@@ -30,9 +30,7 @@ async def convert_message_to_html(text_message: str) -> str:
     try:
         # Use the secondary model client from the shared AgentService state
         if AgentService.secondary_model_client:
-            supervisor_agent = create_message_supervisor_agent(
-                AgentService.secondary_model_client
-            )
+            supervisor_agent = create_message_supervisor_agent()
 
             supervisor_result = await supervisor_agent.run(task=text_message)
 

@@ -84,3 +84,9 @@ class CreateSupportTicketForConversationRequest(BaseModel):
         ...,
         description="The priority of the ticket (e.g., 'HIGH', 'MEDIUM', 'LOW').",
     )
+    hs_pipeline: Optional[str] = Field(
+        None, description="Optional: The ID of the pipeline the ticket belongs to. Overrides default if provided."
+    )
+    hs_pipeline_stage: Optional[str] = Field(
+        None, description="Optional: The ID of the pipeline stage (status) of the ticket. Overrides default if provided."
+    )

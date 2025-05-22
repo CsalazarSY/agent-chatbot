@@ -184,8 +184,8 @@ async def create_support_ticket_for_conversation(
         ticket_properties = CreateTicketProperties(
             subject=req.subject,
             content=req.content,
-            hs_pipeline="0",  # Fixed pipeline for chatbot tickets
-            hs_pipeline_stage=PipelineStage.WAITING_ON_CONTACT.value,  # Fixed stage (e.g., "2")
+            hs_pipeline=req.hs_pipeline if req.hs_pipeline is not None else "0",  # Use provided or default
+            hs_pipeline_stage=req.hs_pipeline_stage if req.hs_pipeline_stage is not None else PipelineStage.WAITING_ON_CONTACT.value,  # Use provided or default
             hs_ticket_priority=req.hs_ticket_priority,
         )
 

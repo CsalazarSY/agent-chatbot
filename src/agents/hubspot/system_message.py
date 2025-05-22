@@ -81,12 +81,14 @@ hubspot_agent_system_message = f"""
    *(These tools interact with the HubSpot CRM Tickets API using the SDK.)*
 
    - **`create_support_ticket_for_conversation(req: CreateSupportTicketForConversationRequest) -> TicketDetailResponse | str`**
-     - **Purpose:** Creates a HubSpot support ticket specifically for an existing conversation/thread, with predefined pipeline settings (`hs_pipeline="0"`, `hs_pipeline_stage="2"`) and association type (`associationTypeId=32`) for chatbot-initiated handoffs. This is the **only** ticket creation tool you should use.
+     - **Purpose:** Creates a HubSpot support ticket specifically for an existing conversation/thread. Default pipeline is "0" (Support Pipeline) and default stage is "2" (Waiting on contact). Association type `associationTypeId=32` (conversation to ticket) is used for chatbot-initiated handoffs. This is the **only** ticket creation tool you should use.
      - **`req` (type `CreateSupportTicketForConversationRequest` - a Pydantic DTO) must contain:**
        - `conversation_id: str`: The ID of the HubSpot conversation/thread to associate this ticket with.
        - `subject: str`: The subject or title for the new ticket.
        - `content: str`: The main description for the ticket (e.g., summary of user issue for handoff).
        - `hs_ticket_priority: str`: The priority (e.g., 'HIGH', 'MEDIUM', 'LOW').
+       - `hs_pipeline: Optional[str]`: Optional. The ID of the pipeline for the ticket. If provided, overrides the default "0".
+       - `hs_pipeline_stage: Optional[str]`: Optional. The ID of the pipeline stage for the ticket. If provided, overrides the default "2".
      - **Returns:** A `TicketDetailResponse` dictionary on success or an error string.
      - **Scope:** `[Internal]` (This is the **sole tool** for the Planner Agent to delegate ticket creation to you during standard handoff procedures.)
 

@@ -90,6 +90,12 @@ HUBSPOT_DEFAULT_CHANNEL = os.getenv("HUBSPOT_DEFAULT_CHANNEL")
 HUBSPOT_DEFAULT_CHANNEL_ACCOUNT = os.getenv("HUBSPOT_DEFAULT_CHANNEL_ACCOUNT")
 HUBSPOT_DEFAULT_INBOX = os.getenv("HUBSPOT_DEFAULT_INBOX")
 
+# --- HubSpot Pipeline & Stage IDs ---
+HUBSPOT_PIPELINE_ID_ASSISTED_SALES = os.getenv("HUBSPOT_PIPELINE_ID_ASSISTED_SALES")
+HUBSPOT_PIPELINE_ID_PROMO_RESELLER = os.getenv("HUBSPOT_PIPELINE_ID_PROMO_RESELLER")
+HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS = os.getenv("HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS")
+HUBSPOT_AS_STAGE_ID = os.getenv("HUBSPOT_AS_STAGE_ID")
+
 
 # --- Validation ---
 def validate_api_config():
@@ -138,6 +144,22 @@ def validate_api_config():
     if not CHROMA_EMBEDDING_MODEL_NAME_CONFIG:
         raise ValueError(
             "CHROMA_EMBEDDING_MODEL_NAME environment variable not set in .env file."
+        )
+    if not HUBSPOT_PIPELINE_ID_ASSISTED_SALES:
+        raise ValueError(
+            "HUBSPOT_PIPELINE_ID_ASSISTED_SALES environment variable not set in .env file."
+        )
+    if not HUBSPOT_PIPELINE_ID_PROMO_RESELLER:
+        raise ValueError(
+            "HUBSPOT_PIPELINE_ID_PROMO_RESELLER environment variable not set in .env file."
+        )
+    if not HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS:
+        raise ValueError(
+            "HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS environment variable not set in .env file."
+        )
+    if not HUBSPOT_AS_STAGE_ID:
+        raise ValueError(
+            "HUBSPOT_AS_STAGE_ID environment variable not set in .env file."
         )
 
 

@@ -53,7 +53,7 @@ def create_price_quote_agent(
     """
     price_quote_assistant = AssistantAgent(
         name=PRICE_QUOTE_AGENT_NAME,
-        description="Interacts with the StickerYou API specifically for pricing tasks: getting specific prices, tier pricing, and listing supported countries. Also handles internal token management. Returns Pydantic models or specific dicts/lists.",
+        description="Dual-purpose agent that: 1) Interacts with the StickerYou API for pricing tasks (getting specific prices, tier pricing, and listing supported countries) and 2) Validates custom quote data against form definition rules before ticket creation. Also handles internal token management. Returns Pydantic models, specific dicts/lists, or validation results.",
         system_message=PRICE_QUOTE_AGENT_SYSTEM_MESSAGE,
         model_client=model_client,
         memory=memory,

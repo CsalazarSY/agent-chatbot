@@ -39,6 +39,14 @@ from src.agents.agent_names import (
 
 # Config imports
 from config import (
+    HUBSPOT_AS_STAGE_ID,
+    HUBSPOT_DEFAULT_CHANNEL,
+    HUBSPOT_DEFAULT_CHANNEL_ACCOUNT,
+    HUBSPOT_DEFAULT_INBOX,
+    HUBSPOT_DEFAULT_SENDER_ACTOR_ID,
+    HUBSPOT_PIPELINE_ID_ASSISTED_SALES,
+    HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS,
+    HUBSPOT_PIPELINE_ID_PROMO_RESELLER,
     LLM_BASE_URL,
     LLM_API_KEY,
     LLM_PRIMARY_MODEL_NAME,
@@ -287,6 +295,73 @@ class AgentService:
                     metadata={"priority": "critical", "source": "hubspot"},
                 )
             )
+            
+            if HUBSPOT_DEFAULT_SENDER_ACTOR_ID:
+                await request_memory.add(
+                    MemoryContent(
+                        content=f"Default_HubSpot_Sender_Actor_ID: {HUBSPOT_DEFAULT_SENDER_ACTOR_ID}",
+                        mime_type=MemoryMimeType.TEXT,
+                        metadata={"priority": "normal", "source": "system_config_hubspot_defaults"},
+                    )
+                )
+            if HUBSPOT_DEFAULT_CHANNEL:
+                await request_memory.add(
+                    MemoryContent(
+                        content=f"Default_HubSpot_Channel_ID: {HUBSPOT_DEFAULT_CHANNEL}",
+                        mime_type=MemoryMimeType.TEXT,
+                        metadata={"priority": "normal", "source": "system_config_hubspot_defaults"},
+                    )
+                )
+            if HUBSPOT_DEFAULT_CHANNEL_ACCOUNT:
+                await request_memory.add(
+                    MemoryContent(
+                        content=f"Default_HubSpot_Channel_Account_ID: {HUBSPOT_DEFAULT_CHANNEL_ACCOUNT}",
+                        mime_type=MemoryMimeType.TEXT,
+                        metadata={"priority": "normal", "source": "system_config_hubspot_defaults"},
+                    )
+                )
+            if HUBSPOT_DEFAULT_INBOX:
+                await request_memory.add(
+                    MemoryContent(
+                        content=f"Default_HubSpot_Inbox_ID: {HUBSPOT_DEFAULT_INBOX}",
+                        mime_type=MemoryMimeType.TEXT,
+                        metadata={"priority": "normal", "source": "system_config_hubspot_defaults"},
+                    )
+                )
+
+            # Add Pipeline and Stage IDs
+            if HUBSPOT_PIPELINE_ID_ASSISTED_SALES:
+                await request_memory.add(
+                    MemoryContent(
+                        content=f"HubSpot_Pipeline_ID_Assisted_Sales: {HUBSPOT_PIPELINE_ID_ASSISTED_SALES}",
+                        mime_type=MemoryMimeType.TEXT,
+                        metadata={"priority": "normal", "source": "system_config_hubspot_pipelines"},
+                    )
+                )
+            if HUBSPOT_AS_STAGE_ID: # Assisted Sales Stage ID
+                await request_memory.add(
+                    MemoryContent(
+                        content=f"HubSpot_Assisted_Sales_Stage_ID_New_Request: {HUBSPOT_AS_STAGE_ID}",
+                        mime_type=MemoryMimeType.TEXT,
+                        metadata={"priority": "normal", "source": "system_config_hubspot_pipelines"},
+                    )
+                )
+            if HUBSPOT_PIPELINE_ID_PROMO_RESELLER:
+                await request_memory.add(
+                    MemoryContent(
+                        content=f"HubSpot_Pipeline_ID_Promo_Reseller: {HUBSPOT_PIPELINE_ID_PROMO_RESELLER}",
+                        mime_type=MemoryMimeType.TEXT,
+                        metadata={"priority": "normal", "source": "system_config_hubspot_pipelines"},
+                    )
+                )
+            if HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS:
+                await request_memory.add(
+                    MemoryContent(
+                        content=f"HubSpot_Pipeline_ID_Customer_Success: {HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS}",
+                        mime_type=MemoryMimeType.TEXT,
+                        metadata={"priority": "normal", "source": "system_config_hubspot_pipelines"},
+                    )
+                )
 
             # --- Create Agent Instances for this request --- #
             # Planner uses the primary (more capable) model
