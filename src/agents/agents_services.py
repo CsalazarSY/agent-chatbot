@@ -372,9 +372,9 @@ class AgentService:
             hubspot_agent = create_hubspot_agent(
                 AgentService.secondary_model_client, memory=[request_memory]
             )
-            price_quote_agent = create_price_quote_agent(AgentService.secondary_model_client)
+            price_quote_agent = create_price_quote_agent(AgentService.primary_model_client)
             product_agent = await create_product_agent(
-                AgentService.primary_model_client
+                AgentService.secondary_model_client
             )
 
             # --- Create GroupChat Instance for this request --- #
