@@ -176,7 +176,7 @@ The following defines the fields, requirements, and conditional logic for collec
     - **HubSpot Internal Name:** `type_of_tape_`
     - **Property Type:** Ticket Property
     - **Field Type:** Dropdown
-    - **Required:** Yes (IF `product_group` is '{ProductGroupEnum.TAPE.value}')
+    - **Required:** Yes (IF `product_group` is '{ProductGroupEnum.PACKING_TAPE.value}')
     - **List values:** {', '.join(f"'{e}'" for e in TypeOfTapeEnum.get_all_values())}
     - **PQA Guidance Note:** If 'Product:' is Tape, PQA will instruct Planner to ask for 'Type of Tape:', presenting options.
 20. **Display Label:** Preferred Format
@@ -211,7 +211,7 @@ The following defines the fields, requirements, and conditional logic for collec
     - **HubSpot Internal Name:** `what_size_of_tape_`
     - **Property Type:** Ticket Property
     - **Field Type:** Dropdown
-    - **Required:** No (but PQA should guide Planner to ask IF `product_group` is '{ProductGroupEnum.TAPE.value}')
+    - **Required:** No (but PQA should guide Planner to ask IF `product_group` is '{ProductGroupEnum.PACKING_TAPE.value}')
     - **List values:** {', '.join(f"'{e}'" for e in WhatSizeOfTapeEnum.get_all_values())}
     - **PQA Guidance Note:** If 'Product:' is Tape, PQA will instruct Planner to ask 'What size of tape?', presenting options.
 
@@ -269,8 +269,8 @@ The following defines the fields, requirements, and conditional logic for collec
     - **HubSpot Internal Name:** `hs_legal_communication_consent_checkbox`
     - **Property Type:** Contact Property
     - **Field Type:** Single Checkbox (Boolean: Yes/No)
-    - **Required:** Yes
-    - **PQA Guidance Note:** This is the very last user-facing question before PQA triggers the summarization and confirmation step. PQA suggests Planner to ask: "To complete your request, StickerYou needs your consent to contact you about our products and services. Are you happy to provide this? (Yes/No). You can find more information on our privacy practices on our website." (PQA will parse 'Yes' or 'No' from the raw response).
+    - **Required:** No (Disabled - Do not ask for now)
+    - **PQA Guidance Note:** This field is currently disabled. PQA should NOT instruct Planner to ask for this. For now, consent can be assumed if the user proceeds, or handled by other business processes. If this needs to be re-enabled, this note and the 'Required' status should be updated.
 
 **VII. System Generated Fields (For AI internal use only - DO NOT ask user for these):**
 -   **Ticket name (Subject)** (`subject`, Ticket Property, Text, Required: Yes) - Planner generates based on collected info (e.g., "Custom Quote Request: [Product Group] - [User Last Name or Email]").
