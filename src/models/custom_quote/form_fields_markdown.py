@@ -3,6 +3,9 @@ This file contains the markdown definition of the custom quote form.
 """
 
 # /src/models/custom_quote/form_fields_markdown.py
+from src.agents.price_quote.instructions_constants import (
+    PLANNER_ACKNOWLEDGE_DESIGN_ASSISTANCE_AND_PROCEED,
+)
 from .constants import (
     UseTypeEnum,
     BusinessCategoryEnum,
