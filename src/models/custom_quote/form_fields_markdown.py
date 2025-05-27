@@ -2,10 +2,7 @@
 This file contains the markdown definition of the custom quote form.
 """
 
-# /src/models/custom_quote/form_fields_markdown.py
-from src.agents.price_quote.instructions_constants import (
-    PLANNER_ACKNOWLEDGE_DESIGN_ASSISTANCE_AND_PROCEED,
-)
+from src.agents.price_quote.instructions_constants import PLANNER_ASK_USER
 from .constants import (
     UseTypeEnum,
     BusinessCategoryEnum,
@@ -252,7 +249,7 @@ The following defines the fields, requirements, and conditional logic for collec
     - **Field Type:** Text
     - **Required:** No
     - **ask_group_id:** `final_details`
-    - **PQA Guidance Note:** This field is typically asked along with 'Application Use:'. Planner will also append 'User requested design assistance.' here if applicable, based on PQA's {PLANNER_ACKNOWLEDGE_DESIGN_ASSISTANCE_AND_PROCEED} directive.
+    - **PQA Guidance Note:** This field is typically asked along with 'Application Use:'. If PQA parses that the user requests design assistance (from the 'Upload your design' interaction), PQA will internally add a note like "User requested design assistance." to this field in its `form_data`.
 30. **Display Label:** Request a support call
     - **HubSpot Internal Name:** `call_requested`
     - **Property Type:** Ticket Property
@@ -264,7 +261,10 @@ The following defines the fields, requirements, and conditional logic for collec
     - **Property Type:** Ticket Property
     - **Field Type:** File (Conceptually for PQA; actual file handling is via chat)
     - **Required:** No
-    - **PQA Guidance Note:** PQA will manage a multi-step interaction: 1. Ask user if they have a design file (Yes/No). 2. If No, ask if they need design assistance (Yes/No). Planner will record 'Yes' or 'No' to the 'upload_your_design' field (representing if they have a file or not) and PQA will ensure 'additional_instructions_' is updated via Planner if design assistance is requested (using {PLANNER_ACKNOWLEDGE_DESIGN_ASSISTANCE_AND_PROCEED}). This is asked before consent.
+    - **PQA Guidance Note:** PQA will manage a multi-step interaction using `{PLANNER_ASK_USER}`: 
+        1. PQA instructs Planner to ask user if they have a design file (Yes/No).
+        2. Based on user's raw response (relayed by Planner), PQA parses it. If "No", PQA then instructs Planner to ask if they need design assistance (Yes/No).
+        3. PQA internally updates its `form_data` for `upload_your_design` (e.g., "Yes, file provided", "No, assistance requested", "No, no assistance needed") and potentially `additional_instructions_`.
 32. **Display Label:** Consent to communicate
     - **HubSpot Internal Name:** `hs_legal_communication_consent_checkbox`
     - **Property Type:** Contact Property
