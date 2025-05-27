@@ -38,6 +38,13 @@ from src.services.message_to_html import convert_message_to_html
 # Import cleaner
 from src.services.clean_agent_tags import clean_agent_output
 
+# Import quick reply extractor
+from src.services.get_quick_replies import extract_quick_replies
+
+# Import DTO for sending message
+from src.tools.hubspot.conversation.dto_requests import CreateMessageRequest, QuickReplyAttachment
+import config # For default channel/sender IDs
+
 # --- Globals for Webhook Deduplication ---
 PROCESSING_MESSAGE_IDS = set()
 message_id_lock = asyncio.Lock()
@@ -81,6 +88,8 @@ async def process_agent_response(
 
     raw_text_reply = "Sorry, I encountered an issue and couldn't process your message."  # Default error reply
     html_reply = f"<p>{raw_text_reply}</p>"  # Default HTML error reply
+    final_attachments_for_hubspot = [] # Initialize as an empty list
+    message_type_for_hubspot = "MESSAGE" # Default to MESSAGE
 
     if error_message:
         print(f"!!! Agent Error for ConvID {conversation_id}: {error_message}")
@@ -118,23 +127,33 @@ async def process_agent_response(
 
         # Fallback
         if not reply_message and messages:
-            print(
-                "       - WARN: Could not reliably find Planner message before end_turn event. Falling back to last message."
-            )
+            # print(
+            #     "       - WARN: Could not reliably find Planner message before end_turn event. Falling back to last message."
+            # )
             reply_message = messages[-1]
         # --- End of Finding Reply Message --- #
 
         if reply_message and hasattr(reply_message, "content"):
-            raw_reply_content = reply_message.content
+            raw_reply_content_from_agent = reply_message.content
 
-            # Clean up Planner's final output tags
-            if isinstance(raw_reply_content, str):
-                # Store the cleaned raw text first
-                raw_text_reply = clean_agent_output(raw_reply_content)
+            # Clean up Planner's final output tags AND extract quick replies
+            if isinstance(raw_reply_content_from_agent, str):
+                # Extract quick replies first, then clean the remaining text
+                text_without_quick_replies, quick_reply_data = extract_quick_replies(raw_reply_content_from_agent)
+                
+                raw_text_reply = clean_agent_output(text_without_quick_replies) # Clean the text part
                 html_reply = await convert_message_to_html(raw_text_reply)
+
+                if quick_reply_data:
+                    final_attachments_for_hubspot.append(quick_reply_data.model_dump(exclude_none=True))
+                
+                # Determine message type based on cleaned text (after quick replies are removed)
+                if "HANDOFF" in raw_text_reply.upper() or "COMMENT" in raw_text_reply.upper():
+                    message_type_for_hubspot = "COMMENT"
+
             else:
                 print(
-                    f"!!! Agent for ConvID {conversation_id} final message content is not a string: {type(raw_reply_content)}"
+                    f"!!! Agent for ConvID {conversation_id} final message content is not a string: {type(raw_reply_content_from_agent)}"
                 )
                 # Use default error reply
         else:
@@ -151,11 +170,21 @@ async def process_agent_response(
         f"      - Sending reply to HubSpot Thread {conversation_id}: Text='{raw_text_reply[:30]}...' HTML='{html_reply[:30]}...'"
     )
     try:
-        # Pass text to 'message_text' and HTML to 'rich_text'
+        # Construct the CreateMessageRequest DTO
+        message_payload = CreateMessageRequest(
+            type=message_type_for_hubspot,
+            text=raw_text_reply,
+            richText=html_reply,
+            senderActorId=config.HUBSPOT_DEFAULT_SENDER_ACTOR_ID, # Use default from config
+            channelId=config.HUBSPOT_DEFAULT_CHANNEL, # Use default from config
+            channelAccountId=config.HUBSPOT_DEFAULT_CHANNEL_ACCOUNT, # Use default from config
+            attachments=final_attachments_for_hubspot if final_attachments_for_hubspot else None,
+            # recipients and subject can be added here if needed in the future
+        )
+
         send_result_model = await send_message_to_thread(
             thread_id=conversation_id,
-            message_text=raw_text_reply,  # Send the cleaned, original text
-            rich_text=html_reply,  # Send the HTML formatted version
+            message_request_payload=message_payload
         )
 
         # Check the actual type returned by the tool

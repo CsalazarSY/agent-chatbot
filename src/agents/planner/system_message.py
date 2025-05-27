@@ -135,8 +135,8 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
             Delegate to PQA (using format from Section 5.A.4), providing ONLY the users raw query/response.
             (Await PQA response INTERNALLY).
          2. **Act on PQAs Instruction:**
-            - If PQA responds with an instruction starting with `{PLANNER_ASK_USER}:` (e.g., `{PLANNER_ASK_USER}: [Question Text from PQA]` or an acknowledgment combined with a question): Relay the exact `[Question Text from PQA]` to the user via `<{USER_PROXY_AGENT_NAME}> : [Question Text from PQA]`.
-            - If PQA responds `{PLANNER_ASK_USER_FOR_CONFIRMATION}: [Full summary text and confirmation question from PQA]`: Formulate user message `<{USER_PROXY_AGENT_NAME}> : [Full summary text and confirmation question from PQA]`.
+            - If PQA responds with an instruction starting with `{PLANNER_ASK_USER}:` (e.g., `{PLANNER_ASK_USER}: [Question Text from PQA]` or an acknowledgment combined with a question): Relay the exact `[Question Text from PQA]` to the user via `<{USER_PROXY_AGENT_NAME}> : [Question Text from PQA]`. This completes your turn.
+            - If PQA responds `{PLANNER_ASK_USER_FOR_CONFIRMATION}: [Full summary text and confirmation question from PQA]`: Formulate user message `<{USER_PROXY_AGENT_NAME}> : [Full summary text and confirmation question from PQA]`. This completes your turn. You MUST then await the user's actual response in the next webhook-triggered interaction before proceeding.
             (The message formulated is your turns output).
          3. **User Confirms Summary:** (After PQAs `{PLANNER_ASK_USER_FOR_CONFIRMATION}` led to user confirmation). Delegate to PQA (using format from Section 5.A.4, with users response being "User confirmed summary." or similar). (Await PQA response INTERNALLY).
           4. **Act on PQA's Final Instruction from Prior Turn (This is an internal processing sequence):**
@@ -229,10 +229,13 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
      *(Content following the prefix MUST NOT BE EMPTY.)*
      1. **Ask User / Continue Conversation:**
            `<{USER_PROXY_AGENT_NAME}> : [Your non-empty question or statement to the user]`
+           *If the internal response from a specialist agent (e.g., PQA) included a quick reply suggestion string like "Quick Replies: [{{...}},{{...}}]", you should append this entire string verbatim at the end of your message to the user, after your primary question/statement. The underlying HubSpot sending mechanism will handle this.* 
      2. **Task Successfully Completed:**
         `TASK COMPLETE: [Your non-empty success message, summarizing outcome]. <{USER_PROXY_AGENT_NAME}>`
+           *If the internal response from a specialist agent (e.g., PQA) included a quick reply suggestion string like "Quick Replies: [{{...}},{{...}}]", you should append this entire string verbatim at the end of your message to the user, after your primary success message. The underlying HubSpot sending mechanism will handle this.* 
      3. **Task Failed / Handoff Offer / Issue Update:**
         `TASK FAILED: [Your non-empty failure explanation, handoff message, or issue update]. <{USER_PROXY_AGENT_NAME}>`
+           *If the internal response from a specialist agent (e.g., PQA) included a quick reply suggestion string like "Quick Replies: [{{...}},{{...}}]", you should append this entire string verbatim at the end of your message to the user, after your primary failure/handoff message. The underlying HubSpot sending mechanism will handle this.* 
 
 **6. Core Rules & Constraints:**
    *(Adherence is CRITICAL.)*
@@ -240,6 +243,7 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
    **I. Turn Management & Output Formatting (ABSOLUTELY CRITICAL):**
      1.  **Single, Final, Tagged, Non-Empty User Message Per Turn:** Your turn ONLY ends when you generate ONE message for the user that EXACTLY matches a format in Section 5.B, and its content is NOT EMPTY. This is your SOLE signal of turn completion.
      2.  **Await Internal Agent Responses:** Before generating your final user-facing message (Section 5.B), if a workflow step requires delegation (using Section 5.A format), you MUST output that delegation message, then await and INTERNALLY process the specialist agent's response.
+         - If the specialist agent's response contains a string starting with "Quick Replies: " followed by a list-like structure (e.g., `Quick Replies: [{{ "valueType": "type1", "label": "Option 1", "value": "val1" }}, ...]`), you MUST append this entire string verbatim to the end of your user-facing message. Do not attempt to parse or reformat it yourself.
      3.  **No Internal Monologue/Filler to User:** Your internal thoughts, plans, or conversational fillers ("Okay, checking...") MUST NEVER appear in the user-facing message.
 
    **II. Data Integrity & Honesty:**

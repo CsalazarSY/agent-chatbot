@@ -1,6 +1,6 @@
 """ Pydantic models for HubSpot Conversations API **request** bodies. """
 # /src/tools/hubspot/conversation/sdto_requests.py
-from typing import Optional, List
+from typing import Optional, List, Union
 from pydantic import BaseModel, Field
 
 # --- Base/Common Models (used in requests) ---
@@ -17,14 +17,26 @@ class MessageRecipientRequest(BaseModel):
     recipientField: Optional[str] = Field(None, description="Specifies the recipient field (e.g., 'TO', 'CC').")
     deliveryIdentifier: Optional[DeliveryIdentifier] = Field(None, description="Primary delivery identifier for the recipient.")
 
-class MessageAttachmentRequest(BaseModel):
-    """Represents an attachment to be sent with a message."""
-    # Structure based on common attachment patterns, adjust if HubSpot spec differs.
-    # The Postman collection shows attachments: [] - doesn't define structure.
-    # Assuming basic structure for now. Needs verification if attachments are used.
-    id: Optional[str] = Field(None, description="ID of the attachment (if already uploaded).")
-    name: Optional[str] = Field(None, description="Filename of the attachment.")
-    # content: Optional[bytes] = Field(None, description="File content (if uploading directly).") # Usually handled differently
+# --- Attachment Models ---
+
+class QuickReplyOption(BaseModel):
+    """Defines a single quick reply option."""
+    valueType: str = Field(..., description="A type identifier for the value, can be used by the client.")
+    label: str = Field(..., description="The text displayed on the quick reply button.")
+    value: str = Field(..., description="The value sent back when the quick reply is clicked.")
+
+class QuickReplyAttachment(BaseModel):
+    """Represents a quick replies attachment."""
+    type: str = Field("QUICK_REPLIES", description="The type of attachment, fixed to QUICK_REPLIES.", Literal="QUICK_REPLIES")
+    quickReplies: List[QuickReplyOption] = Field(..., description="A list of quick reply options.")
+
+class FileUploadAttachment(BaseModel):
+    """Represents a file attachment."""
+    type: str = Field("FILE", description="The type of attachment, fixed to FILE.", Literal="FILE")
+    fileId: str = Field(..., description="The ID of the uploaded file in HubSpot.")
+    name: Optional[str] = Field(None, description="The name of the file.")
+    fileUsageType: Optional[str] = Field(None, description="Usage type like IMAGE, DOCUMENT etc.") # e.g. IMAGE
+    url: Optional[str] = Field(None, description="The URL to access the file.")
 
 # --- Specific Endpoint Request Models ---
 
@@ -44,7 +56,7 @@ class CreateMessageRequest(BaseModel):
     channelId: str = Field(..., description="The ID of the channel (e.g., 'EMAIL', 'CRM_UI').")
     channelAccountId: str = Field(..., description="The specific account ID within the channel (e.g., an email integration ID or chatflow ID).")
     recipients: Optional[List[MessageRecipientRequest]] = Field(None, description="List of recipients for the message (primarily for 'MESSAGE' type).")
-    attachments: Optional[List[MessageAttachmentRequest]] = Field(None, description="List of attachments for the message.") # Assuming empty list if none
+    attachments: Optional[List[Union[QuickReplyAttachment, FileUploadAttachment]]] = Field(None, description="List of attachments, which can be quick replies or files.")
 
 # PATCH /conversations/v3/conversations/threads/{threadId}
 class UpdateThreadRequest(BaseModel):
