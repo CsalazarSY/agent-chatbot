@@ -288,7 +288,7 @@ class MessageDetail(BaseModel):
     richText: Optional[str] = Field(
         None, description="Rich text (HTML) content of the message."
     )
-    attachments: Optional[List[Any]] = Field(
+    attachments: Optional[List[Dict[str, Any]]] = Field(
         None,
         description="List of attachments (structure varies, using Any). Define specific model if needed.",
     )

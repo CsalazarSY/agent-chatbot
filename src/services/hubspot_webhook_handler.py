@@ -235,20 +235,46 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
             )
             traceback.print_exc()
 
-        # 3. Trigger agent if relevant and content exists
-        if is_relevant_message and message_content:
-            # print(
-            #     f"        > Triggering agent processing for thread {conversation_id}...\n\n"
-            # )
-            task_result, error_message, _ = await agent_service.run_chat_session(
-                user_message=message_content,
-                show_console=True,  # Set to False if running purely as backend service
-                conversation_id=conversation_id,
-            )
-            await process_agent_response(conversation_id, task_result, error_message)
+        # 3. Trigger agent if relevant
+        if is_relevant_message:
+            user_message_for_agent = None # Initialize
+
+            if message_content: # Primary: Use text content if available
+                user_message_for_agent = message_content
+            elif msg_details_model and msg_details_model.attachments: # Secondary: Check for file if no text
+                first_attachment = msg_details_model.attachments[0]
+                if isinstance(first_attachment, dict) and \
+                    first_attachment.get('type') == "FILE" and \
+                    first_attachment.get('name'):
+                    file_name = first_attachment['name']
+                    user_message_for_agent = f"A file has been uploaded: {file_name}"
+                    
+            if user_message_for_agent:
+                task_result, error_message, _ = await agent_service.run_chat_session(
+                    user_message=user_message_for_agent,
+                    show_console=True,  # Set to False if running purely as backend service
+                    conversation_id=conversation_id,
+                )
+                await process_agent_response(conversation_id, task_result, error_message)
+            else:
+                # Relevant message, but no text content and no usable file attachment found to trigger the agent.
+                print(
+                    f"        > Agent processing skipped for message {message_id}. (Relevant: True, No actionable content: No text and no processable file attachment)"
+                )
         else:
+            # Message was not relevant in the first place (e.g. not incoming, not from visitor, or not MESSAGE type)
+            sender_actor_id = "N/A"
+            message_type_info = "N/A"
+            message_direction_info = "N/A"
+            if msg_details_model:
+                if msg_details_model.senders and msg_details_model.senders[0] and hasattr(msg_details_model.senders[0], 'actorId'):
+                    sender_actor_id = msg_details_model.senders[0].actorId
+                if hasattr(msg_details_model, 'type'):
+                    message_type_info = msg_details_model.type
+                if hasattr(msg_details_model, 'direction'):
+                    message_direction_info = msg_details_model.direction
             print(
-                f"        > Agent processing skipped for message {message_id}. (Relevant: {is_relevant_message}, Content Exists: {bool(message_content)})"
+                f"        > Agent processing skipped for message {message_id}. (Relevant: False, Type: {message_type_info}, Direction: {message_direction_info}, Sender: {sender_actor_id})"
             )
 
     finally:
