@@ -374,7 +374,7 @@ class AgentService:
             )
             price_quote_agent = create_price_quote_agent(AgentService.primary_model_client)
             product_agent = await create_product_agent(
-                AgentService.secondary_model_client
+                AgentService.primary_model_client
             )
 
             # --- Create GroupChat Instance for this request --- #

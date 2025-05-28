@@ -1,3 +1,8 @@
+# Ignore ChromaDB folders
+*chroma_db/
+*chromaRAG/
+chroma_db_store_miniLM/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
