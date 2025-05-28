@@ -18,6 +18,11 @@ def clean_agent_output(raw_reply: str) -> str:
     cleaned_reply = cleaned_reply.replace("<UserProxyAgent>", "").strip()
     cleaned_reply = cleaned_reply.replace("<user_proxy>", "").strip()
 
+    # remove ```html and ``` tags
+    # Order is important: remove specific "```html" first, then general "```"
+    cleaned_reply = cleaned_reply.replace("```html", "")
+    cleaned_reply = cleaned_reply.replace("```", "")
+
     # remove potential leading/trailing colons
     if cleaned_reply.startswith(":"):
         cleaned_reply = cleaned_reply[1:].strip()

@@ -187,10 +187,10 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
          3. **Get Price (Delegate to `{PRICE_QUOTE_AGENT_NAME}`):** With ID, size, quantity. Delegate `sy_get_specific_price` or `sy_get_price_tiers` (Section 5.A.1). Process PQA response INTERNALLY.
             - Success: Interpret the JSON response returned by the agent and Formulate `TASK COMPLETE` message with price/tiers (Section 5.B.2). **You can append shipping information for a single price. For tier/options dont append shipping information**.
               **Note** sometimes the user ask for a certain X quantity but you recieve another quantity in the agent response (the JSON) this means that the API returned the price in Pages. You then need to formulate the message saying that the X quantity that the user asked fit in Y pages (the value from the agent JSON)
-            - `SY_TOOL_FAILED` (complexity): Offer Custom Quote (Section 5.B.3).
-            - `SY_TOOL_FAILED` (actionable, e.g., min qty): Explain and offer alternative (Section 5.B.1).
-            - Other `SY_TOOL_FAILED`: Initiate Standard Failure Handoff (Workflow C.1, Turn 1 Offer).
-            (The message formulated here is your turns output).
+            - `SY_TOOL_FAILED` (complexity, e.g., product requires custom quote): Offer Custom Quote (Section 5.B.3). Your turn ends after sending this offer to the user.
+            - `SY_TOOL_FAILED` (actionable, e.g., invalid dimensions, quantity too low/high, parameter missing from YOUR end): Explain the issue clearly to the user and ask for the corrected information (Section 5.B.1). **CRITICAL: Your turn ends *immediately* after sending this message to the user. Do NOT send any further messages to other agents in this turn.**
+            - Other `SY_TOOL_FAILED` (e.g., unexpected API error, PQA internal error): Initiate Standard Failure Handoff (Workflow C.1, Turn 1 Offer). Your turn ends after sending this handoff offer to the user.
+            (The user-facing message formulated in response to any of these PQA outcomes is your turn's output. Your processing for this turn concludes here.)
 
      **B.3. Workflow: User General Inquiry about products or website**
        - **Trigger:** General question about the company, website or products.

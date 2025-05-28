@@ -142,7 +142,8 @@ async def process_agent_response(
                 text_without_quick_replies, quick_reply_data = extract_quick_replies(raw_reply_content_from_agent)
                 
                 raw_text_reply = clean_agent_output(text_without_quick_replies) # Clean the text part
-                html_reply = await convert_message_to_html(raw_text_reply)
+                html_reply_from_agent = await convert_message_to_html(raw_text_reply)
+                html_reply = clean_agent_output(html_reply_from_agent)
 
                 if quick_reply_data:
                     final_attachments_for_hubspot.append(quick_reply_data.model_dump(exclude_none=True))
