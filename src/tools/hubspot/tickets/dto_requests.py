@@ -90,3 +90,6 @@ class CreateSupportTicketForConversationRequest(BaseModel):
     hs_pipeline_stage: Optional[str] = Field(
         None, description="Optional: The ID of the pipeline stage (status) of the ticket. Overrides default if provided."
     )
+    isCustomQuote: bool = Field(
+        False, description="Flag to indicate if the ticket is for a custom quote."
+    )

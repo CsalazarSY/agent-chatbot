@@ -18,6 +18,14 @@ from hubspot.crm.tickets import (
 
 # Import the shared HubSpot API HUBSPOT_CLIENT instance from config
 from config import HUBSPOT_CLIENT
+from config import (
+    HUBSPOT_PIPELINE_ID_SUPPORT,
+    HUBSPOT_SUPPORT_STAGE_ID,
+    HUBSPOT_PIPELINE_ID_ASSISTED_SALES,
+    HUBSPOT_AS_STAGE_ID,
+    HUBSPOT_PIPELINE_ID_PROMO_RESELLER,
+    HUBSPOT_PR_STAGE_ID,
+)
 
 # Import constants for associations
 from src.tools.hubspot.tickets.constants import (
@@ -180,12 +188,30 @@ async def create_support_ticket_for_conversation(
         return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} create_support_ticket_for_conversation - HUBSPOT_CLIENT not initialized."
 
     try:
+        # Determine pipeline and stage based on isCustomQuote and content
+        pipeline_id_to_use = HUBSPOT_PIPELINE_ID_SUPPORT
+        pipeline_stage_to_use = HUBSPOT_SUPPORT_STAGE_ID
+
+        if req.isCustomQuote:
+            # Default for custom quotes is Assisted Sales
+            pipeline_id_to_use = HUBSPOT_PIPELINE_ID_ASSISTED_SALES
+            pipeline_stage_to_use = HUBSPOT_AS_STAGE_ID
+
+            # Check for promo reseller keywords in the content
+            if "promo reseller" in req.content.lower():
+                pipeline_id_to_use = HUBSPOT_PIPELINE_ID_PROMO_RESELLER
+                pipeline_stage_to_use = HUBSPOT_PR_STAGE_ID
+            # Check for design help keywords in the content
+            elif "design help" in req.content.lower() or "design assistance" in req.content.lower():
+                pipeline_id_to_use = HUBSPOT_PIPELINE_ID_ASSISTED_SALES
+                pipeline_stage_to_use = HUBSPOT_AS_STAGE_ID
+
         # 1. Construct ticket properties
         ticket_properties = CreateTicketProperties(
             subject=req.subject,
             content=req.content,
-            hs_pipeline=req.hs_pipeline if req.hs_pipeline is not None else "0",  # Use provided or default
-            hs_pipeline_stage=req.hs_pipeline_stage if req.hs_pipeline_stage is not None else PipelineStage.WAITING_ON_CONTACT.value,  # Use provided or default
+            hs_pipeline=pipeline_id_to_use,
+            hs_pipeline_stage=pipeline_stage_to_use,
             hs_ticket_priority=req.hs_ticket_priority,
         )
 

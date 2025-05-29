@@ -81,14 +81,16 @@ hubspot_agent_system_message = f"""
    *(These tools interact with the HubSpot CRM Tickets API using the SDK.)*
 
    - **`create_support_ticket_for_conversation(req: CreateSupportTicketForConversationRequest) -> TicketDetailResponse | str`**
-     - **Purpose:** Creates a HubSpot support ticket specifically for an existing conversation/thread. Default pipeline is "0" (Support Pipeline) and default stage is "2" (Waiting on contact). Association type `associationTypeId=32` (conversation to ticket) is used for chatbot-initiated handoffs. This is the **only** ticket creation tool you should use.
+     - **Purpose:** Creates a HubSpot support ticket specifically for an existing conversation/thread. This is the **only** ticket creation tool you should use.
+       Based on the `isCustomQuote` flag and ticket content, this tool will intelligently determine the correct HubSpot pipeline and stage (e.g., Support, Assisted Sales, Promo Reseller).
      - **`req` (type `CreateSupportTicketForConversationRequest` - a Pydantic DTO) must contain:**
        - `conversation_id: str`: The ID of the HubSpot conversation/thread to associate this ticket with.
        - `subject: str`: The subject or title for the new ticket.
        - `content: str`: The main description for the ticket (e.g., summary of user issue for handoff).
        - `hs_ticket_priority: str`: The priority (e.g., 'HIGH', 'MEDIUM', 'LOW').
-       - `hs_pipeline: Optional[str]`: Optional. The ID of the pipeline for the ticket. If provided, overrides the default "0".
-       - `hs_pipeline_stage: Optional[str]`: Optional. The ID of the pipeline stage for the ticket. If provided, overrides the default "2".
+       - `isCustomQuote: bool`: A flag indicating if this ticket is related to a custom quote process. This influences pipeline selection.
+       - `hs_pipeline: Optional[str]`: (This is now set INTERNALLY by the tool based on `isCustomQuote` and content. The Planner should not send this.)
+       - `hs_pipeline_stage: Optional[str]`: (This is now set INTERNALLY by the tool. The Planner should not send this.)
      - **Returns:** A `TicketDetailResponse` dictionary on success or an error string.
      - **Scope:** `[Internal]` (This is the **sole tool** for the Planner Agent to delegate ticket creation to you during standard handoff procedures.)
 

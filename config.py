@@ -91,10 +91,20 @@ HUBSPOT_DEFAULT_CHANNEL_ACCOUNT = os.getenv("HUBSPOT_DEFAULT_CHANNEL_ACCOUNT")
 HUBSPOT_DEFAULT_INBOX = os.getenv("HUBSPOT_DEFAULT_INBOX")
 
 # --- HubSpot Pipeline & Stage IDs ---
+HUBSPOT_PIPELINE_ID_SUPPORT = os.getenv("HUBSPOT_PIPELINE_ID_SUPPORT")
+HUBSPOT_SUPPORT_STAGE_ID = os.getenv("HUBSPOT_SUPPORT_STAGE_ID")
+
+# Assisted Sales Pipeline
 HUBSPOT_PIPELINE_ID_ASSISTED_SALES = os.getenv("HUBSPOT_PIPELINE_ID_ASSISTED_SALES")
-HUBSPOT_PIPELINE_ID_PROMO_RESELLER = os.getenv("HUBSPOT_PIPELINE_ID_PROMO_RESELLER")
-HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS = os.getenv("HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS")
 HUBSPOT_AS_STAGE_ID = os.getenv("HUBSPOT_AS_STAGE_ID")
+
+# Promo Reseller Pipeline
+HUBSPOT_PIPELINE_ID_PROMO_RESELLER = os.getenv("HUBSPOT_PIPELINE_ID_PROMO_RESELLER")
+HUBSPOT_PR_STAGE_ID = os.getenv("HUBSPOT_PR_STAGE_ID")
+
+# Customer Success Pipeline
+HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS = os.getenv("HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS")
+HUBSPOT_CS_STAGE_ID = os.getenv("HUBSPOT_CS_STAGE_ID")
 
 
 # --- Validation ---
@@ -145,21 +155,37 @@ def validate_api_config():
         raise ValueError(
             "CHROMA_EMBEDDING_MODEL_NAME environment variable not set in .env file."
         )
+    if not HUBSPOT_PIPELINE_ID_SUPPORT:
+        raise ValueError(
+            "HUBSPOT_PIPELINE_ID_SUPPORT environment variable not set in .env file."
+        )
+    if not HUBSPOT_SUPPORT_STAGE_ID:
+        raise ValueError(
+            "HUBSPOT_SUPPORT_STAGE_ID environment variable not set in .env file."
+        )
     if not HUBSPOT_PIPELINE_ID_ASSISTED_SALES:
         raise ValueError(
             "HUBSPOT_PIPELINE_ID_ASSISTED_SALES environment variable not set in .env file."
+        )
+    if not HUBSPOT_AS_STAGE_ID:
+        raise ValueError(
+            "HUBSPOT_AS_STAGE_ID environment variable not set in .env file."
         )
     if not HUBSPOT_PIPELINE_ID_PROMO_RESELLER:
         raise ValueError(
             "HUBSPOT_PIPELINE_ID_PROMO_RESELLER environment variable not set in .env file."
         )
+    if not HUBSPOT_PR_STAGE_ID:
+        raise ValueError(
+            "HUBSPOT_PR_STAGE_ID environment variable not set in .env file."
+        )
     if not HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS:
         raise ValueError(
             "HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS environment variable not set in .env file."
         )
-    if not HUBSPOT_AS_STAGE_ID:
+    if not HUBSPOT_CS_STAGE_ID:
         raise ValueError(
-            "HUBSPOT_AS_STAGE_ID environment variable not set in .env file."
+            "HUBSPOT_CS_STAGE_ID environment variable not set in .env file."
         )
 
 
