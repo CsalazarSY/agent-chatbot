@@ -18,36 +18,28 @@ from hubspot.crm.tickets import (
 
 # Import the shared HubSpot API HUBSPOT_CLIENT instance from config
 from config import HUBSPOT_CLIENT
-from config import (
-    HUBSPOT_PIPELINE_ID_SUPPORT,
-    HUBSPOT_SUPPORT_STAGE_ID,
-    HUBSPOT_PIPELINE_ID_ASSISTED_SALES,
-    HUBSPOT_AS_STAGE_ID,
-    HUBSPOT_PIPELINE_ID_PROMO_RESELLER,
-    HUBSPOT_PR_STAGE_ID,
-)
 
 # Import constants for associations
 from src.tools.hubspot.tickets.constants import (
     AssociationCategory,
     DEFAULT_TICKET_TO_CONVERSATION_TYPE_ID,
-    PipelineStage,
+    TypeOfTicketEnum,
 )
 
 # Import DTOs for this tool
 from src.tools.hubspot.tickets.dto_requests import (
     CreateTicketRequest,
-    CreateSupportTicketForConversationRequest,
-    CreateTicketProperties,
     AssociationToCreate,
     AssociationToObject,
     AssociationTypeSpec,
+    TicketCreationProperties,
 )
 from src.tools.hubspot.tickets.dto_responses import (
     TicketDetailResponse,
-    TicketPropertiesResponse,
-    TicketAssociationDetail,
 )
+
+# Import the new pipeline logic helper
+from src.tools.hubspot.pipelines.pipeline_logic import determine_pipeline_and_stage
 
 # Tool-specific constants
 HUBSPOT_TICKET_TOOL_ERROR_PREFIX = "HUBSPOT_TICKET_TOOL_FAILED:"
@@ -68,35 +60,76 @@ async def create_ticket(req: CreateTicketRequest) -> Union[TicketDetailResponse,
     This is a general-purpose ticket creation tool.
 
     The `req` parameter (type `CreateTicketRequest`) should be structured as follows:
-    - `properties`: An object (type `CreateTicketProperties`) containing ticket fields like:
+    - `properties`: An object (type `CreateTicketProperties`) containing ticket fields.
+        Key fields include:
         - `subject: str` (required)
         - `content: str` (required)
-        - `hs_pipeline: Optional[str]` (defaults to '0' in DTO if not provided)
-        - `hs_pipeline_stage: Optional[str]` (defaults to '2' - Waiting on Contact in DTO if not provided)
-        - `hs_ticket_priority: Optional[str]`
-        - ... and other custom properties allowed by `model_config = {"extra": "allow"}`.
+        - `hs_pipeline: Optional[str]` (defaults to '0' - e.g., the first configured pipeline - in DTO if not provided)
+        - `hs_pipeline_stage: Optional[str]` (defaults to '2' - e.g., a stage like 'Waiting on Contact' - in DTO if not provided)
+        - `hs_ticket_priority: Optional[str]` (e.g., "HIGH", "MEDIUM", "LOW")
+        - The `CreateTicketProperties` DTO uses `model_config = {"extra": "allow"}`,
+          allowing any other valid HubSpot ticket properties (including custom ones)
+          to be included. These should use their HubSpot internal names.
+          Boolean values for properties are often sent as strings ("true" or "false").
     - `associations`: An optional list of objects (type `AssociationToCreate`) to link this ticket to other HubSpot objects.
       Each `AssociationToCreate` object should have:
-        - `to`: An object (type `AssociationToObject`) with an `id: str` of the target object.
-        - `types`: A list containing one or more objects (type `AssociationTypeSpec`) that define the link.
+        - `to`: An object (type `AssociationToObject`) with an `id: str` of the target HubSpot object (e.g., conversation ID, contact ID).
+        - `types`: A list containing one or more objects (type `AssociationTypeSpec`) that define the nature of the link.
           Each `AssociationTypeSpec` requires:
-            - `associationCategory: str` (e.g., "HUBSPOT_DEFINED")
-            - `associationTypeId: int` (e.g., use `DEFAULT_TICKET_TO_CONVERSATION_TYPE_ID` (which is 32) to link to a conversation/thread,
-                                       or `AssociationTypeIdTicket.TICKET_TO_CONTACT.value` (which is 16) to link to a contact).
+            - `associationCategory: str` (e.g., "HUBSPOT_DEFINED" for standard HubSpot associations).
+            - `associationTypeId: int` (A specific ID representing the type of association.
+              For example, use `DEFAULT_TICKET_TO_CONVERSATION_TYPE_ID` (which is 32) to link to a conversation/thread,
+              or `AssociationTypeIdTicket.TICKET_TO_CONTACT.value` (which is 16) to link to a contact.
+              It's crucial to use the correct `associationTypeId` for your specific
+              HubSpot instance and the objects you are linking).
 
-    Example for `associations` to link to a conversation with ID "12345":
+    **Example Full Payload for Creating a HubSpot Ticket:**
+
+    The following JSON demonstrates a comprehensive payload for creating a new ticket.
+    It includes linking the new ticket to an existing HubSpot conversation and populating
+    various standard and custom ticket properties.
+
     ```json
-    [
+    {
+      "associations": [
         {
-            "to": {"id": "12345"},
-            "types": [
-                {
-                    "associationCategory": "HUBSPOT_DEFINED",
-                    "associationTypeId": 32
-                }
-            ]
+          "to": {
+            "id": "9214555237"  // ID of the conversation to associate this ticket with
+          },
+          "types": [
+            {
+              "associationCategory": "HUBSPOT_DEFINED",
+              "associationTypeId": 32 // Corresponds to DEFAULT_TICKET_TO_CONVERSATION_TYPE_ID
+            }
+          ]
         }
-    ]
+      ],
+      "properties": {
+        "subject": "New Ticket Subject - From API",
+        "content": "This ticket was created via the API with various custom properties populated, and associated with a conversation.",
+        "hs_pipeline": "0",        // Target pipeline ID (e.g., default service pipeline)
+        "hs_pipeline_stage": "1",  // Target stage ID within the pipeline (e.g., 'New')
+        "hs_ticket_priority": "HIGH",
+        "type_of_ticket": "Quote", // Custom property
+        "use_type": "Personal",    // Custom property
+        "additional_instructions_": "Please ensure all details are double-checked.", // Custom property
+        "application_use_": "For an upcoming personal event.", // Custom property
+        "business_category": "Amateur Sport", // Custom property (enumeration)
+        "call_requested": "false",           // Custom property (boolean as string)
+        "have_you_ordered_with_us_before_": "true", // Custom property
+        "height_in_inches_": 2,             // Custom property (number)
+        "how_did_you_find_us_": "Google Search", // Custom property
+        "location": "USA",                 // Custom property
+        "number_of_colours_in_design_": "1", // Custom property
+        "preferred_format": "Pages",       // Custom property
+        "product_group": "Tattoo",         // Custom property, drives conditional logic elsewhere
+        "promotional_product_distributor_": "true", // Custom property
+        "total_quantity_": 100,            // Custom property (number)
+        "type_of_tattoo_": "Glitter Tattoo", // Custom property, conditional
+        "what_kind_of_content_would_you_like_to_hear_about_": "Business Products and News", // Custom property
+        "width_in_inches_": 2              // Custom property (number)
+      }
+    }
     ```
 
     Returns:
@@ -165,8 +198,9 @@ async def create_ticket(req: CreateTicketRequest) -> Union[TicketDetailResponse,
 
 
 async def create_support_ticket_for_conversation(
-    req: CreateSupportTicketForConversationRequest,
-) -> Union[TicketDetailResponse, str]:
+    conversation_id: str,
+    properties: TicketCreationProperties,
+) -> TicketDetailResponse | str:
     """
     Creates a HubSpot support ticket specifically for an existing conversation/thread,
     with predefined pipeline settings for chatbot-initiated tickets.
@@ -174,11 +208,13 @@ async def create_support_ticket_for_conversation(
     This tool simplifies ticket creation for handoff scenarios from a chatbot conversation.
 
     Args:
-        req (CreateSupportTicketForConversationRequest): An object containing:
-            - `conversation_id: str`: The ID of the HubSpot conversation/thread to associate this ticket with.
-            - `subject: str`: The subject or title for the new ticket.
-            - `content: str`: The main description or content for the ticket (e.g., summary of user issue).
-            - `hs_ticket_priority: str`: The priority of the ticket (e.g., 'HIGH', 'MEDIUM', 'LOW').
+        conversation_id: str: The ID of the HubSpot conversation/thread to associate this ticket with.
+        properties (TicketCreationProperties): An object containing all ticket properties including:
+            - `subject: str` (required)
+            - `content: str` (required)
+            - `hs_ticket_priority: str` (required)
+            - `type_of_ticket: TypeOfTicketEnum` (required, defaults to INQUIRY)
+            - ... and other optional custom quote fields.
 
     Returns:
         A HubSpot SDK `SimplePublicObject` on successful creation, or an error string prefixed
@@ -188,36 +224,31 @@ async def create_support_ticket_for_conversation(
         return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} create_support_ticket_for_conversation - HUBSPOT_CLIENT not initialized."
 
     try:
-        # Determine pipeline and stage based on isCustomQuote and content
-        pipeline_id_to_use = HUBSPOT_PIPELINE_ID_SUPPORT
-        pipeline_stage_to_use = HUBSPOT_SUPPORT_STAGE_ID
+        # Make a mutable copy of the properties to potentially modify pipeline/stage
+        updated_properties = properties.model_copy(deep=True)
 
-        if req.isCustomQuote:
-            # Default for custom quotes is Assisted Sales
-            pipeline_id_to_use = HUBSPOT_PIPELINE_ID_ASSISTED_SALES
-            pipeline_stage_to_use = HUBSPOT_AS_STAGE_ID
-
-            # Check for promo reseller keywords in the content
-            if "promo reseller" in req.content.lower():
-                pipeline_id_to_use = HUBSPOT_PIPELINE_ID_PROMO_RESELLER
-                pipeline_stage_to_use = HUBSPOT_PR_STAGE_ID
-            # Check for design help keywords in the content
-            elif "design help" in req.content.lower() or "design assistance" in req.content.lower():
-                pipeline_id_to_use = HUBSPOT_PIPELINE_ID_ASSISTED_SALES
-                pipeline_stage_to_use = HUBSPOT_AS_STAGE_ID
-
-        # 1. Construct ticket properties
-        ticket_properties = CreateTicketProperties(
-            subject=req.subject,
-            content=req.content,
-            hs_pipeline=pipeline_id_to_use,
-            hs_pipeline_stage=pipeline_stage_to_use,
-            hs_ticket_priority=req.hs_ticket_priority,
+        # Determine pipeline and stage using the new helper function
+        pipeline_id_to_use, pipeline_stage_to_use = determine_pipeline_and_stage(
+            properties
         )
 
-        # 2. Construct association to the conversation
+        # Set pipeline and stage on the properties object that will be sent
+        updated_properties.hs_pipeline = pipeline_id_to_use
+        updated_properties.hs_pipeline_stage = pipeline_stage_to_use
+
+        # Ensure critical fields are present (Pydantic model validation already does this on instantiation)
+        # but an explicit check before calling the generic tool adds a layer of safety.
+        if not updated_properties.subject:
+            return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} create_support_ticket_for_conversation - 'subject' is missing."
+        if not updated_properties.content:
+            return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} create_support_ticket_for_conversation - 'content' is missing."
+        if not updated_properties.hs_ticket_priority:
+            return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} create_support_ticket_for_conversation - 'hs_ticket_priority' is missing."
+        # type_of_ticket has a default in the DTO, so it should always be present.
+
+        # 1. Construct association to the conversation
         association_to_conversation = AssociationToCreate(
-            to=AssociationToObject(id=req.conversation_id),
+            to=AssociationToObject(id=conversation_id),
             types=[
                 AssociationTypeSpec(
                     associationCategory=AssociationCategory.HUBSPOT_DEFINED.value,
@@ -226,15 +257,17 @@ async def create_support_ticket_for_conversation(
             ],
         )
 
-        # 3. Create the full request for the generic create_ticket tool
+        # 2. Create the full request for the generic create_ticket tool
+        # The `properties` field of CreateTicketRequest expects a TicketCreationProperties object.
+        # `updated_properties` is already of this type.
         generic_ticket_request = CreateTicketRequest(
-            properties=ticket_properties,
+            properties=updated_properties,
             associations=[association_to_conversation],
         )
 
-        # 4. Call the generic create_ticket tool
+        # 3. Call the generic create_ticket tool
         return await create_ticket(generic_ticket_request)
 
     except Exception as e:
-        traceback.print_exc()  # Log the full traceback for unexpected errors
+        traceback.print_exc()
         return _format_error("create_support_ticket_for_conversation", e)

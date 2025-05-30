@@ -2,7 +2,9 @@
 This file contains the markdown definition of the custom quote form.
 """
 
+from src.agents.agent_names import PLANNER_AGENT_NAME, PRICE_QUOTE_AGENT_NAME
 from src.agents.price_quote.instructions_constants import PLANNER_ASK_USER
+from src.tools.hubspot.tickets.constants import TypeOfTicketEnum
 from .constants import (
     UseTypeEnum,
     BusinessCategoryEnum,
@@ -16,8 +18,8 @@ from .constants import (
     TypeOfStickerEnum,
     TypeOfTattooEnum,
     TypeOfTapeEnum,
-    PreferredFormatEnum,
     TypeOfPackagingEnum,
+    PreferredFormatEnum,
     PouchSizeEnum,
     PouchLabelMaterialEnum,
     WhatSizeOfTapeEnum,
@@ -246,7 +248,7 @@ The following defines the fields, requirements, and conditional logic for collec
 29. **Display Label:** Additional Instructions:
     - **HubSpot Internal Name:** `additional_instructions_`
     - **Property Type:** Ticket Property
-    - **Field Type:** Text
+    - **Field Type:** Textarea
     - **Required:** No
     - **ask_group_id:** `final_details`
     - **PQA Guidance Note:** This field is typically asked along with 'Application Use:'. If PQA parses that the user requests design assistance (from the 'Upload your design' interaction), PQA will internally add a note like "User requested design assistance." to this field in its `form_data`.
@@ -272,8 +274,69 @@ The following defines the fields, requirements, and conditional logic for collec
     - **Required:** No (Disabled - Do not ask for now)
     - **PQA Guidance Note:** This field is currently disabled. PQA should NOT instruct Planner to ask for this. For now, consent can be assumed if the user proceeds, or handled by other business processes. If this needs to be re-enabled, this note and the 'Required' status should be updated.
 
-**VII. System Generated Fields (For AI internal use only - DO NOT ask user for these):**
--   **Ticket name (Subject)** (`subject`, Ticket Property, Text, Required: Yes) - Planner generates based on collected info (e.g., "Custom Quote Request: [Product Group] - [User Last Name or Email]").
--   **Ticket description (Content)** (`content`, Ticket Property, Text, Required: Yes) - Planner generates a structured summary of ALL collected and validated user responses corresponding to the Display Labels above.
--   **Type of Ticket** (`type_of_ticket`, Ticket Property, Dropdown, Hidden) - This can be set by the system or Planner. For custom quotes, this might be "Custom Quote Request" or a similar internal value.
+33. **Display Label:** Have you ordered with us before?
+    - **HubSpot Internal Name:** `have_you_ordered_with_us_before_`
+    - **Property Type:** Ticket Property
+    - **Field Type:** Single Checkbox (Boolean: Yes/No)
+    - **Required:** No (Disabled - Do not ask for now)
+    - **List values:** 'Yes', 'No'
+    - **PQA Guidance Note:** This field is defined in HubSpot but is not currently part of the active conversational flow. Do not ask the user for this information.
+34. **Display Label:** How did you find us?
+    - **HubSpot Internal Name:** `how_did_you_find_us_`
+    - **Property Type:** Ticket Property
+    - **Field Type:** Dropdown
+    - **Required:** No (Disabled - Do not ask for now)
+    - **List values:** 'Google Search', 'Social Media', 'Email', 'PPAI/ASI', 'Tradeshow', 'StickerYou Store', 'Existing customer', 'Banner Ads', 'Referral from Another Customer', 'Catalog', 'Live Chat', 'General Inquiry Form'
+    - **PQA Guidance Note:** This field is defined in HubSpot but is not currently part of the active conversational flow. Do not ask the user for this information.
+35. **Display Label:** Number of colours in design:
+    - **HubSpot Internal Name:** `number_of_colours_in_design_`
+    - **Property Type:** Ticket Property
+    - **Field Type:** Dropdown
+    - **Required:** No (Disabled - Do not ask for now)
+    - **List values:** '1', '2', '3'
+    - **PQA Guidance Note:** This field is defined in HubSpot but is not currently part of the active conversational flow. Do not ask the user for this information.
+36. **Display Label:** Preferred Format Stickers
+    - **HubSpot Internal Name:** `preferred_format_stickers`
+    - **Property Type:** Ticket Property
+    - **Field Type:** Dropdown
+    - **Required:** No (Disabled - Do not ask for now)
+    - **List values:** 'Pages', 'Kiss-Cut Singles', 'Die-Cut Singles'
+    - **PQA Guidance Note:** This field is defined in HubSpot but is not currently part of the active conversational flow. Do not ask the user for this information. This might be a duplicate or more specific version of 'Preferred Format'.
+37. **Display Label:** Upload your vector artwork
+    - **HubSpot Internal Name:** `upload_your_vector_artwork`
+    - **Property Type:** Ticket Property
+    - **Field Type:** File (Conceptual for PQA; actual file handling is via chat)
+    - **Required:** No (Disabled - Do not ask for now)
+    - **PQA Guidance Note:** This field is defined in HubSpot but is not currently part of the active conversational flow. Do not ask the user for this information.
+38. **Display Label:** What kind of content would you like to hear about?
+    - **HubSpot Internal Name:** `what_kind_of_content_would_you_like_to_hear_about_`
+    - **Property Type:** Ticket Property
+    - **Field Type:** Dropdown
+    - **Required:** No (Disabled - Do not ask for now)
+    - **List values:** 'Business Products and News', 'Consumer Products and News', 'Products and Sweet Deals for Parents', 'Not sure yet - send me everything!'
+    - **PQA Guidance Note:** This field is defined in HubSpot but is not currently part of the active conversational flow. Do not ask the user for this information.
+
+    **VII. System Generated Fields (For AI agents internal use only - DO NOT ask user for these):**
+    1.  **Label:** Subject
+        *   **HubSpot Internal Name:** `subject`
+        *   **Property Type:** Ticket Property
+        *   **Field Type:** Text
+        *   **Required:** Yes (Agent Generated Based On Context - Do not ask user)
+        *   **Planner Guidance Note:** The Planner Agent is responsible for generating the ticket subject. It should be concise and informative, based on key collected information. This field should not be directly asked to the user.
+
+    2.  **Label:** Content
+        *   **HubSpot Internal Name:** `content`
+        *   **Property Type:** Ticket Property
+        *   **Field Type:** Text (HubSpot may render this as Rich Text)
+        *   **Required:** Yes (Agent Generated Based On Context - Do not ask user)
+        *   **Planner Guidance Note:** With most data now in specific ticket properties, the Planner Agent should generate a brief, human-readable summary for this field.
+
+    3.  **Label:** Type of Ticket
+        *   **HubSpot Internal Name:** `type_of_ticket`
+        *   **Property Type:** Ticket Property
+        *   **Field Type:** Dropdown (Single choice among the following values: {', '.join(f"'{e}'" for e in TypeOfTicketEnum.get_all_values())})
+        *   **Required:** Yes (Agent Generated Based On Context - Do not ask user)
+        *   **List values:** {', '.join(f"'{e}'" for e in TypeOfTicketEnum.get_all_values())}
+        *   **PQA Guidance Note:** This field is determined and set by the `{PLANNER_AGENT_NAME}` based on its internal logic and the overall context of the request (User issues vs. Custom Quote).
+            For custom quotes processed through this form, the PQA will typically set this to "{TypeOfTicketEnum.QUOTE.value}". This field should not be directly asked to the user.
 """

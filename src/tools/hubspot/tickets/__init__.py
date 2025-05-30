@@ -10,7 +10,8 @@ from .constants import (
     DEFAULT_TICKET_TO_CONVERSATION_TYPE_ID,
 )
 from .dto_requests import (
-    CreateSupportTicketForConversationRequest,
+    TicketCreationProperties,
+    CreateTicketRequest,
 )
 from .dto_responses import (
     TicketDetailResponse,
@@ -28,7 +29,8 @@ __all__ = [
     "AssociationTypeIdNote",
     "AssociationTypeIdCommunication",
     "DEFAULT_TICKET_TO_CONVERSATION_TYPE_ID",
-    "CreateSupportTicketForConversationRequest",
+    "TicketCreationProperties",
+    "CreateTicketRequest",
     "TicketDetailResponse",
     "TicketPropertiesResponse",
     "BatchReadTicketsResponse",

@@ -4,6 +4,7 @@ Constants for HubSpot Ticket Associations.
 
 # /src/tools/hubspot/tickets/constants.py
 from enum import Enum
+from typing import List
 
 
 class AssociationCategory(str, Enum):
@@ -114,3 +115,17 @@ class AssociationTypeIdCommunication(Enum):
 
 # Default association type for creating a ticket and linking it to the current conversation
 DEFAULT_TICKET_TO_CONVERSATION_TYPE_ID = AssociationTypeIdTicket.TICKET_TO_THREAD.value
+
+
+class TypeOfTicketEnum(str, Enum):
+    """Enum for HubSpot's ticket type_of_ticket field."""
+
+    QUOTE = "Quote"
+    REQUEST = "Request"
+    INQUIRY = "Inquiry"
+    ISSUE = "Issue"
+    OTHER = "Other"
+
+    @classmethod
+    def get_all_values(cls) -> List[str]:
+        return [e.value for e in cls]
