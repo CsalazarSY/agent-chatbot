@@ -1,8 +1,6 @@
 """Helper functions for processing HubSpot webhook events."""
 
 # src/services/hubspot_webhook_handler.py
-# pylint: disable=W0603
-import asyncio
 import traceback
 from typing import Optional
 
@@ -21,6 +19,9 @@ from src.tools.hubspot.conversation.dto_responses import (
     MessageType,
     MessageDirection,
 )
+from src.tools.hubspot.conversation.dto_requests import (
+    CreateMessageRequest,
+)
 
 # HubSpot Tools used in webhook handler
 from src.tools.hubspot.conversation.conversation_tools import (
@@ -30,7 +31,7 @@ from src.tools.hubspot.conversation.conversation_tools import (
 
 # Centralized Agent Service
 from src.agents.agents_services import agent_service
-from src.agents.agent_names import PLANNER_AGENT_NAME  # Import planner name
+from src.agents.agent_names import PLANNER_AGENT_NAME
 
 # Import HTML Formatting Service
 from src.services.message_to_html import convert_message_to_html
@@ -41,35 +42,14 @@ from src.services.clean_agent_tags import clean_agent_output
 # Import quick reply extractor
 from src.services.get_quick_replies import extract_quick_replies
 
-# Import DTO for sending message
-from src.tools.hubspot.conversation.dto_requests import CreateMessageRequest, QuickReplyAttachment
-import config # For default channel/sender IDs
+# Import the centralized message filtering logic
+from src.services.hubspot.messages_filter import (
+    remove_message_from_processing,
+)
+
+import config  # For default channel/sender IDs
 
 # --- Globals for Webhook Deduplication ---
-PROCESSING_MESSAGE_IDS = set()
-message_id_lock = asyncio.Lock()
-
-# --- Message ID Processing Helpers ---
-
-
-async def is_message_being_processed(message_id: str) -> bool:
-    """Checks if a message ID is currently in the processing set."""
-    async with message_id_lock:
-        return message_id in PROCESSING_MESSAGE_IDS
-
-
-async def add_message_to_processing(message_id: str):
-    """Adds a message ID to the processing set."""
-    async with message_id_lock:
-        PROCESSING_MESSAGE_IDS.add(message_id)
-
-
-async def remove_message_from_processing(message_id: str):
-    """Removes a message ID from the processing set."""
-    async with message_id_lock:
-        PROCESSING_MESSAGE_IDS.discard(
-            message_id
-        )  # Use discard to avoid errors if not found
 
 
 async def process_agent_response(
@@ -88,8 +68,8 @@ async def process_agent_response(
 
     raw_text_reply = "Sorry, I encountered an issue and couldn't process your message."  # Default error reply
     html_reply = f"<p>{raw_text_reply}</p>"  # Default HTML error reply
-    final_attachments_for_hubspot = [] # Initialize as an empty list
-    message_type_for_hubspot = "MESSAGE" # Default to MESSAGE
+    final_attachments_for_hubspot = []  # Initialize as an empty list
+    message_type_for_hubspot = "MESSAGE"  # Default to MESSAGE
 
     if error_message:
         print(f"!!! Agent Error for ConvID {conversation_id}: {error_message}")
@@ -138,18 +118,30 @@ async def process_agent_response(
 
             # Clean up Planner's final output tags AND extract quick replies
             if isinstance(raw_reply_content_from_agent, str):
-                # Extract quick replies first, then clean the remaining text
-                text_without_quick_replies, quick_reply_data = extract_quick_replies(raw_reply_content_from_agent)
-                
-                raw_text_reply = clean_agent_output(text_without_quick_replies) # Clean the text part
+                # Extract quick replies
+                text_without_quick_replies, quick_reply_data = extract_quick_replies(
+                    raw_reply_content_from_agent
+                )
+
+                # Clean internal agent tags
+                raw_text_reply = clean_agent_output(text_without_quick_replies)
+
+                # Convert to HTML
                 html_reply_from_agent = await convert_message_to_html(raw_text_reply)
+
+                # Extra clean just in case
                 html_reply = clean_agent_output(html_reply_from_agent)
 
                 if quick_reply_data:
-                    final_attachments_for_hubspot.append(quick_reply_data.model_dump(exclude_none=True))
-                
+                    final_attachments_for_hubspot.append(
+                        quick_reply_data.model_dump(exclude_none=True)
+                    )
+
                 # Determine message type based on cleaned text (after quick replies are removed)
-                if "HANDOFF" in raw_text_reply.upper() or "COMMENT" in raw_text_reply.upper():
+                if (
+                    "HANDOFF" in raw_text_reply.upper()
+                    or "COMMENT" in raw_text_reply.upper()
+                ):
                     message_type_for_hubspot = "COMMENT"
 
             else:
@@ -170,22 +162,25 @@ async def process_agent_response(
     print(
         f"      - Sending reply to HubSpot Thread {conversation_id}: Text='{raw_text_reply[:30]}...' HTML='{html_reply[:30]}...'"
     )
+
     try:
         # Construct the CreateMessageRequest DTO
         message_payload = CreateMessageRequest(
             type=message_type_for_hubspot,
             text=raw_text_reply,
             richText=html_reply,
-            senderActorId=config.HUBSPOT_DEFAULT_SENDER_ACTOR_ID, # Use default from config
-            channelId=config.HUBSPOT_DEFAULT_CHANNEL, # Use default from config
-            channelAccountId=config.HUBSPOT_DEFAULT_CHANNEL_ACCOUNT, # Use default from config
-            attachments=final_attachments_for_hubspot if final_attachments_for_hubspot else None,
+            senderActorId=config.HUBSPOT_DEFAULT_SENDER_ACTOR_ID,  # Use default from config
+            channelId=config.HUBSPOT_DEFAULT_CHANNEL,  # Use default from config
+            channelAccountId=config.HUBSPOT_DEFAULT_CHANNEL_ACCOUNT,  # Use default from config
+            attachments=(
+                final_attachments_for_hubspot if final_attachments_for_hubspot else None
+            ),
             # recipients and subject can be added here if needed in the future
         )
 
+        # Send the message to the HubSpot thread
         send_result_model = await send_message_to_thread(
-            thread_id=conversation_id,
-            message_request_payload=message_payload
+            thread_id=conversation_id, message_request_payload=message_payload
         )
 
         # Check the actual type returned by the tool
@@ -215,6 +210,7 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
         # print(
         #     f"    -> HB Webhook Background task: Process incoming HubSpot message {message_id} for thread {conversation_id}"
         # )
+
         message_content = None
         is_relevant_message = False
 
@@ -267,25 +263,32 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
 
         # 3. Trigger agent if relevant
         if is_relevant_message:
-            user_message_for_agent = None # Initialize
+            user_message_for_agent = None  # Initialize
 
-            if message_content: # Primary: Use text content if available
+            # Primary: Use text content if available
+            if message_content:
                 user_message_for_agent = message_content
-            elif msg_details_model and msg_details_model.attachments: # Secondary: Check for file if no text
+
+            # Secondary: Check for file if no text
+            elif msg_details_model and msg_details_model.attachments:
                 first_attachment = msg_details_model.attachments[0]
-                if isinstance(first_attachment, dict) and \
-                    first_attachment.get('type') == "FILE" and \
-                    first_attachment.get('name'):
-                    file_name = first_attachment['name']
+                if (
+                    isinstance(first_attachment, dict)
+                    and first_attachment.get("type") == "FILE"
+                    and first_attachment.get("name")
+                ):
+                    file_name = first_attachment["name"]
                     user_message_for_agent = f"A file has been uploaded: {file_name}"
-                    
+
             if user_message_for_agent:
                 task_result, error_message, _ = await agent_service.run_chat_session(
                     user_message=user_message_for_agent,
                     show_console=True,  # Set to False if running purely as backend service
                     conversation_id=conversation_id,
                 )
-                await process_agent_response(conversation_id, task_result, error_message)
+                await process_agent_response(
+                    conversation_id, task_result, error_message
+                )
             else:
                 # Relevant message, but no text content and no usable file attachment found to trigger the agent.
                 print(
@@ -297,11 +300,15 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
             message_type_info = "N/A"
             message_direction_info = "N/A"
             if msg_details_model:
-                if msg_details_model.senders and msg_details_model.senders[0] and hasattr(msg_details_model.senders[0], 'actorId'):
+                if (
+                    msg_details_model.senders
+                    and msg_details_model.senders[0]
+                    and hasattr(msg_details_model.senders[0], "actorId")
+                ):
                     sender_actor_id = msg_details_model.senders[0].actorId
-                if hasattr(msg_details_model, 'type'):
+                if hasattr(msg_details_model, "type"):
                     message_type_info = msg_details_model.type
-                if hasattr(msg_details_model, 'direction'):
+                if hasattr(msg_details_model, "direction"):
                     message_direction_info = msg_details_model.direction
             print(
                 f"        > Agent processing skipped for message {message_id}. (Relevant: False, Type: {message_type_info}, Direction: {message_direction_info}, Sender: {sender_actor_id})"

@@ -6,9 +6,7 @@
 import json
 from typing import Optional
 from contextlib import asynccontextmanager
-from grpc import StatusCode
 import uvicorn
-import traceback  # Added for more detailed error logging
 
 # FastAPI imports
 from fastapi import FastAPI, HTTPException, BackgroundTasks
@@ -37,9 +35,12 @@ from src.agents.agent_names import PLANNER_AGENT_NAME
 
 # Import the webhook processing function and its necessary globals
 from src.services.clean_agent_tags import clean_agent_output
-from src.services.hubspot_webhook_handler import (
+from src.services.hubspot.webhook_handlers import (
     process_incoming_hubspot_message,
-    is_message_being_processed,
+)
+from src.services.hubspot.messages_filter import (
+    is_conversation_handed_off,
+    is_message_processed,
     add_message_to_processing,
 )
 
@@ -250,7 +251,7 @@ async def hubspot_webhook_endpoint(
     # The payload *is* the list of events
     for event in payload:
         print(
-            f" -> Processing Event: Type={event.subscriptionType}, Attempt={event.attemptNumber}, Event ID={event.eventId}"
+            f"  -> Processing Event: Type={event.subscriptionType}, Attempt={event.attemptNumber}, Event ID={event.eventId}"
         )
 
         # Only process new message events
@@ -263,15 +264,22 @@ async def hubspot_webhook_endpoint(
                 print("    !! Skipping event: Missing conversationId or messageId.")
                 continue
 
-            # Deduplication check using helper functions
-            is_processing = await is_message_being_processed(message_id)
-            if not is_processing:
-                await add_message_to_processing(
-                    message_id
-                )  # Add before scheduling task
-            else:
-                print(f"     < Skipping duplicate message ID: {message_id}")
+            # Deduplication check for individual message_id
+            is_processed_message = await is_message_processed(message_id)
+            if is_processed_message:  # Check if True
+                print(f"     > Skipping processed message ID: {message_id}")
                 continue
+
+            # Check if the entire conversation has been handed off
+            is_conversation_disabled = await is_conversation_handed_off(conversation_id)
+            if is_conversation_disabled:
+                print(
+                    f"     > Skipping event for handed-off conversation ID: {conversation_id} (message_id: {message_id})"
+                )
+                continue  # Skip to the next event
+
+            # If not a duplicate message and conversation not handed off, add to processing set
+            await add_message_to_processing(message_id)
 
             # Schedule background task to fetch details and process
             print(

@@ -15,15 +15,21 @@ from hubspot.crm.tickets import (
     PublicObjectId,
     AssociationSpec,
 )
+from hubspot.crm.associations.v4.models import (
+    AssociationSpec,
+)
 
 # Import the shared HubSpot API HUBSPOT_CLIENT instance from config
 from config import HUBSPOT_CLIENT
 
-# Import constants for associations
+# Import the new pipeline logic helper
+from src.services.hubspot.determine_pipeline import determine_pipeline_and_stage
+from src.services.hubspot.messages_filter import add_conversation_to_handed_off
+
 from src.tools.hubspot.tickets.constants import (
     AssociationCategory,
-    DEFAULT_TICKET_TO_CONVERSATION_TYPE_ID,
     TypeOfTicketEnum,
+    DEFAULT_TICKET_TO_CONVERSATION_TYPE_ID,
 )
 
 # Import DTOs for this tool
@@ -37,9 +43,6 @@ from src.tools.hubspot.tickets.dto_requests import (
 from src.tools.hubspot.tickets.dto_responses import (
     TicketDetailResponse,
 )
-
-# Import the new pipeline logic helper
-from src.tools.hubspot.pipelines.pipeline_logic import determine_pipeline_and_stage
 
 # Tool-specific constants
 HUBSPOT_TICKET_TOOL_ERROR_PREFIX = "HUBSPOT_TICKET_TOOL_FAILED:"
@@ -252,21 +255,33 @@ async def create_support_ticket_for_conversation(
             types=[
                 AssociationTypeSpec(
                     associationCategory=AssociationCategory.HUBSPOT_DEFINED.value,
-                    associationTypeId=DEFAULT_TICKET_TO_CONVERSATION_TYPE_ID,  # Should be 32 (Ticket to Thread)
+                    associationTypeId=DEFAULT_TICKET_TO_CONVERSATION_TYPE_ID,
                 )
             ],
         )
 
         # 2. Create the full request for the generic create_ticket tool
-        # The `properties` field of CreateTicketRequest expects a TicketCreationProperties object.
-        # `updated_properties` is already of this type.
         generic_ticket_request = CreateTicketRequest(
             properties=updated_properties,
             associations=[association_to_conversation],
         )
 
         # 3. Call the generic create_ticket tool
-        return await create_ticket(generic_ticket_request)
+        ticket_creation_result = await create_ticket(generic_ticket_request)
+
+        # If ticket creation was successful (i.e., not an error string) and
+        # the ticket type is 'Issue', add conversation_id to handed-off set.
+        # We check if it's NOT an error string because create_ticket returns SimplePublicObject on success.
+        if (
+            not isinstance(ticket_creation_result, str)
+            and properties.type_of_ticket == TypeOfTicketEnum.ISSUE
+        ):
+            await add_conversation_to_handed_off(conversation_id)
+            print(
+                f"        > Added conversation_id: {conversation_id} to handed-off set."
+            )
+
+        return ticket_creation_result
 
     except Exception as e:
         traceback.print_exc()

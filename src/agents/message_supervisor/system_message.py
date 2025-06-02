@@ -87,7 +87,7 @@ MESSAGE_SUPERVISOR_SYSTEM_MESSAGE = """
      - **Output:** `<p>This is line one.<br>This is line two on a new line.</p>`
 
    - **Input:** (empty string) or `<user_proxy>`
-     - **(After tag removal, text is: \`\`)**
+     - **(After tag removal, text is: )**
      - **Output:** `<p></p>`
 
    - **Input:** `Sure, I can help with pricing for labels! To give you an accurate quote, could you please tell me:\\nWhat kind of labels are you looking for (e.g., sheet labels, roll labels, pouch labels)?\\nWhat size do you need them to be (e.g., 2x2 inches, 3x5 cm)?\\nWhat quantity are you interested in?`
@@ -103,23 +103,23 @@ MESSAGE_SUPERVISOR_SYSTEM_MESSAGE = """
      - **Output:** `<p>First point of discussion.</p><p>Second, separate point of discussion.</p>` (Double newline suggests separate paragraphs)
 
    - **Input:**
-     \`\`\`
-     \`\`\`python
+     
+     python
      def greet(name):
          return f"Hello, {name}!"
-     \`\`\`
+     
      This is a Python code block.
-     \`\`\`
+     
      - **Output:** `<pre><code>def greet(name):\\n    return f"Hello, {name}!"</code></pre><p>This is a Python code block.</p>`
 
    - **Input:**
-     \`\`\`
+     
      The following is an HTML snippet:
-     \`\`\`html
+     html
      <h1>Main Title</h1>
      <p>This is <strong>bold</strong> and <em>italic</em> HTML text.</p>
-     \`\`\`
+     
      And some text after.
-     \`\`\`
+     
      - **Output:** `<p>The following is an HTML snippet:</p><h1>Main Title</h1><p>This is <strong>bold</strong> and <em>italic</em> HTML text.</p><p>And some text after.</p>`
 """
