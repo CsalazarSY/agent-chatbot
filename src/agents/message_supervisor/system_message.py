@@ -27,7 +27,7 @@ MESSAGE_SUPERVISOR_SYSTEM_MESSAGE = """
          - For all other fenced code blocks (e.g., ` ```python ... ``` `, ` ```javascript ... ``` `, ` ``` ... ``` ` without any language specifier, or with any language specifier other than `html` or `HTML`), convert them to `<pre><code>...</code></pre>`.
          - The content inside these general code blocks MUST be HTML-escaped.
          - Do not add syntax highlighting classes to the `<pre>` or `<code>` tags.
-       - Links (e.g., `[text](url)`) to `<a href="url">text</a>` (the `text` part MUST be HTML-escaped if it contains special characters, the `url` should generally not be escaped unless it contains characters that would break the attribute).
+       - Links (e.g., `[text](url)`) to `<a href="url" style="color: #0000EE;">text</a>`. The `text` part MUST be HTML-escaped if it contains special characters. The `url` should generally not be escaped unless it contains characters that would break the attribute. Ensure the `href` attribute value is enclosed in double quotes and the `style` attribute value is also enclosed in double quotes, with the color hex code in single or double quotes as part of the style string (e.g. `style="color: #0000EE;"`).
        - Blockquotes (e.g., `> quote text`) to `<blockquote><p>quote text</p></blockquote>` (content inside the blockquote should also be processed for Markdown and HTML escaped as appropriate).
      - **List Interpretation:** If a sentence ends with a colon (e.g., "To give you an accurate quote, could you please tell me:") and is immediately followed by lines starting with list markers (`-`, `*`, `1.`, etc.) or are clearly distinct questions/points, these subsequent lines **MUST** be formatted as items within a `<ul>` or `<ol>`.
    - **Plain Text & Paragraphs:**
@@ -62,7 +62,7 @@ MESSAGE_SUPERVISOR_SYSTEM_MESSAGE = """
    1. Receive input string.
    2. Pre-process for system tags as defined in Section 3.
    3. Analyze the remaining text for Markdown patterns and contextual cues (like colons followed by list-like lines).
-   4. Convert recognized Markdown to HTML, applying HTML escaping to content (except for raw HTML from ` ```html ``` ` blocks, as specified in Section 2).
+   4. Convert recognized Markdown to HTML, applying HTML escaping to content (except for raw HTML from ` ```html ... ``` ` blocks, as specified in Section 2).
    5. Group related plain text into `<p>` tags, using `<br>` for internal line breaks where appropriate.
    6. If the input (after tag removal) is empty, output `<p></p>`.
    7. If, after applying all rules, you are unsure, err on the side of simpler paragraph structure (`<p>...</p>`) for unclassifiable text blocks, ensuring HTML escaping. Your goal is to always return valid, safe HTML that is readable in a chat.
@@ -80,10 +80,10 @@ MESSAGE_SUPERVISOR_SYSTEM_MESSAGE = """
      - **(After tag removal, text is: `What is your company name? (This is optional)`)**
      - **Output:** `<p>What is your company name? (This is optional)</p>`
 
-   - **Input:** `- Point one\\n- Point *two*\\nSee [link](http://example.com)`
-     - **Output:** `<ul><li>Point one</li><li>Point <em>two</em></li></ul><p>See <a href="http://example.com">link</a></p>`
+   - **Input:** `- Point one\n- Point *two*\nSee [link](http://example.com)`
+     - **Output:** `<ul><li>Point one</li><li>Point <em>two</em></li></ul><p>See <a href="http://example.com" style="color: #0000EE;">link</a></p>`
 
-   - **Input:** `This is line one.\\nThis is line two on a new line.`
+   - **Input:** `This is line one.\nThis is line two on a new line.`
      - **Output:** `<p>This is line one.<br>This is line two on a new line.</p>`
 
    - **Input:** (empty string) or `<user_proxy>`
