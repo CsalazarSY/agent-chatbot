@@ -24,6 +24,7 @@ from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 # Agents
 from src.agents.hubspot.hubspot_agent import create_hubspot_agent
+from src.agents.orders.order_agent import create_order_agent
 from src.agents.planner.planner_agent import create_planner_agent
 from src.agents.price_quote.price_quote_agent import create_price_quote_agent
 from src.agents.product.product_agent import create_product_agent
@@ -31,6 +32,7 @@ from src.agents.product.product_agent import create_product_agent
 # Import Agent Name
 from src.agents.agent_names import (
     HUBSPOT_AGENT_NAME,
+    ORDER_AGENT_NAME,
     PRICE_QUOTE_AGENT_NAME,
     PRODUCT_AGENT_NAME,
     PLANNER_AGENT_NAME,
@@ -202,7 +204,12 @@ class AgentService:
             return PLANNER_AGENT_NAME
 
         # Rule 2: Specialist spoke -> Planner processes
-        specialist_agents = {PRODUCT_AGENT_NAME, PRICE_QUOTE_AGENT_NAME, HUBSPOT_AGENT_NAME}
+        specialist_agents = {
+            PRODUCT_AGENT_NAME,
+            PRICE_QUOTE_AGENT_NAME,
+            HUBSPOT_AGENT_NAME,
+            ORDER_AGENT_NAME,
+        }
         if last_message.source in specialist_agents:
             # print(f"Selector: Specialist {last_message.source} spoke, Planner next.")
             return PLANNER_AGENT_NAME
@@ -224,6 +231,8 @@ class AgentService:
                         return PRICE_QUOTE_AGENT_NAME
                     elif delegated_agent_name == HUBSPOT_AGENT_NAME:
                         return HUBSPOT_AGENT_NAME
+                    elif delegated_agent_name == ORDER_AGENT_NAME:
+                        return ORDER_AGENT_NAME
                     else:
                         print(
                             f"<- WARN: Selector found delegation pattern but agent '{delegated_agent_name}' is unknown. Defaulting to Planner."
@@ -304,13 +313,16 @@ class AgentService:
                     metadata={"priority": "critical", "source": "hubspot"},
                 )
             )
-            
+
             if HUBSPOT_DEFAULT_SENDER_ACTOR_ID:
                 await request_memory_hubspot.add(
                     MemoryContent(
                         content=f"Default_HubSpot_Sender_Actor_ID: {HUBSPOT_DEFAULT_SENDER_ACTOR_ID}",
                         mime_type=MemoryMimeType.TEXT,
-                        metadata={"priority": "normal", "source": "system_config_hubspot_defaults"},
+                        metadata={
+                            "priority": "normal",
+                            "source": "system_config_hubspot_defaults",
+                        },
                     )
                 )
             if HUBSPOT_DEFAULT_CHANNEL:
@@ -318,7 +330,10 @@ class AgentService:
                     MemoryContent(
                         content=f"Default_HubSpot_Channel_ID: {HUBSPOT_DEFAULT_CHANNEL}",
                         mime_type=MemoryMimeType.TEXT,
-                        metadata={"priority": "normal", "source": "system_config_hubspot_defaults"},
+                        metadata={
+                            "priority": "normal",
+                            "source": "system_config_hubspot_defaults",
+                        },
                     )
                 )
             if HUBSPOT_DEFAULT_CHANNEL_ACCOUNT:
@@ -326,7 +341,10 @@ class AgentService:
                     MemoryContent(
                         content=f"Default_HubSpot_Channel_Account_ID: {HUBSPOT_DEFAULT_CHANNEL_ACCOUNT}",
                         mime_type=MemoryMimeType.TEXT,
-                        metadata={"priority": "normal", "source": "system_config_hubspot_defaults"},
+                        metadata={
+                            "priority": "normal",
+                            "source": "system_config_hubspot_defaults",
+                        },
                     )
                 )
             if HUBSPOT_DEFAULT_INBOX:
@@ -334,7 +352,10 @@ class AgentService:
                     MemoryContent(
                         content=f"Default_HubSpot_Inbox_ID: {HUBSPOT_DEFAULT_INBOX}",
                         mime_type=MemoryMimeType.TEXT,
-                        metadata={"priority": "normal", "source": "system_config_hubspot_defaults"},
+                        metadata={
+                            "priority": "normal",
+                            "source": "system_config_hubspot_defaults",
+                        },
                     )
                 )
 
@@ -344,15 +365,21 @@ class AgentService:
                     MemoryContent(
                         content=f"HubSpot_Pipeline_ID_Assisted_Sales: {HUBSPOT_PIPELINE_ID_ASSISTED_SALES}",
                         mime_type=MemoryMimeType.TEXT,
-                        metadata={"priority": "normal", "source": "system_config_hubspot_pipelines"},
+                        metadata={
+                            "priority": "normal",
+                            "source": "system_config_hubspot_pipelines",
+                        },
                     )
                 )
-            if HUBSPOT_AS_STAGE_ID: # Assisted Sales Stage ID
+            if HUBSPOT_AS_STAGE_ID:  # Assisted Sales Stage ID
                 await request_memory_hubspot.add(
                     MemoryContent(
                         content=f"HubSpot_Assisted_Sales_Stage_ID: {HUBSPOT_AS_STAGE_ID}",
                         mime_type=MemoryMimeType.TEXT,
-                        metadata={"priority": "normal", "source": "system_config_hubspot_pipelines"},
+                        metadata={
+                            "priority": "normal",
+                            "source": "system_config_hubspot_pipelines",
+                        },
                     )
                 )
             if HUBSPOT_PIPELINE_ID_PROMO_RESELLER:
@@ -360,7 +387,10 @@ class AgentService:
                     MemoryContent(
                         content=f"HubSpot_Pipeline_ID_Promo_Reseller: {HUBSPOT_PIPELINE_ID_PROMO_RESELLER}",
                         mime_type=MemoryMimeType.TEXT,
-                        metadata={"priority": "normal", "source": "system_config_hubspot_pipelines"},
+                        metadata={
+                            "priority": "normal",
+                            "source": "system_config_hubspot_pipelines",
+                        },
                     )
                 )
             if HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS:
@@ -368,7 +398,10 @@ class AgentService:
                     MemoryContent(
                         content=f"HubSpot_Pipeline_ID_Customer_Success: {HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS}",
                         mime_type=MemoryMimeType.TEXT,
-                        metadata={"priority": "normal", "source": "system_config_hubspot_pipelines"},
+                        metadata={
+                            "priority": "normal",
+                            "source": "system_config_hubspot_pipelines",
+                        },
                     )
                 )
 
@@ -381,10 +414,13 @@ class AgentService:
             hubspot_agent = create_hubspot_agent(
                 AgentService.secondary_model_client, memory=[request_memory_hubspot]
             )
-            price_quote_agent = create_price_quote_agent(AgentService.primary_model_client)
+            price_quote_agent = create_price_quote_agent(
+                AgentService.primary_model_client
+            )
             product_agent = await create_product_agent(
                 AgentService.primary_model_client
             )
+            order_agent = create_order_agent(AgentService.secondary_model_client)
 
             # --- Create GroupChat Instance for this request --- #
             active_participants = [
@@ -392,6 +428,7 @@ class AgentService:
                 price_quote_agent,
                 product_agent,
                 hubspot_agent,
+                order_agent,
             ]
             group_chat = SelectorGroupChat(
                 participants=active_participants,
