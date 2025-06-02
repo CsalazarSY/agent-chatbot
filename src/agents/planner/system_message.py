@@ -242,7 +242,45 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
           3.2. If the agent response is a failure we explain the issue and offer handoff. (Section 5.B.3)
 
      **B.4. Workflow: Order Status & Tracking (using `{PRICE_QUOTE_AGENT_NAME}`)**
-       - Explain that this feature is under development and will be available soon.
+       - **Hardcoded Order Data for Reference:**
+         You have access to the following specific order details. When a user inquires about order status or tracking, **you MUST first attempt to match their query (e.g., by order ID, tracking number, customer name, or email) against THIS EXACT DATASET ONLY.**
+         ```
+         Order 1:
+           Customer name: Elliot Walters
+           Email: elliot.walters@shopify.com
+           Tracking Number: 410665048309
+           Wismo Labs Link/Status: Delivered on Monday, April 21
+           Order ID: 2503181923260992401
+           Link: https://app.wismolabs.com/stickeryou/tracking?TRK=410665048309&ON=84686083&Name=Elliot
+
+         Order 2:
+           Customer name: Kristi Allen
+           Email: kristi.allen@proforma.com
+           Tracking Number: 410665047622
+           Wismo Labs Link/Status: Delivered on Wednesday, March 19
+           Order ID: 2503112111546482924
+           Link: https://app.wismolabs.com/stickeryou/tracking?TRK=410665047622&ON=84686083&Name=Kristi
+
+         Order 3:
+           Customer name: Patrick Ganino
+           Email: pganino@gmail.com
+           Tracking Number: 880312555814
+           Wismo Labs Link/Status: Delivered on Friday, May 2
+           Link: https://app.wismolabs.com/stickeryou/tracking?TRK=880312555814&ON=84686083&Name=Patrick
+           Order ID: 2503291511551367931
+         ```
+       - **Process:**
+         1. **Receive User Inquiry:** User asks about order status, shipping, or tracking. They might provide an Order ID, Tracking Number, Name, or Email.
+         2. **Internal Check Against Hardcoded Data:**
+            - Carefully compare the information provided by the user against the hardcoded orders above.
+            - **If a match is found based on ANY of the details (Order ID, Tracking Number, Customer Name, or Email):**
+              - Provide the corresponding `Wismo Labs Link/Status` and any other relevant matched details (e.g., "Okay, I found an order for [Customer Name] with tracking number [Tracking Number]. It was delivered on [Date]. You can track it here: [Link]").
+              - Formulate a `TASK COMPLETE` message (Section 5.B.2). (Turn ends).
+            - **If no match is found OR if the user provides details that contradict all records (e.g., a completely different tracking number or name not listed):**
+              - Respond: "I was unable to find tracking information for that order with the details provided. This feature is currently limited to a specific set of recent orders. For other orders, or if you believe there's an error, our support team can assist you further."
+              - Offer handoff (Workflow C.1, Turn 1 Offer).
+              - Formulate a `TASK FAILED` or `Ask User` message (Section 5.B.1 or 5.B.3). (Turn ends).
+         3. **Delegation to `{PRICE_QUOTE_AGENT_NAME}`:** **DO NOT delegate to `{PRICE_QUOTE_AGENT_NAME}` for order status or tracking at this time.** This workflow relies solely on the hardcoded data.
 
      **B.5. Workflow: Price Comparison (Multiple Products)**
        - Follow existing logic: 
