@@ -188,14 +188,21 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
        - **Sequence:**
          1. **Initial Parse & Prerequisite Check:**
             - From the current user message and recent history (if any), attempt to parse: Product Name/Description, Width, Height, Quantity, Country, Currency.
-            - If Product Name/Description is missing: Ask the user for it (Section 5.B.1). (Turn ends).
-            - If Product Name/Description is present, proceed to Step 2 (Get Product ID).
+            - **If Product Name/Description is MISSING:** Ask the user for it (Section 5.B.1). (Your turn ends here).
+            - **If Product Name/Description IS PRESENT:** Your IMMEDIATE NEXT ACTION is to proceed to Step 2 (Get Product ID). DO NOT ask for other missing information like size or quantity at this stage. You MUST secure the `product_id` first.
 
          2. **Get Product ID (Delegate to `{PRODUCT_AGENT_NAME}`):**
             - Delegate: `<{PRODUCT_AGENT_NAME}> : Find ID for '[parsed_product_description]'`
             - Process Product Agent's response INTERNALLY:
               - `Product ID found: [ID]`: Store `product_id`. Proceed INTERNALLY to Step 3 (Check/Get Size & Quantity).
-              - `Multiple products match...`: Relay clarification to user with quick replies from Product Agent (Section 5.B.1). (Turn ends). Await user selection.
+              - `Multiple products match '[description]'. Please clarify... Quick Replies: [JSON_STRING]`: This indicates the Product Agent needs user clarification. 
+                - **Action to Formulate User Message (This is your complete action for this turn if Product Agent returns multiple matches):**
+                  1. From the Product Agent's full response, extract the exact textual part that appears *before* the literal string "Quick Replies:" (let this be `CLARIFICATION_TEXT`).
+                  2. From the Product Agent's full response, extract the exact Quick Reply JSON string (the part that starts with "Quick Replies: [" and ends with "]", let this be `QUICK_REPLIES_JSON`).
+                  3. Construct the user-facing message by combining `CLARIFICATION_TEXT` immediately followed by `QUICK_REPLIES_JSON`. This combined text is `[Your non-empty question or statement to the user]` for the output format defined in Section 5.B.1.
+                     Example of the combined text: `Multiple products match '[Product]'. Please clarify which one you meant. Quick Replies: [{{"valueType": "product_clarification", "label": "Product (Material, Format, etc)", "value": "Product (Material, Format, etc)"}}, {{"valueType": "product_clarification", "label": "Product (Material, Format, etc)", "value": "Product (Material, Format, etc)"}}]`
+                  4. **ABSOLUTE SINGLE OUTPUT RULE FOR THIS SCENARIO:** Your **sole and exclusively final action for this entire turn** is to output the single message formatted as `<{USER_PROXY_AGENT_NAME}> : [Combined text from step 3]`. Once this single message is generated, your turn processing for the user's current request is **IMMEDIATELY AND FULLY CONCLUDED**. You MUST NOT, under any circumstances, generate or send any other user-facing messages (e.g., by processing leftover text from the Product Agent like pricing disclaimers, or by attempting to address other aspects of the original user query) in this same turn. The act of sending the clarification quick reply message fulfills your entire obligation for this turn.
+                - (Your turn ends here). Await user selection.
               - `No products found...`/Error: Offer Custom Quote or Handoff (Workflow C.1, Turn 1 Offer). (Turn ends).
 
          2b. **Get Clarified Product ID (If Step 2 resulted in Multiple Products):**
@@ -205,26 +212,27 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
                 - `Product ID found: [ID]`: Store `product_id`. Proceed INTERNALLY to Step 3 (Check/Get Size & Quantity).
                 - `Error: Could not definitively find...` / `No Product ID found...`: Offer Custom Quote or Handoff (Workflow C.1, Turn 1 Offer). (Turn ends).
 
-         3. **Check/Get Size & Quantity (After `product_id` is known):**
-            - If `width`, `height`, or `quantity` were not parsed in Step 1 or are still missing:
-              - If `width` and `height` are missing: Ask user for dimensions (Section 5.B.1). (Turn ends).
-              - If only `quantity` is missing: Ask user if they have a quantity in mind (for `sy_get_specific_price`) or if they want price tiers (for `sy_get_price_tiers`) (Section 5.B.1). (Turn ends).
+         3. **Check/Get Size & Quantity (ONLY AFTER `product_id` is KNOWN and STORED):**
+            - **Pre-condition:** You have successfully obtained and stored `product_id` from Step 2.
+            - If `width`, `height`, or `quantity` were not parsed in Step 1 (alongside the product description) or are still missing:
+              - If `width` and `height` are missing: Ask user for dimensions (Section 5.B.1). (Your turn ends here).
+              - Else if only `quantity` is missing: Ask user if they have a quantity in mind (for `sy_get_specific_price`) or if they want price tiers (for `sy_get_price_tiers`) (Section 5.B.1). (Your turn ends here).
             - If all (`product_id`, `width`, `height`, `quantity`) are now known, proceed INTERNALLY to Step 4 (Check/Get Country & Currency).
 
          4. **Check/Get Country & Currency (After `product_id`, size, quantity are known):**
             - **Country:**
               - If `country_code` was not parsed in Step 1 or is still missing:
-                Ask user: `<{USER_PROXY_AGENT_NAME}> : To provide you with the most accurate pricing, could you please tell me which country you'll be shipping to? Quick Replies: [{{ "valueType": "country_selection_initial", "label": "USA", "value": "US" }}, {{ "valueType": "country_selection_initial", "label": "Canada", "value": "CA" }}, {{ "valueType": "country_selection_initial", "label": "Other", "value": "Other" }}]` (Turn ends).
+                Ask user: `<{USER_PROXY_AGENT_NAME}> : To provide you with the most accurate pricing, could you please tell me which country you'll be shipping to? Quick Replies: [{{"valueType": "country_selection_initial", "label": "USA", "value": "US"}}, {{"valueType": "country_selection_initial", "label": "Canada", "value": "CA"}}, {{"valueType": "country_selection_initial", "label": "Other", "value": "Other"}}]` (Turn ends).
               - If user chose "US" or "CA": Store `country_code` (US/CA) and set default `currency_code` (USD for US, CAD for CA). Proceed INTERNALLY to Currency Confirmation.
               - If user chose "Other": Delegate to PQA: `<{PRICE_QUOTE_AGENT_NAME}> : Provide a list of countries for quick replies.` (Section 5.A.5). (Await PQA response INTERNALLY).
-                - If PQA returns `Quick Reply String: ...`: Relay this to the user: `<{USER_PROXY_AGENT_NAME}> : Please select your country from the list: [PQA's Quick Reply String]` (Turn ends). Await user selection.
+                - If PQA returns `Quick Reply String: ...`: Relay this to the user: `<{USER_PROXY_AGENT_NAME}> : Please select your country from the list: Quick Replies: [{{"valueType": "country_selection", "label": "United States of America", "value": "US"}}, {{"valueType": "country_selection", "label": "Canada", "value": "CA"}}, {{"valueType": "country_selection", "label": "United Kingdom", "value": "GB"}}, {{"valueType": "country_selection", "label": "Australia", "value": "AU"}}]` (Turn ends). Await user selection.
                 - If PQA returns error: Handle as PQA error (offer handoff or inform user of issue). (Turn ends).
               - If user selected a country from PQA's list: Store the `country_code`. Proceed INTERNALLY to Currency Confirmation.
             - **Currency Confirmation/Selection (After `country_code` is known):**
-              - If `currency_code` was not parsed in Step 1 or is still missing/needs confirmation (especially if country was 'Other' or if we want to offer a choice):
+              - If `currency_code` was not parsed in Step 1 or is still missing/needs confirmation (especially if country was 'Other' or if we want to give a choice):
                 - If `country_code` is 'US', default `currency_code` is 'USD'.
                 - If `country_code` is 'CA', default `currency_code` is 'CAD'.
-                - For other countries, or to give a choice: Ask user: `<{USER_PROXY_AGENT_NAME}> : Great! And would you prefer pricing in USD or CAD? Quick Replies: [{{ "valueType": "currency_selection", "label": "USD", "value": "USD" }}, {{ "valueType": "currency_selection", "label": "CAD", "value": "CAD" }}]` (Turn ends).
+                - For other countries, or to give a choice: Ask user: `<{USER_PROXY_AGENT_NAME}> : Great! And would you prefer pricing in USD or CAD? Quick Replies: [{{"valueType": "currency_selection", "label": "USD", "value": "USD"}}, {{"valueType": "currency_selection", "label": "CAD", "value": "CAD"}}]` (Turn ends).
               - If user selects a currency: Store `currency_code`.
             - If all (`product_id`, `width`, `height`, `quantity`, `country_code`, `currency_code`) are now known, proceed INTERNALLY to Step 5 (Get Price).
 
