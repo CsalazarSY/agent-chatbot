@@ -45,7 +45,6 @@ def create_price_quote_agent(
 
     Args:
         model_client: An initialized OpenAIChatCompletionClient instance.
-        memory: Optional list of memory objects to attach to the agent.
 
     Returns:
         An configured AssistantAgent instance.

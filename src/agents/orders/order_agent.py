@@ -22,13 +22,14 @@ order_tools: List[Callable] = [
 
 
 # --- Agent Creation Function ---
-def create_order_agent(model_client: OpenAIChatCompletionClient) -> AssistantAgent:
+def create_order_agent(
+    model_client: OpenAIChatCompletionClient,
+) -> AssistantAgent:
     """
     Creates and configures the Order Agent.
 
     Args:
         model_client: An initialized OpenAIChatCompletionClient instance.
-        memory: Optional list of memory objects to attach to the agent.
 
     Returns:
         A configured AssistantAgent instance.

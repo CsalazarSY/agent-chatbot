@@ -32,7 +32,6 @@ def create_live_product_agent(
 
     Args:
         model_client: An initialized OpenAIChatCompletionClient instance.
-        memory: Optional list of memory objects to attach to the agent.
 
     Returns:
         A configured AssistantAgent instance.
@@ -43,6 +42,6 @@ def create_live_product_agent(
         system_message=LIVE_PRODUCT_AGENT_SYSTEM_MESSAGE,
         model_client=model_client,
         tools=live_product_tools,
-        reflect_on_tool_use=False,
+        reflect_on_tool_use=True,
     )
     return live_product_assistant
