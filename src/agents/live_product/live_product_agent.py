@@ -24,7 +24,7 @@ live_product_tools: List[Callable] = [
 
 
 def create_live_product_agent(
-    model_client: OpenAIChatCompletionClient, memory: Optional[List[Memory]] = None
+    model_client: OpenAIChatCompletionClient,
 ) -> AssistantAgent:
     """
     Creates and configures the Live Product Agent, responsible for fetching
@@ -42,7 +42,6 @@ def create_live_product_agent(
         description="Fetches live product lists and supported country lists from the StickerYou API. Returns processed string messages to the Planner, including raw JSON data snippets and potential error strings.",
         system_message=LIVE_PRODUCT_AGENT_SYSTEM_MESSAGE,
         model_client=model_client,
-        memory=memory,
         tools=live_product_tools,
         reflect_on_tool_use=False,
     )

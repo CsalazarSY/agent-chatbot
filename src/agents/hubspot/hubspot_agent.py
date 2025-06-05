@@ -86,7 +86,7 @@ def create_hubspot_agent(
         description="Interacts with HubSpot APIs. Manages conversation threads (get, list, update/archive [DevOnly]), messages (get, send COMMENT/MESSAGE), actors, channels, and inboxes. Its primary ticket-related function is to create specialized support tickets linked to conversations for handoffs. Returns raw dicts/lists or confirmation strings.",
         system_message=hubspot_agent_system_message,
         model_client=model_client,
-        memory=memory,
+        memory=[memory] if memory else None,
         tools=all_hubspot_tools,
         reflect_on_tool_use=False,
     )

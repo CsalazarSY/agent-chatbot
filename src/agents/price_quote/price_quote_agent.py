@@ -38,7 +38,7 @@ price_quote_tools: List[Callable] = [
 
 # --- Agent Creation Function ---
 def create_price_quote_agent(
-    model_client: OpenAIChatCompletionClient, memory: Optional[List[Memory]] = None
+    model_client: OpenAIChatCompletionClient,
 ) -> AssistantAgent:
     """
     Creates and configures the Price Quote Assistant Agent.
@@ -52,10 +52,9 @@ def create_price_quote_agent(
     """
     price_quote_assistant = AssistantAgent(
         name=PRICE_QUOTE_AGENT_NAME,
-        description="Dual-purpose agent that: 1) Interacts with the StickerYou API for pricing tasks (getting specific prices, tier pricing, and listing supported countries) and 2) Validates custom quote data against form definition rules before ticket creation. Also handles internal token management. Returns Pydantic models, specific dicts/lists, or validation results.",
+        description="Dual-purpose agent that: 1) Interacts with the StickerYou API for pricing tasks (getting specific prices and tier pricing) and 2) Validates custom quote data against form definition rules before ticket creation. Also handles internal token management. Returns Pydantic models, specific dicts/lists, or validation results.",
         system_message=PRICE_QUOTE_AGENT_SYSTEM_MESSAGE,
         model_client=model_client,
-        memory=memory,
         tools=price_quote_tools,
         reflect_on_tool_use=False,
     )

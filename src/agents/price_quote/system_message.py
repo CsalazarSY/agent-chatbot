@@ -67,7 +67,6 @@ PRICE_QUOTE_AGENT_SYSTEM_MESSAGE = f"""
    - **`sy_verify_login() -> LoginStatusResponse | str`** (Scope: `[Internal Only]`)
 
    **Pricing:**
-   - **`sy_list_countries() -> CountriesResponse | str`** (Allowed Scopes: `[User, Dev, Internal]`)
    - **`sy_get_specific_price(product_id: int, width: float, height: float, quantity: int, country_code: Optional[str] = {DEFAULT_COUNTRY_CODE}, currency_code: Optional[str] = {DEFAULT_CURRENCY_CODE}, accessory_options: Optional[List[AccessoryOption]] = None) -> SpecificPriceResponse | str`** (Allowed Scopes: `[User, Dev, Internal]`)
    - **`sy_get_price_tiers(product_id: int, width: float, height: float, country_code: Optional[str] = {DEFAULT_COUNTRY_CODE}, currency_code: Optional[str] = {DEFAULT_CURRENCY_CODE}, accessory_options: Optional[List[AccessoryOption]] = None, quantity: Optional[int] = None) -> PriceTiersResponse | str`** (Allowed Scopes: `[User, Dev, Internal]`)
 
@@ -164,24 +163,6 @@ PRICE_QUOTE_AGENT_SYSTEM_MESSAGE = f"""
            - If all checks pass: `{PLANNER_VALIDATION_SUCCESSFUL_PROCEED_TO_TICKET}:  "form_data": ... your validated internal `form_data` dictionary (with `HubSpot Internal Name` as keys) ... `
            - If any check fails: `{PLANNER_ASK_USER}: [Specific, user-facing reason, referencing Display Label from Section 0. E.g., It looks like the Last name was missed. Could you please provide your last name? or For Business Category, the value [user_provided_value] isnt a valid option or was unclear. Please choose from the list: Option A, Option B, ...]` (Using PLANNER_ASK_USER for re-asking)
 
-   - **Workflow 4: Provide Country List for Quick Replies**
-     - **Trigger:** Receiving a specific request from the `{PLANNER_AGENT_NAME}` aboout countries, for example `<{PRICE_QUOTE_AGENT_NAME}> : Provide a list of countries formatted as quick replies.`
-     - **Goal:** Call the `sy_list_countries` tool and format its response into a `Quick Replies: [...]` string for the Planner.
-     - **Key Steps:**
-       1.  **Execute `sy_list_countries` tool:** Call your internal `sy_list_countries` tool.
-       2.  **Process Tool Response:**
-           - If the tool call is successful and returns a `CountriesResponse` object (which contains a list of `Country` objects, each with `name` and `code`):
-             - Format the list of countries into the Quick Reply string structure. Each country should be an option.
-               - `valueType`: "country_selection"
-               - `label`: Country Name (e.g., "United States")
-               - `value`: Country Code (e.g., "US")
-             - Example of the formatted string to return:
-               `Quick Reply String: Quick Replies: [{{ "valueType": "country_selection", "label": "United States", "value": "US" }}, {{ "valueType": "country_selection", "label": "Canada", "value": "CA" }}, ... (other countries) ...]`
-               (Ensure the generated string for the list of quick replies is valid JSON within the outer string).
-           - If the tool call fails (e.g., returns `SY_TOOL_FAILED:...` or another error):
-             Return the error string directly to the Planner, e.g., `SY_TOOL_FAILED: Could not retrieve country list.`
-       3.  **Respond to `{PLANNER_AGENT_NAME}` (Section 5.C):** Return the `Quick Reply String: ...` or the error string.
-
    - **Common Handling Procedures:**
      - Report configuration errors for tools as specific `SY_TOOL_FAILED:` messages.
      - If Planners request is ambiguous, respond: `Error: Request unclear or does not match your capabilities.`
@@ -228,15 +209,10 @@ PRICE_QUOTE_AGENT_SYSTEM_MESSAGE = f"""
    - **Instruction after Successful Validation:** `{PLANNER_VALIDATION_SUCCESSFUL_PROCEED_TO_TICKET}:  "form_data": ... validated form data ... `
    - **Error (Internal Failure for Guidance/Validation):** `Error: Internal processing failure during custom quote guidance/validation - [brief description].`
 
-   **C. For Country List Provision (Workflow 4):**
-   - **Success (Quick Reply String):** `Quick Reply String: Quick Replies: [{{ "valueType": "country_selection", "label": "United States", "value": "US" }}, ...]`
-   - **Failure (Tool/Formatting Error):** `SY_TOOL_FAILED: Could not retrieve or format country list. Details: [error details if any]`
-
 **6. Rules & Constraints:**
    - Only act when delegated to by `{PLANNER_AGENT_NAME}`.
    - For SY API tool execution: Respond per Section 5.A. Do NOT return empty/None if data expected.
    - For Custom Quote Guidance/Validation: Use `PLANNER_...` instructions (Section 5.B). Do NOT call SY API tools.
-   - For Country List Provision: Respond per Section 5.C.
    - Ensure questions/summaries use Display Labels from Section 0.
    - **CRITICAL (Parsing & State):** You maintain your own internal `form_data` for the custom quote session. When receiving a `user_raw_response` from the Planner during Custom Quote Guidance (Workflow 2), your first step is to parse this response to update YOUR internal `form_data`, **ensuring all keys are the `HubSpot Internal Name` from Section 0**. You are responsible for extracting information for single or grouped questions you previously instructed the Planner to ask.
    - **CRITICAL (All Workflows): If internal error, respond with `Error: Internal processing failure - ...`. Do NOT fail silently.**
