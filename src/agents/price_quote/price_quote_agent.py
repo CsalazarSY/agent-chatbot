@@ -17,7 +17,7 @@ from src.tools.sticker_api.sy_api import (
     sy_get_price_tiers,
     sy_list_countries,
     sy_verify_login,  # Internal use for token checks
-    sy_perform_login, # Internal use for token refresh
+    sy_perform_login,  # Internal use for token refresh
 )
 
 # Import the updated system message string
@@ -31,7 +31,6 @@ from src.agents.agent_names import PRICE_QUOTE_AGENT_NAME
 price_quote_tools: List[Callable] = [
     sy_get_specific_price,
     sy_get_price_tiers,
-    sy_list_countries,
     sy_verify_login,
     sy_perform_login,
 ]

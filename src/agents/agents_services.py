@@ -27,21 +27,24 @@ from src.agents.hubspot.hubspot_agent import create_hubspot_agent
 from src.agents.orders.order_agent import create_order_agent
 from src.agents.planner.planner_agent import create_planner_agent
 from src.agents.price_quote.price_quote_agent import create_price_quote_agent
-from src.agents.product.product_agent import create_product_agent
+from src.agents.sticker_you.sticker_you_agent import create_sticker_you_agent
+from src.agents.live_product.live_product_agent import create_live_product_agent
 
 # Import Agent Name
 from src.agents.agent_names import (
     HUBSPOT_AGENT_NAME,
     ORDER_AGENT_NAME,
     PRICE_QUOTE_AGENT_NAME,
-    PRODUCT_AGENT_NAME,
     PLANNER_AGENT_NAME,
     USER_PROXY_AGENT_NAME,
+    STICKER_YOU_AGENT_NAME,
+    LIVE_PRODUCT_AGENT_NAME,
 )
 
 # Config imports
 from config import (
     HUBSPOT_AS_STAGE_ID,
+    HUBSPOT_CS_STAGE_ID,
     HUBSPOT_DEFAULT_CHANNEL,
     HUBSPOT_DEFAULT_CHANNEL_ACCOUNT,
     HUBSPOT_DEFAULT_INBOX,
@@ -49,6 +52,7 @@ from config import (
     HUBSPOT_PIPELINE_ID_ASSISTED_SALES,
     HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS,
     HUBSPOT_PIPELINE_ID_PROMO_RESELLER,
+    HUBSPOT_PR_STAGE_ID,
     LLM_BASE_URL,
     LLM_API_KEY,
     LLM_PRIMARY_MODEL_NAME,
@@ -76,6 +80,15 @@ class AgentService:
     )  # In-memory state store (stores state dicts)
 
     _initialized: ClassVar[bool] = False  # Flag for one-time initialization
+
+    # Agents (initialized once)
+    user_proxy: ClassVar[Optional[UserProxyAgent]] = None
+    planner_agent: ClassVar[Optional[AssistantAgent]] = None
+    sticker_you_agent: ClassVar[Optional[AssistantAgent]] = None
+    live_product_agent: ClassVar[Optional[AssistantAgent]] = None
+    price_quote_agent: ClassVar[Optional[AssistantAgent]] = None
+    hubspot_agent: ClassVar[Optional[AssistantAgent]] = None
+    order_agent: ClassVar[Optional[AssistantAgent]] = None
 
     # --- Initialization Method ---
     @staticmethod
@@ -149,7 +162,6 @@ class AgentService:
         return (
             TextMentionTermination("TASK FAILED")
             | TextMentionTermination("TASK COMPLETE")
-            | TextMentionTermination("<UserProxyAgent>")
             | TextMentionTermination(f"<{USER_PROXY_AGENT_NAME}>")
         )
 
@@ -159,9 +171,9 @@ class AgentService:
         # Terminate after 30 messages
         max_message_termination = MaxMessageTermination(max_messages=30)
         # Terminate when the Planner calls 'end_planner_turn'
-        function_call_termination = FunctionCallTermination(
-            function_name="end_planner_turn"
-        )
+        # function_call_termination = FunctionCallTermination(
+        #     function_name="end_planner_turn"
+        # )
         # Combine the conditions
         return max_message_termination | AgentService.get_text_termination_condition()
 
@@ -200,18 +212,17 @@ class AgentService:
 
         # Rule 1: User Proxy spoke -> Planner processes
         if last_message.source == USER_PROXY_AGENT_NAME:
-            # print("Selector: User spoke, Planner next.")
             return PLANNER_AGENT_NAME
 
         # Rule 2: Specialist spoke -> Planner processes
         specialist_agents = {
-            PRODUCT_AGENT_NAME,
             PRICE_QUOTE_AGENT_NAME,
+            STICKER_YOU_AGENT_NAME,
+            LIVE_PRODUCT_AGENT_NAME,
             HUBSPOT_AGENT_NAME,
             ORDER_AGENT_NAME,
         }
         if last_message.source in specialist_agents:
-            # print(f"Selector: Specialist {last_message.source} spoke, Planner next.")
             return PLANNER_AGENT_NAME
 
         # Rule 3: Planner spoke -> Check for delegation or end of turn
@@ -225,10 +236,12 @@ class AgentService:
                 if match:
                     delegated_agent_name = match.group(1)  # Extracts the name inside <>
 
-                    if delegated_agent_name == PRODUCT_AGENT_NAME:
-                        return PRODUCT_AGENT_NAME
-                    elif delegated_agent_name == PRICE_QUOTE_AGENT_NAME:
+                    if delegated_agent_name == PRICE_QUOTE_AGENT_NAME:
                         return PRICE_QUOTE_AGENT_NAME
+                    elif delegated_agent_name == STICKER_YOU_AGENT_NAME:
+                        return STICKER_YOU_AGENT_NAME
+                    elif delegated_agent_name == LIVE_PRODUCT_AGENT_NAME:
+                        return LIVE_PRODUCT_AGENT_NAME
                     elif delegated_agent_name == HUBSPOT_AGENT_NAME:
                         return HUBSPOT_AGENT_NAME
                     elif delegated_agent_name == ORDER_AGENT_NAME:
@@ -239,15 +252,12 @@ class AgentService:
                         )
                         return PLANNER_AGENT_NAME  # Fallback if agent name invalid
                 else:
-                    # Planner spoke, but no delegation found. Let LLM decide
-                    # print("Selector: Planner spoke, no delegation found. Letting LLM decide (likely pause for user)." )
                     return None
             else:
                 # Planner message content is not a string, unexpected.
                 return None
 
         # Rule 4: Fallback - Let LLM decide (should be hit rarely now)
-        # print(f"Selector: Fallback condition hit (Last speaker: {last_message.source}). Letting LLM decide.")
         return None
 
     # Start or continue a chat session
@@ -296,8 +306,8 @@ class AgentService:
                     )
 
             # Create memory for this request, containing the conversation ID
-            request_memory_planner = ListMemory()
-            await request_memory_planner.add(
+            planner_memory = ListMemory()
+            await planner_memory.add(
                 MemoryContent(
                     content=f"Current_HubSpot_Thread_ID: {current_conversation_id}",
                     mime_type=MemoryMimeType.TEXT,
@@ -305,8 +315,8 @@ class AgentService:
                 )
             )
 
-            request_memory_hubspot = ListMemory()
-            await request_memory_hubspot.add(
+            hubspot_agent_memory = ListMemory()
+            await hubspot_agent_memory.add(
                 MemoryContent(
                     content=f"Current_HubSpot_Thread_ID: {current_conversation_id}",
                     mime_type=MemoryMimeType.TEXT,
@@ -315,7 +325,7 @@ class AgentService:
             )
 
             if HUBSPOT_DEFAULT_SENDER_ACTOR_ID:
-                await request_memory_hubspot.add(
+                await hubspot_agent_memory.add(
                     MemoryContent(
                         content=f"Default_HubSpot_Sender_Actor_ID: {HUBSPOT_DEFAULT_SENDER_ACTOR_ID}",
                         mime_type=MemoryMimeType.TEXT,
@@ -326,7 +336,7 @@ class AgentService:
                     )
                 )
             if HUBSPOT_DEFAULT_CHANNEL:
-                await request_memory_hubspot.add(
+                await hubspot_agent_memory.add(
                     MemoryContent(
                         content=f"Default_HubSpot_Channel_ID: {HUBSPOT_DEFAULT_CHANNEL}",
                         mime_type=MemoryMimeType.TEXT,
@@ -337,7 +347,7 @@ class AgentService:
                     )
                 )
             if HUBSPOT_DEFAULT_CHANNEL_ACCOUNT:
-                await request_memory_hubspot.add(
+                await hubspot_agent_memory.add(
                     MemoryContent(
                         content=f"Default_HubSpot_Channel_Account_ID: {HUBSPOT_DEFAULT_CHANNEL_ACCOUNT}",
                         mime_type=MemoryMimeType.TEXT,
@@ -348,7 +358,7 @@ class AgentService:
                     )
                 )
             if HUBSPOT_DEFAULT_INBOX:
-                await request_memory_hubspot.add(
+                await hubspot_agent_memory.add(
                     MemoryContent(
                         content=f"Default_HubSpot_Inbox_ID: {HUBSPOT_DEFAULT_INBOX}",
                         mime_type=MemoryMimeType.TEXT,
@@ -361,7 +371,7 @@ class AgentService:
 
             # Add Pipeline and Stage IDs to HubSpot agent's memory
             if HUBSPOT_PIPELINE_ID_ASSISTED_SALES:
-                await request_memory_hubspot.add(
+                await hubspot_agent_memory.add(
                     MemoryContent(
                         content=f"HubSpot_Pipeline_ID_Assisted_Sales: {HUBSPOT_PIPELINE_ID_ASSISTED_SALES}",
                         mime_type=MemoryMimeType.TEXT,
@@ -372,7 +382,7 @@ class AgentService:
                     )
                 )
             if HUBSPOT_AS_STAGE_ID:  # Assisted Sales Stage ID
-                await request_memory_hubspot.add(
+                await hubspot_agent_memory.add(
                     MemoryContent(
                         content=f"HubSpot_Assisted_Sales_Stage_ID: {HUBSPOT_AS_STAGE_ID}",
                         mime_type=MemoryMimeType.TEXT,
@@ -383,7 +393,7 @@ class AgentService:
                     )
                 )
             if HUBSPOT_PIPELINE_ID_PROMO_RESELLER:
-                await request_memory_hubspot.add(
+                await hubspot_agent_memory.add(
                     MemoryContent(
                         content=f"HubSpot_Pipeline_ID_Promo_Reseller: {HUBSPOT_PIPELINE_ID_PROMO_RESELLER}",
                         mime_type=MemoryMimeType.TEXT,
@@ -393,8 +403,19 @@ class AgentService:
                         },
                     )
                 )
+            if HUBSPOT_PR_STAGE_ID:  # Promo Reseller Stage ID
+                await hubspot_agent_memory.add(
+                    MemoryContent(
+                        content=f"HubSpot_Promo_Reseller_Stage_ID: {HUBSPOT_PR_STAGE_ID}",
+                        mime_type=MemoryMimeType.TEXT,
+                        metadata={
+                            "priority": "normal",
+                            "source": "system_config_hubspot_pipelines",
+                        },
+                    )
+                )
             if HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS:
-                await request_memory_hubspot.add(
+                await hubspot_agent_memory.add(
                     MemoryContent(
                         content=f"HubSpot_Pipeline_ID_Customer_Success: {HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS}",
                         mime_type=MemoryMimeType.TEXT,
@@ -404,29 +425,42 @@ class AgentService:
                         },
                     )
                 )
+            if HUBSPOT_CS_STAGE_ID:  # Customer Success Stage ID
+                await hubspot_agent_memory.add(
+                    MemoryContent(
+                        content=f"HubSpot_Customer_Success_Stage_ID: {HUBSPOT_CS_STAGE_ID}",
+                        mime_type=MemoryMimeType.TEXT,
+                        metadata={
+                            "priority": "normal",
+                            "source": "system_config_hubspot_pipelines",
+                        },
+                    )
+                )
 
-            # --- Create Agent Instances for this request --- #
-            # Planner uses the primary (more capable) model
-            planner_assistant = create_planner_agent(
-                AgentService.primary_model_client, memory=[request_memory_planner]
+            # Initialize all agents
+            planner_agent = create_planner_agent(
+                AgentService.primary_model_client, planner_memory
             )
-            # Other agents use the secondary model
-            hubspot_agent = create_hubspot_agent(
-                AgentService.secondary_model_client, memory=[request_memory_hubspot]
+            sticker_you_agent = create_sticker_you_agent(
+                AgentService.secondary_model_client
+            )
+            live_product_agent = create_live_product_agent(
+                AgentService.secondary_model_client
             )
             price_quote_agent = create_price_quote_agent(
                 AgentService.primary_model_client
             )
-            product_agent = await create_product_agent(
-                AgentService.primary_model_client
+            hubspot_agent = create_hubspot_agent(
+                AgentService.secondary_model_client, hubspot_agent_memory
             )
             order_agent = create_order_agent(AgentService.secondary_model_client)
 
             # --- Create GroupChat Instance for this request --- #
             active_participants = [
-                planner_assistant,
+                planner_agent,
+                sticker_you_agent,
+                live_product_agent,
                 price_quote_agent,
-                product_agent,
                 hubspot_agent,
                 order_agent,
             ]

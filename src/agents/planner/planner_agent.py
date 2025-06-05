@@ -34,11 +34,11 @@ def create_planner_agent(
 
     planner_assistant = AssistantAgent(
         name=PLANNER_AGENT_NAME,
-        description="The orchestrator, it coordinates between StickerYou API agent, Hubspot agent, Product Agent and talks directly with the user",
+        description="The orchestrator. It coordinates between the StickerYou_Agent (for website/product info & FAQs), Live_Product_Agent (for live product IDs & countries), Price_Quote_Agent, HubSpot_Agent, and Order_Agent. It communicates with the User_Proxy_Agent to interact with the user.",
         system_message=PLANNER_ASSISTANT_SYSTEM_MESSAGE,
         model_client=model_client,
         memory=memory,
         # tools=[end_planner_turn], # Tool is available via function calling in the new AutoGen versions
         reflect_on_tool_use=False,
     )
-    return planner_assistant 
+    return planner_assistant
