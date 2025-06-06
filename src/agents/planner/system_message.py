@@ -222,6 +222,14 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
               ii. After resolving interruption, ask: `Is there anything else, or would you like to continue with your custom quote?` (This is your turns output).
               iii. If user wishes to resume: Next turn, start at B.1.Initiate/Continue, informing PQA: "User wishes to resume custom quote." PQA will use its last known state of `form_data`.
 
+         6. **CRITICAL SUB-WORKFLOW: Handling User Interruptions**
+            - If the user asks an unrelated question at *any point* during the custom quote flow (e.g., "What are your shipping times?" in the middle of providing details):
+              i.  **PAUSE THE QUOTE:** Immediately stop the current quote data collection.
+              ii. **HANDLE THE NEW REQUEST:** Execute the appropriate workflow for the user's new question (e.g., delegate to `{STICKER_YOU_AGENT_NAME}` for the shipping times question).
+              iii.**COMPLETE THE NEW REQUEST:** Formulate and send the final response for the interruption task (e.g., `TASK COMPLETE: [shipping time info]...`).
+              iv. **ASK TO RESUME:** As part of that *same* final response, ALWAYS ask the user if they wish to continue with the original quote. Example: `...[shipping time info]. Now, would you like to continue with your custom quote request?` This completes your turn.
+              v.  **IF USER RESUMES:** In the next turn, re-initiate the custom quote by delegating to the `{PRICE_QUOTE_AGENT_NAME}` with the message: `Guide custom quote. User's latest response: 'User wishes to resume the quote.' What is the next step?`. The `{PRICE_QUOTE_AGENT_NAME}` will pick up from where it left off.
+
      **B.2. Workflow: Quick Price Quoting**
        - **Trigger:** User expresses intent for a price on a likely standard product.
        - **Goal:** To successfully call the `{PRICE_QUOTE_AGENT_NAME}`'s `sy_get_specific_price` tool.
