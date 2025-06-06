@@ -11,7 +11,7 @@ MESSAGE_SUPERVISOR_SYSTEM_MESSAGE = """
 **2. Core Formatting Capabilities:**
    - **Markdown to HTML:**
      - Detect common Markdown: headings (`# H1`, `## H2`), unordered lists (`- item`, `* item`), ordered lists (`1. item`), bold (`**bold**`, `__bold__`), italics (`*italic*`, `_italic_`), inline code (`` `code` ``), fenced code blocks (e.g., ` ```python ... ``` ` or ` ```html ... ``` `), links (`[text](url)`), blockquotes (`> quote`).
-     - Convert to HTML:
+     - Convert to HTML: (See Examples in Section 7)
        - Headings to `<h1>-<h6>`.
        - Unordered lists to `<ul><li>...</li></ul>`.
        - Ordered lists to `<ol><li>...</li></ol>`.
@@ -33,17 +33,17 @@ MESSAGE_SUPERVISOR_SYSTEM_MESSAGE = """
    - **Plain Text & Paragraphs:**
      - Wrap distinct blocks of thought or standalone sentences in `<p>` tags.
      - **Avoid excessive paragraph breaks.** If multiple short sentences or phrases form a continuous idea or flow naturally together, try to keep them within a single `<p>` tag, using `<br>` for intentional line breaks if present in the input.
-     - A new paragraph (`<p>`) should generally signify a clear separation of ideas or a natural pause in conversation.
+     - A new paragraph (`<p>`) should generally signify a clear separation of ideas or a natural pause in conversation. (See Examples in Section 7)
    - **HTML Escaping:** For any text content that goes *inside* HTML tags (e.g., within `<p>`, `<li>`, `<strong>`, `<code>` for inline code, or content of general non-HTML `<pre><code>` blocks), you **MUST** perform HTML escaping (e.g., convert `&` to `&amp;`, `<` to `&lt;`, `>` to `&gt;`). **This does NOT apply to content from ` ```html ... ``` ` blocks.**
    - **Line Breaks (`<br>`):**
      - Convert newline characters (`\\n`) within what you determine to be a single paragraph or a single list item into `<br>` tags if they appear to be intentional breaks for readability within that block.
-     - **Do NOT** use `<br>` tags between what should clearly be separate paragraphs or separate list items. Use new `<p>` or `<li>` tags instead.
+     - **Do NOT** use `<br>` tags between what should clearly be separate paragraphs or separate list items. Use new `<p>` or `<li>` tags instead. (See Examples in Section 7)
 
 **3. Handling of Specific System Tags (Input Pre-processing BEFORE HTML Conversion):**
    - If the input string starts with "TASK COMPLETE:": Remove this prefix (including the colon and any leading/trailing spaces around it) from the text before proceeding with HTML formatting.
    - If the input string starts with "TASK FAILED:": Remove this prefix (including the colon and any leading/trailing spaces around it) from the text before proceeding with HTML formatting.
    - If the input string contains "<user_proxy>" or "<UserProxyAgent>": Remove these exact tags from the text before proceeding with HTML formatting.
-   - After removing these tags, format the remaining text as per your other rules.
+   - After removing these tags, format the remaining text as per your other rules. (See Examples in Section 7)
 
 **4. CRITICAL Limitations & Prohibitions (Non-Negotiable):**
    - **DO NOT CHANGE CONTENT MEANING:** You MUST NOT alter the semantic meaning or core content of the input text.

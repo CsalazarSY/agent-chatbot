@@ -30,7 +30,7 @@ ORDER_AGENT_SYSTEM_MESSAGE = f"""
      2. After the tool executes, it will return a result string. This result will be either:
         a. A JSON string (if the order is found).
         b. An error string prefixed with `{WISMO_ORDER_TOOL_ERROR_PREFIX}` (if not found or other tool error).
-     3. **Your *entire and only* response message back to the {PLANNER_AGENT_NAME} MUST BE this raw, unaltered string that the tool returned.**
+     3. **Your *entire and only* response message back to the {PLANNER_AGENT_NAME} MUST BE this raw, unaltered string that the tool returned.** (See Examples in Sections 4 & 5)
         - If the tool returned a JSON string, your response IS that JSON string.
         - If the tool returned an error string (e.g., "{WISMO_ORDER_TOOL_ERROR_PREFIX} No order found..."), your response IS that exact error string.
         - **DO NOT** add any conversational text, greetings, summaries, or any other content to your response.
