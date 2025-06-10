@@ -156,3 +156,12 @@ It's highly recommended to use a virtual environment.
 ```bash
 for /d /r . %d in (__pycache__) do @if exist "%d" rd /s /q "%d"
 ```
+
+## Docker commands
+```bash
+docker build -t autogen-chatbot
+```
+
+```bash
+docker run --rm -p 8000:8000 autogen-chatbot
+```

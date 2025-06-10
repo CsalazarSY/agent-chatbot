@@ -34,7 +34,10 @@ COPY . .
 # Tell Docker that your application will be listening for network traffic on port 8000.
 EXPOSE 8000
 
-# This is the final command to start your application.
-# It's the container's version of you running "python main_server.py".
+# Set the PYTHONUNBUFFERED environment variable to force logs to appear in real-time
+ENV PYTHONUNBUFFERED=1
+
+# This is the final command to the application.
+# It's the container's version of running "python main_server.py".
 # It tells uvicorn to run the 'app' object from the 'main_server.py' file.
 CMD ["uvicorn", "main_server:app", "--host", "0.0.0.0", "--port", "8000"]
