@@ -22,15 +22,15 @@ jobs:
     - name: Log in to registry
       uses: docker/login-action@v2
       with:
-        registry: https://mcr.microsoft.com/
-        username: ${{ secrets.AzureAppService_ContainerUsername_649a07d90634428ea8809443631e28a1 }}
-        password: ${{ secrets.AzureAppService_ContainerPassword_abd3b4bb9e984681a74e2b99443f5eef }}
+        registry: https://syqaaichatbotregistry.azurecr.io/
+        username: ${{ secrets.AzureAppService_ContainerUsername_cfd1a5617e4748e7841f24bd9c342bff }}
+        password: ${{ secrets.AzureAppService_ContainerPassword_a51e20fb646b4fe695c4c0a6721a1a0d }}
 
     - name: Build and push container image to registry
       uses: docker/build-push-action@v3
       with:
         push: true
-        tags: mcr.microsoft.com/${{ secrets.AzureAppService_ContainerUsername_649a07d90634428ea8809443631e28a1 }}/appsvc/staticsite:${{ github.sha }}
+        tags: syqaaichatbotregistry.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_cfd1a5617e4748e7841f24bd9c342bff }}/autogen-chatbot:${{ github.sha }}
         file: ./Dockerfile
 
   deploy:
@@ -47,5 +47,5 @@ jobs:
       with:
         app-name: 'sy-qa-aichatbot'
         slot-name: 'production'
-        publish-profile: ${{ secrets.AzureAppService_PublishProfile_ee8e55ad7ce04cb8bfab46b3bcd58134 }}
-        images: 'mcr.microsoft.com/${{ secrets.AzureAppService_ContainerUsername_649a07d90634428ea8809443631e28a1 }}/appsvc/staticsite:${{ github.sha }}'
+        publish-profile: ${{ secrets.AzureAppService_PublishProfile_6189387bcec6481dac041d096a747bdf }}
+        images: 'syqaaichatbotregistry.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_cfd1a5617e4748e7841f24bd9c342bff }}/autogen-chatbot:${{ github.sha }}'
