@@ -21,6 +21,3 @@ PQA_MATERIAL_SELECTION_QR = f'{QUICK_REPLIES_START_TAG}<material_sy>:["Vinyl", "
 
 # Example for a Yes/No question, like design assistance
 PQA_DESIGN_ASSISTANCE_YES_NO_QR = f'{QUICK_REPLIES_START_TAG}<design_assistance_response>:["Yes", "No"]{QUICK_REPLIES_END_TAG}'
-
-# Example for confirming if a summary is correct
-PQA_SUMMARY_CONFIRMATION_YES_NO_QR = f'{QUICK_REPLIES_START_TAG}<summary_confirmation>:["Yes", "No"]{QUICK_REPLIES_END_TAG}'

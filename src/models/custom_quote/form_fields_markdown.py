@@ -263,10 +263,11 @@ The following defines the fields, requirements, and conditional logic for collec
     - **Property Type:** Ticket Property
     - **Field Type:** File (Conceptually for PQA; actual file handling is via chat)
     - **Required:** No
-    - **PQA Guidance Note:** PQA will manage a multi-step interaction using `{PLANNER_ASK_USER}`: 
-        1. PQA instructs Planner to ask user if they have a design file (Yes/No).
-        2. Based on user's raw response (relayed by Planner), PQA parses it. If "No", PQA then instructs Planner to ask if they need design assistance (Yes/No).
-        3. PQA internally updates its `form_data` for `upload_your_design` (e.g., "Yes, file provided", "No, assistance requested", "No, no assistance needed") and potentially `additional_instructions_`.
+    - **PQA Guidance Note:** PQA will manage a multi-step interaction using `{PLANNER_ASK_USER}`:
+        1. PQA instructs Planner to ask the user to upload their file with a friendly prompt like, "Great! Do you have a design file you'd like to use for your stickers? If so, please upload it now. We'd love to see it!"
+        2. Based on the user's raw response (relayed by Planner), PQA parses it.
+        3. If the user indicates they do *not* have a file (e.g., says "no," "I don't have one"), PQA's next step is to instruct Planner to ask if they need design assistance (Yes/No).
+        4. If the user uploads a file, the system will detect it, and PQA can consider this step complete. PQA will internally update its `form_data` for `upload_your_design` (e.g., "File provided by user", "No file, assistance requested", "No file, no assistance needed") and potentially add a note to `additional_instructions_` if assistance is requested.
 32. **Display Label:** Consent to communicate
     - **HubSpot Internal Name:** `hs_legal_communication_consent_checkbox`
     - **Property Type:** Contact Property
