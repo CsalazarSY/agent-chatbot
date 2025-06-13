@@ -31,6 +31,11 @@ from src.agents.price_quote.instructions_constants import (
     PLANNER_VALIDATION_SUCCESSFUL_PROCEED_TO_TICKET,
 )
 
+# Import Quick Reply Definitions
+from src.models.quick_replies.planner_references import (
+    PLANNER_ADJUST_OR_CUSTOM_QUOTE_QR,
+)
+
 # Load environment variables
 load_dotenv()
 
@@ -240,13 +245,12 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
                - Call the `sy_get_specific_price` tool with all gathered parameters.
                - **Handle `{PRICE_QUOTE_AGENT_NAME}`'s response:**
                  - **Successful Price:** Extract price. Formulate user message: `TASK COMPLETE: Okay! For [quantity] of our [Product Name] at [width]x[height], the price is [price] [currency]. [If shipping was included, mention: "This includes estimated shipping to [country]."] Is there anything else I can help with today? <{USER_PROXY_AGENT_NAME}>`
-                 - **Actionable API Feedback (e.g., min quantity, invalid size for product):** If PQA returns specific feedback like `SY_TOOL_FAILED: ...Minimum quantity is 100...` or `SY_TOOL_FAILED: ...Size not supported for this item...`, present this clearly and offer a choice. Example: `<{USER_PROXY_AGENT_NAME}> : For the [Product Name], it looks like the minimum quantity is 100. Would you like a price for 100 instead? Or, if you need a different quantity, I can help you start a custom quote so our team can take a closer look at your request.` If user wants to adjust for quick quote (and it's feasible), re-delegate to PQA with corrected parameters. If they opt for custom or the issue isn't a simple adjustment, proceed to **"Transitioning to Custom Quote" (Step 5)**, passing known details.
+                 - **Actionable API Feedback (e.g., min quantity, invalid size for product):** If PQA returns specific feedback like `SY_TOOL_FAILED: ...Minimum quantity is 100...` or `SY_TOOL_FAILED: ...Size not supported for this item...`, present this clearly and offer a choice. Example: `<{USER_PROXY_AGENT_NAME}> : For the [Product Name], it looks like the minimum quantity is 100. You can get a quote for the corrected value or start a custom quote. {PLANNER_ADJUST_OR_CUSTOM_QUOTE_QR}` If user wants to adjust for quick quote (and it's feasible), re-delegate to PQA with corrected parameters. If they opt for custom or the issue isn't a simple adjustment, proceed to **"Transitioning to Custom Quote" (Step 5)**, passing known details.
+                   - ***Note on Dynamic Quick Replies:*** When you use a quick reply constant like `PLANNER_ADJUST_OR_CUSTOM_QUOTE_QR` that contains placeholders (e.g., `[Corrected Value]`), you MUST dynamically replace the placeholder with the relevant information from the specialist agent's response before sending the message. For example, you would replace `[Corrected Value]` with `100`.
                  - **Generic API Issue / Other PQA Failure:** If PQA returns a generic `SY_TOOL_FAILED:` or other issue that isn't directly actionable for a quick quote, respond positively: `<{USER_PROXY_AGENT_NAME}> : I encountered a small hiccup trying to get that instant price.` Then, proceed to **"Transitioning to Custom Quote" (Step 5)**, passing known details.
            5.  **Transitioning to Custom Quote (if Quick Quote path exhausted/failed):**
                - Gather known details: `product_name` (from LPA or user description, to be mapped to `product_group` by PQA or clarified), `quantity` (for `total_quantity_`), `width` (for `width_in_inches_`), `height` (for `height_in_inches_`) (if collected).
-               - Offer Custom Quote: `<{USER_PROXY_AGENT_NAME}> : It seems the best way to get you accurate pricing for your specific needs is through a custom quote. This will allow our team to review all the details. I'll need to ask a few more questions. Would you like to proceed with that?`
-               - If user agrees: Initiate **Workflow B.1: Custom Quote Data Collection & Submission**, starting at its Step 1, and be sure to pass the `Pre-existing data` (using HubSpot internal names: `product_group`, `total_quantity_`, `width_in_inches_`, `height_in_inches_`) to PQA in your first delegation message.
-               - If user declines: `<{USER_PROXY_AGENT_NAME}> : Okay, no problem at all. Is there anything else I can assist you with today?`
+               - Formulate delegation to PQA: `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. Users latest response: [User's response agreeing to a custom quote]. Pre-existing data: {{"product_group": "[product_name]", "total_quantity_": "[quantity]", "width_in_inches_": "[width]", "height_in_inches_": "[height]"}}. What is the next step?`
 
      **B.3. Workflow: General Inquiry / FAQ (via {STICKER_YOU_AGENT_NAME})**
        - **Trigger:** User asks a general question about {COMPANY_NAME} products (general info, materials, use cases from KB), company policies (shipping, returns from KB), website information, or an FAQ.

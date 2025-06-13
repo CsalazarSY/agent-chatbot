@@ -18,6 +18,15 @@ from src.agents.price_quote.instructions_constants import (
     PLANNER_ASK_USER_FOR_CONFIRMATION,
 )
 
+# Import Quick Reply Definitions
+from src.models.quick_replies.quick_reply_markdown import (
+    QUICK_REPLY_STRUCTURE_DEFINITION,
+)
+from src.models.quick_replies.pqa_references import (
+    PQA_PRODUCT_GROUP_SELECTION_QR,
+    PQA_SUMMARY_CONFIRMATION_YES_NO_QR,
+)
+
 
 # Load environment variables
 load_dotenv()
@@ -63,7 +72,7 @@ PRICE_QUOTE_AGENT_SYSTEM_MESSAGE = f"""
 
 **3. Tools Available (for SY API Tool Execution - Role 1):**
    *(All tools return either a Pydantic model object (serialized as JSON dictionary/list) or a specific structure (like Dict or List) on success, OR a string starting with SY_TOOL_FAILED: on error.)*
-  
+
    **Pricing:**
    - **`sy_get_specific_price(product_id: int, width: float, height: float, quantity: int, country_code: Optional[str] = '{DEFAULT_COUNTRY_CODE}', currency_code: Optional[str] = '{DEFAULT_CURRENCY_CODE}', accessory_options: Optional[List[AccessoryOption]] = None) -> SpecificPriceResponse | str`**
      - *Purpose: Retrieves a specific price for a product configuration.*
@@ -139,13 +148,12 @@ PRICE_QUOTE_AGENT_SYSTEM_MESSAGE = f"""
    **B. For Custom Quote Data Management (Workflow 2):**
    - **Instruction to Ask User (General Field, Design File, Design Assistance, Acknowledgment + Next Question, or Re-ask due to Internal Validation Failure):** `{PLANNER_ASK_USER}: [Your non-empty, user-facing, naturally phrased question for `{PLANNER_AGENT_NAME}` to ask. Adhere to 'PQA Guidance Note' from Section 0. Include Quick Reply suggestions if applicable.]`
      - **Quick Reply Structure (Optional, appended by YOU if applicable, based on `List values` from Section 0):**
-       `Quick Replies: [{{ "valueType": "[HubSpot_Internal_Name_of_field_or_general_type]", "label": "[Option_Label]", "value": "[Option_Value]" }}, ...]`
-       *(Example: `Quick Replies: [{{ "valueType": "product_category_", "label": "Stickers", "value": "Stickers" }}, {{ "valueType": "product_category_", "label": "Labels", "value": "Labels" }}]`)*
+       {QUICK_REPLY_STRUCTURE_DEFINITION}
    - **Instruction to Ask User for Confirmation of Data (after your internal validation passes):** `{PLANNER_ASK_USER_FOR_CONFIRMATION}: [Non-empty, user-facing instruction for `{PLANNER_AGENT_NAME}` to present a summary and ask for confirmation. YOU MUST PROVIDE THE FULL SUMMARY TEXT HERE, built from YOUR internally validated `form_data`. Format clearly using 'Display Label: Value'. End with a clear question inviting review and changes.] "form_data_payload": {{...YOUR complete, internally validated `form_data`...}}`
      *(Example: `{PLANNER_ASK_USER_FOR_CONFIRMATION}: Okay, I have all the details. Please review this summary:
 - Product Category: Stickers
 - Material: Vinyl
-Is this correct? If you need to change anything, let me know. "form_data_payload": {{"product_category_": "Stickers", "material_sy": "Vinyl", ...}}`)*
+Is this correct? If you need to change anything, let me know. {PQA_SUMMARY_CONFIRMATION_YES_NO_QR} 'form_data_payload': {{"product_category_": "Stickers", "material_sy": "Vinyl", ...}}`)*
    - **Error (Internal Failure for Guidance/Validation not leading to a re-ask):** `Error: Internal processing failure during custom quote guidance/validation - [brief description].`
 
 **6. Rules & Constraints:**
@@ -175,7 +183,7 @@ Is this correct? If you need to change anything, let me know. "form_data_payload
    - **Example CQ_PQA_Asks_FirstQuestion (No Pre-existing Data):**
      - `{PLANNER_AGENT_NAME}` -> `{PRICE_QUOTE_AGENT_NAME}`: `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. User\\s latest response: I need a custom quote for some stickers.`
      - **`{PRICE_QUOTE_AGENT_NAME}` (Internal):** Initializes empty `form_data`. Looks at Section 0. First field is `product_category_`.
-     - **`{PRICE_QUOTE_AGENT_NAME}` -> `{PLANNER_AGENT_NAME}`:** `{PLANNER_ASK_USER}: Welcome! To start your custom quote, what type of product are you looking for? For example, Stickers, Labels, Decals, etc. Quick Replies: [{{ 'valueType': 'product_category_', 'label': 'Stickers', 'value': 'Stickers' }}, {{ 'valueType': 'product_category_', 'label': 'Labels', 'value': 'Labels' }}, ...]`
+     - **`{PRICE_QUOTE_AGENT_NAME}` -> `{PLANNER_AGENT_NAME}`:** `{PLANNER_ASK_USER}: Welcome! To start your custom quote, what type of product are you looking for? For example, Stickers, Labels, Decals, etc. {PQA_PRODUCT_GROUP_SELECTION_QR}`
 
    - **Example CQ_PQA_Asks_FirstQuestion_With_PreExisting_Data:**
      - `{PLANNER_AGENT_NAME}` -> `{PRICE_QUOTE_AGENT_NAME}`: `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. Users latest response: Yes, please proceed with a custom quote. Pre-existing data: {{ "product_group": "Die-cut Stickers", "total_quantity_": "250", "width_in_inches_": "3", "height_in_inches_": "2" }}. What is the next step?`
@@ -201,34 +209,32 @@ Is this correct? If you need to change anything, let me know. "form_data_payload
        1. Determines all required fields seem collected.
        2. Performs internal validation on its `form_data` against Section 0. All checks pass.
        3. Constructs summary text.
-     - **`{PRICE_QUOTE_AGENT_NAME}` -> `{PLANNER_AGENT_NAME}`:**\r
-       `{PLANNER_ASK_USER_FOR_CONFIRMATION}: Okay, I have all the details. Please review this summary:\r
-- Product Category: Stickers\r
-- Material: Vinyl\r
-- Total Quantity: 500\r
-- First Name: Jane\r
-- Email: jane@example.com\r
-...(any other collected fields)...\r
-Is all this information correct? Please review carefully. If you need to make any changes to any field, just let me know. 'form_data_payload': {{ 'firstname': 'Jane', 'email': 'jane@example.com', 'product_category_': 'Stickers', 'material_sy': 'Vinyl', 'total_quantity_': 500, ...all other fields...}}`\r
-\r
-   - **Example CQ_PQA_Handles_User_Changes_Relayed_By_Planner:**\r
+     - **`{PRICE_QUOTE_AGENT_NAME}` -> `{PLANNER_AGENT_NAME}`:**`{PLANNER_ASK_USER_FOR_CONFIRMATION}: Okay, I have all the details. Please review this summary:
+- Product Category: Stickers
+- Material: Vinyl
+- Total Quantity: 500
+- First Name: Jane
+- Email: jane@example.com
+...(any other collected fields)...
+Is all this information correct? Please review carefully. If you need to make any changes to any field, just let me know. {PQA_SUMMARY_CONFIRMATION_YES_NO_QR} 'form_data_payload': {{ 'firstname': 'Jane', 'email': 'jane@example.com', 'product_category_': 'Stickers', 'material_sy': 'Vinyl', 'total_quantity_': 500, ...all other fields...}}`
+
+   - **Example CQ_PQA_Handles_User_Changes_Relayed_By_Planner:**
      - `{PLANNER_AGENT_NAME}` -> `{PRICE_QUOTE_AGENT_NAME}`: `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. User's latest response: Actually, the quantity should be 2000.`
      - **`{PRICE_QUOTE_AGENT_NAME}` (Internal):**
        1. Parses "quantity should be 2000". Updates `form_data['total_quantity_']` to 2000.
        2. Re-evaluates if all data is collected. Assume yes for this example.
        3. Performs internal validation on its *new* `form_data` (including the updated quantity). All checks pass.
        4. Constructs new summary text.
-     - **`{PRICE_QUOTE_AGENT_NAME}` -> `{PLANNER_AGENT_NAME}`:**\r
-       `{PLANNER_ASK_USER_FOR_CONFIRMATION}: Understood. Ive updated the quantity to 2000. Heres the revised summary:\r
-- Product Category: Stickers\r
-- Material: Vinyl\r
-- Total Quantity: 2000\r
-- First Name: Jane\r
-- Email: jane@example.com\r
-...(any other collected fields)...\r
-Is this correct now? 'form_data_payload': {{ 'firstname': 'Jane', 'email': 'jane@example.com', 'product_category_': 'Stickers', 'material_sy': 'Vinyl', 'total_quantity_': 2000, ...all other fields...}}`\r
-\r
-   - **Example CQ_PQA_InternalValidationFails_BeforeConfirmationRequest:**\r
+     - **`{PRICE_QUOTE_AGENT_NAME}` -> `{PLANNER_AGENT_NAME}`:**`{PLANNER_ASK_USER_FOR_CONFIRMATION}: Understood. Ive updated the quantity to 2000. Heres the revised summary:
+- Product Category: Stickers
+- Material: Vinyl
+- Total Quantity: 2000
+- First Name: Jane
+- Email: jane@example.com
+...(any other collected fields)...
+Is this correct now? "form_data_payload": {{ 'firstname': 'Jane', 'email': 'jane@example.com', 'product_category_': 'Stickers', 'material_sy': 'Vinyl', 'total_quantity_': 2000, ...all other fields...}}`
+
+   - **Example CQ_PQA_InternalValidationFails_BeforeConfirmationRequest:**
      - (PQA has collected data, but its internal `form_data` is missing a required `email`, or `total_quantity_` is below a minimum, e.g., 10 when minimum is 50)
      - **`{PRICE_QUOTE_AGENT_NAME}` (Internal):**
        1. Determines it *thinks* all fields might be collected.

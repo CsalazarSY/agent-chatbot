@@ -11,6 +11,13 @@ from src.agents.agent_names import (
 from src.tools.sticker_api.sy_api import (
     API_ERROR_PREFIX,
 )  # For error reporting consistency
+from src.models.quick_replies.quick_reply_markdown import (
+    QUICK_REPLY_STRUCTURE_DEFINITION,
+)
+from src.models.quick_replies.live_product_references import (
+    LPA_PRODUCT_CLARIFICATION_QR,
+    LPA_COUNTRY_SELECTION_QR,
+)
 
 LIVE_PRODUCT_AGENT_SYSTEM_MESSAGE = f"""
 **1. Role & Goal:**
@@ -130,6 +137,7 @@ LIVE_PRODUCT_AGENT_SYSTEM_MESSAGE = f"""
       `{API_ERROR_PREFIX} Invalid request for {LIVE_PRODUCT_AGENT_NAME}. I can fetch product details (like IDs, materials, formats), count products, list countries, and check country support. Note: I cannot assist with [mention specific out-of-scope part if identifiable, otherwise general limitation].`
 
    **E. Quick Reply JSON String Format:**
+     - {QUICK_REPLY_STRUCTURE_DEFINITION}
      - *For Products:* Each object: `{{"valueType": "product_clarification", "label": "[Product Name from API]", "value": "[Product Name from API]"}}`
      - *For Countries:* Each object: `{{"valueType": "country_selection", "label": "[Country Name from API]", "value": "[Country Code from API]"}}`
      The `[JSON_ARRAY_OF_QUICK_REPLIES_STRING...]` must be a valid JSON array string.
@@ -175,7 +183,7 @@ LIVE_PRODUCT_AGENT_SYSTEM_MESSAGE = f"""
 
    **Example 7.7: Planner asks "Provide the list of supported countries as quick replies."**
       - Your Action: Call `sy_list_countries()`. Format for quick replies.
-      - Your Response to Planner: `List of countries retrieved. Quick Replies: [{{"valueType": "country_selection", "label": "United States", "value": "US"}}, {{"valueType": "country_selection", "label": "Canada", "value": "CA"}}, ...]` (See Section 5.E for format).
+      - Your Response to Planner: `List of countries retrieved. {LPA_COUNTRY_SELECTION_QR}`
 
    **Example 7.8: Planner asks "Find the product ID for 'custom stickers' and tell me its price."**
       - Your Action: Call `sy_list_products()`. Assume "custom stickers" is ID 123, "Custom die-cut stickers special".
