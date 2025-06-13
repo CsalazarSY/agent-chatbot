@@ -31,8 +31,6 @@ from src.agents.agent_names import PRICE_QUOTE_AGENT_NAME
 price_quote_tools: List[Callable] = [
     sy_get_specific_price,
     sy_get_price_tiers,
-    sy_verify_login,
-    sy_perform_login,
 ]
 
 
@@ -51,7 +49,7 @@ def create_price_quote_agent(
     """
     price_quote_assistant = AssistantAgent(
         name=PRICE_QUOTE_AGENT_NAME,
-        description="Dual-purpose agent that: 1) Interacts with the StickerYou API for pricing tasks (getting specific prices and tier pricing) and 2) Validates custom quote data against form definition rules before ticket creation. Also handles internal token management. Returns Pydantic models, specific dicts/lists, or validation results.",
+        description="Provides product pricing using StickerYou API tools (specific price, price tiers). For custom quotes, guides the Planner by parsing user's raw responses (relayed by Planner), managing internal form data, determining next questions based on a predefined form structure, and validating the final data. Returns API data for pricing, or instructional commands to the Planner for custom quotes.",
         system_message=PRICE_QUOTE_AGENT_SYSTEM_MESSAGE,
         model_client=model_client,
         tools=price_quote_tools,
