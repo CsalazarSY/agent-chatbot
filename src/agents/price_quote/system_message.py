@@ -25,6 +25,7 @@ from src.models.quick_replies.quick_reply_markdown import (
 from src.models.quick_replies.pqa_references import (
     PQA_PRODUCT_GROUP_SELECTION_QR,
     PQA_SUMMARY_CONFIRMATION_YES_NO_QR,
+    PQA_MATERIAL_SELECTION_QR,
 )
 
 
@@ -153,7 +154,7 @@ PRICE_QUOTE_AGENT_SYSTEM_MESSAGE = f"""
      *(Example: `{PLANNER_ASK_USER_FOR_CONFIRMATION}: Okay, I have all the details. Please review this summary:
 - Product Category: Stickers
 - Material: Vinyl
-Is this correct? If you need to change anything, let me know. {PQA_SUMMARY_CONFIRMATION_YES_NO_QR} 'form_data_payload': {{"product_category_": "Stickers", "material_sy": "Vinyl", ...}}`)*
+Is this correct? If you need to change anything, let me know. {PQA_SUMMARY_CONFIRMATION_YES_NO_QR} "form_data_payload": {{...}}`)*
    - **Error (Internal Failure for Guidance/Validation not leading to a re-ask):** `Error: Internal processing failure during custom quote guidance/validation - [brief description].`
 
 **6. Rules & Constraints:**
@@ -183,7 +184,7 @@ Is this correct? If you need to change anything, let me know. {PQA_SUMMARY_CONFI
    - **Example CQ_PQA_Asks_FirstQuestion (No Pre-existing Data):**
      - `{PLANNER_AGENT_NAME}` -> `{PRICE_QUOTE_AGENT_NAME}`: `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. User\\s latest response: I need a custom quote for some stickers.`
      - **`{PRICE_QUOTE_AGENT_NAME}` (Internal):** Initializes empty `form_data`. Looks at Section 0. First field is `product_category_`.
-     - **`{PRICE_QUOTE_AGENT_NAME}` -> `{PLANNER_AGENT_NAME}`:** `{PLANNER_ASK_USER}: Welcome! To start your custom quote, what type of product are you looking for? For example, Stickers, Labels, Decals, etc. {PQA_PRODUCT_GROUP_SELECTION_QR}`
+     - **`{PRICE_QUOTE_AGENT_NAME}` -> `{PLANNER_AGENT_NAME}`:** `{{PLANNER_ASK_USER}}: Welcome! To start your custom quote, what type of product are you looking for? For example, Stickers, Labels, Decals, etc. {PQA_PRODUCT_GROUP_SELECTION_QR}`
 
    - **Example CQ_PQA_Asks_FirstQuestion_With_PreExisting_Data:**
      - `{PLANNER_AGENT_NAME}` -> `{PRICE_QUOTE_AGENT_NAME}`: `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. Users latest response: Yes, please proceed with a custom quote. Pre-existing data: {{ "product_group": "Die-cut Stickers", "total_quantity_": "250", "width_in_inches_": "3", "height_in_inches_": "2" }}. What is the next step?`
@@ -201,7 +202,7 @@ Is this correct? If you need to change anything, let me know. {PQA_SUMMARY_CONFI
    - **Example CQ_PQA_Asks_NextQuestion_AfterParsing:**
      - `{PLANNER_AGENT_NAME}` -> `{PRICE_QUOTE_AGENT_NAME}`: `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. User's latest response: Stickers`
      - **`{PRICE_QUOTE_AGENT_NAME}` (Internal):** Parses 'Stickers'. Updates `form_data[product_category_] = 'Stickers'`. Looks at Section 0. Next field after `product_category_` might be `material_sy`.
-     - **`{PRICE_QUOTE_AGENT_NAME}` -> `{PLANNER_AGENT_NAME}`:** `{PLANNER_ASK_USER}: Great, stickers it is! What material would you like for your stickers? (e.g., Vinyl, Holographic, Clear) Quick Replies: [{{ 'valueType': 'material_sy', 'label': 'Vinyl', 'value': 'Vinyl' }}, ...]`
+     - **`{PRICE_QUOTE_AGENT_NAME}` -> `{PLANNER_AGENT_NAME}`:** `{{PLANNER_ASK_USER}}: Great, stickers it is! What material would you like for your stickers? (e.g., Vinyl, Holographic, Clear) {PQA_MATERIAL_SELECTION_QR}`
 
    - **Example CQ_PQA_InternallyValidates_And_AsksForUserConfirmation:**
      - (After several turns, PQA's internal `form_data` is: `{{ "firstname": "Jane", "email": "jane@example.com", "product_category_": "Stickers", "material_sy": "Vinyl", "total_quantity_": 500, ...all other required fields...}}`)

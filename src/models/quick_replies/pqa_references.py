@@ -1,16 +1,26 @@
+"""
+This file contains example "Quick Replies: [...]" string constants for the Price Quote Agent (PQA)
+to use in its system message examples or for internal reference.
+"""
+
 # /src/models/quick_replies/pqa_references.py
 
-# Contains example "Quick Replies: [...]" string constants for the Price Quote Agent (PQA)
-# to use in its system message examples or for internal reference.
+from src.models.quick_replies.quick_reply_markdown import (
+    QUICK_REPLIES_START_TAG,
+    QUICK_REPLIES_END_TAG,
+)
 
 # Example for selecting a Product Group (maps to ProductGroupEnum)
-PQA_PRODUCT_GROUP_SELECTION_QR = 'Quick Replies: [{ "valueType": "product_group", "label": "Stickers", "value": "Stickers" }, { "valueType": "product_group", "label": "Labels", "value": "Labels" }, { "valueType": "product_group", "label": "Decals", "value": "Decals" }]'
+PQA_PRODUCT_GROUP_SELECTION_QR = f'{QUICK_REPLIES_START_TAG}<product_group>:["Stickers", "Labels", "Decals"]{QUICK_REPLIES_END_TAG}'
 
 # Example for selecting Use Type (maps to UseTypeEnum)
-PQA_USE_TYPE_SELECTION_QR = 'Quick Replies: [{ "valueType": "use_type", "label": "Personal", "value": "Personal" }, { "valueType": "use_type", "label": "Business", "value": "Business" }]'
+PQA_USE_TYPE_SELECTION_QR = f'{QUICK_REPLIES_START_TAG}<use_type>:["Personal", "Business"]{QUICK_REPLIES_END_TAG}'
+
+# Example for selecting a Material Type
+PQA_MATERIAL_SELECTION_QR = f'{QUICK_REPLIES_START_TAG}<material_sy>:["Vinyl", "Holographic", "Clear"]{QUICK_REPLIES_END_TAG}'
 
 # Example for a Yes/No question, like design assistance
-PQA_DESIGN_ASSISTANCE_YES_NO_QR = 'Quick Replies: [{ "valueType": "design_assistance_response", "label": "Yes, please", "value": "Yes" }, { "valueType": "design_assistance_response", "label": "No, thank you", "value": "No" }]'
+PQA_DESIGN_ASSISTANCE_YES_NO_QR = f'{QUICK_REPLIES_START_TAG}<design_assistance_response>:["Yes", "No"]{QUICK_REPLIES_END_TAG}'
 
 # Example for confirming if a summary is correct
-PQA_SUMMARY_CONFIRMATION_YES_NO_QR = 'Quick Replies: [{ "valueType": "summary_confirmation", "label": "Yes, that\'s correct", "value": "Yes" }, { "valueType": "summary_confirmation", "label": "No, I need to change something", "value": "No" }]'
+PQA_SUMMARY_CONFIRMATION_YES_NO_QR = f'{QUICK_REPLIES_START_TAG}<summary_confirmation>:["Yes", "No"]{QUICK_REPLIES_END_TAG}'

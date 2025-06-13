@@ -14,26 +14,18 @@ from src.agents.agent_names import (
     get_all_agent_names_as_string,
 )
 from src.tools.sticker_api.sy_api import API_ERROR_PREFIX
-from src.tools.wismoLabs.orders import WISMO_ORDER_TOOL_ERROR_PREFIX
+from src.models.quick_replies.quick_reply_markdown import (
+    QUICK_REPLIES_START_TAG,
+    QUICK_REPLIES_END_TAG,
+)
 
 # Import HubSpot Pipeline/Stage constants from config
-from config import (
-    HUBSPOT_PIPELINE_ID_ASSISTED_SALES,
-    HUBSPOT_AS_STAGE_ID,
-    HUBSPOT_PIPELINE_ID_SUPPORT,
-    HUBSPOT_SUPPORT_STAGE_ID,
-)
 
 # Import PQA Planner Instruction Constants
 from src.agents.price_quote.instructions_constants import (
     PLANNER_ASK_USER,
     PLANNER_ASK_USER_FOR_CONFIRMATION,
     PLANNER_VALIDATION_SUCCESSFUL_PROCEED_TO_TICKET,
-)
-
-# Import Quick Reply Definitions
-from src.models.quick_replies.planner_references import (
-    PLANNER_ADJUST_OR_CUSTOM_QUOTE_QR,
 )
 
 # Load environment variables
@@ -118,10 +110,10 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
        - Examples: `<{LIVE_PRODUCT_AGENT_NAME}> : Find product ID for 'custom die-cut stickers'`, `<{LIVE_PRODUCT_AGENT_NAME}> : What are the supported shipping countries for quick replies?`, `<{LIVE_PRODUCT_AGENT_NAME}> : How many total products are offered?`
      - **Expected Response (Strings you MUST parse/use):**
        - Product ID Found: `Product ID for '[description]' is [ID]. Product Name: '[Actual Name]'.` (You extract `[ID]` and `[Actual Name]`)
-       - Multiple Product IDs: `Multiple products may match '[description]'. Please clarify. Quick Replies: [JSON_ARRAY_STRING_FOR_PRODUCTS]` (You relay this message and the Quick Replies JSON to the user)
+       - Multiple Product IDs: `Multiple products may match '[description]'. Please clarify. {QUICK_REPLIES_START_TAG}product_clarification:[...]"{QUICK_REPLIES_END_TAG}` (You relay this message, including the full Quick Replies tag, to the user)
        - No Product ID: `No Product ID found for '[description]'.` (You inform user, may offer Custom Quote)
        - Product List/Count: `Found [N] products matching criteria '[Attribute: Value]'.` or `There are a total of [N] products available.`
-       - Countries for Quick Replies: `List of countries retrieved. Quick Replies: [JSON_ARRAY_STRING_FOR_COUNTRIES]` (You relay Quick Replies JSON to user)
+       - Countries for Quick Replies: `List of countries retrieved. {QUICK_REPLIES_START_TAG}country_selection:[...]{QUICK_REPLIES_END_TAG}` (You relay this message, including the full Quick Replies tag, to the user)
        - Specific Country Info (e.g., checking support): `Yes, '[Country Name]' ([Code]) is a supported shipping country. Note: This is the primary information I can provide... for more comprehensive details... {STICKER_YOU_AGENT_NAME}.` (If note is present, consider its guidance)
        - Specific Country Code: `The country code for '[Country Name]' is [Code].`
        - **Error/Note Handling:** Response may be prefixed with `{API_ERROR_PREFIX}` if a tool call failed. It may also include a "Note:" if the original request had parts it couldn't handle (e.g., pricing). You must interpret this note. Example: `Product ID for 'X' is Y. Product Name: '[Actual Name]'. Note: I cannot provide pricing; please consult the {PRICE_QUOTE_AGENT_NAME} for that.`
@@ -183,8 +175,7 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
             - If Quick Quote is successful, provide the price.
             - If Quick Quote is not straightforward or encounters issues, transition to offering a Custom Quote (see "Transitioning to Custom Quote" under Workflow B.2).
           - **Is it an Explicit Request for a Custom Quote?** (e.g., user says "I need a custom quote", "quote for a special item"):
-            - Inform the user positively: `<{USER_PROXY_AGENT_NAME}> : Absolutely, I can help with a custom quote! To make sure our team has all the information they need, I'll ask a few questions. Let's get started.`
-            - Initiate **Workflow B.1: Custom Quote Data Collection & Submission**.
+            - Initiate **Workflow B.1: Custom Quote Data Collection & Submission** directly. Your first message to the user will be the first question provided by the {PRICE_QUOTE_AGENT_NAME}.
           - **Is the request Ambiguous or Needs Clarification?**
             - Formulate a clarifying question to the user (Section 5.B.1).
      3. **Internal Execution & Response Formulation:** Follow identified workflow. Conclude by formulating ONE user-facing message (Section 5.B).
@@ -204,9 +195,9 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
             - Delegate to PQA (using format from Section 5.A.4). Example: `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. User's latest response: 'User agreed to custom quote.' Pre-existing data: {{ "product_group": "[product_name_or_group_from_quick_quote]", "total_quantity_": "[quantity_from_quick_quote]", "width_in_inches_": "[width_from_quick_quote]", "height_in_inches_": "[height_from_quick_quote]" }}. What is the next step?` (Omit `Pre-existing data` if not applicable or no data was reliably gathered. Note: `product_group` should be the actual product group if known, or the user's description if a direct mapping isn't available yet.)
             - (Await PQA response INTERNALLY).
          2. **Act on PQA's Instruction:**
-            - If PQA responds `{PLANNER_ASK_USER}: [Question Text from PQA]`: Relay the exact `[Question Text from PQA]` to the user.
+            - If PQA responds `{PLANNER_ASK_USER}: [Question Text from PQA]`: Formulate your response as `<{USER_PROXY_AGENT_NAME}> : [Question Text from PQA]` and output it as your final message for the turn.
             - If PQA responds `{PLANNER_ASK_USER_FOR_CONFIRMATION}: [Full summary text and confirmation question from PQA] 'form_data_payload': {{...PQA's form_data...}}`:
-                - Relay the `[Full summary text and confirmation question from PQA]` to the user.
+                - Formulate your response as `<{USER_PROXY_AGENT_NAME}> : [Full summary text and confirmation question from PQA]` and output it as your final message for the turn.
                 - **Internally store the `form_data_payload` provided by PQA.** This data will be used for ticket creation if the user confirms.
             (This completes your turn).
          3. **User Responds to Confirmation Request (Next Turn):**
@@ -245,8 +236,7 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
                - Call the `sy_get_specific_price` tool with all gathered parameters.
                - **Handle `{PRICE_QUOTE_AGENT_NAME}`'s response:**
                  - **Successful Price:** Extract price. Formulate user message: `TASK COMPLETE: Okay! For [quantity] of our [Product Name] at [width]x[height], the price is [price] [currency]. [If shipping was included, mention: "This includes estimated shipping to [country]."] Is there anything else I can help with today? <{USER_PROXY_AGENT_NAME}>`
-                 - **Actionable API Feedback (e.g., min quantity, invalid size for product):** If PQA returns specific feedback like `SY_TOOL_FAILED: ...Minimum quantity is 100...` or `SY_TOOL_FAILED: ...Size not supported for this item...`, present this clearly and offer a choice. Example: `<{USER_PROXY_AGENT_NAME}> : For the [Product Name], it looks like the minimum quantity is 100. You can get a quote for the corrected value or start a custom quote. {PLANNER_ADJUST_OR_CUSTOM_QUOTE_QR}` If user wants to adjust for quick quote (and it's feasible), re-delegate to PQA with corrected parameters. If they opt for custom or the issue isn't a simple adjustment, proceed to **"Transitioning to Custom Quote" (Step 5)**, passing known details.
-                   - ***Note on Dynamic Quick Replies:*** When you use a quick reply constant like `PLANNER_ADJUST_OR_CUSTOM_QUOTE_QR` that contains placeholders (e.g., `[Corrected Value]`), you MUST dynamically replace the placeholder with the relevant information from the specialist agent's response before sending the message. For example, you would replace `[Corrected Value]` with `100`.
+                 - **Actionable API Feedback (e.g., min quantity, invalid size for product):** If PQA returns specific feedback like `SY_TOOL_FAILED: ...Minimum quantity is 100...` or `SY_TOOL_FAILED: ...Size not supported for this item...`, present this clearly to the user and transition gracefully to a Custom Quote. Example: `<{USER_PROXY_AGENT_NAME}> : For the [Product Name], it looks like the minimum quantity is 100. Since this item has specific requirements, I can help you get a custom quote from our team to make sure we get it just right.` Then, proceed to **"Transitioning to Custom Quote" (Step 5)**, passing any known details.
                  - **Generic API Issue / Other PQA Failure:** If PQA returns a generic `SY_TOOL_FAILED:` or other issue that isn't directly actionable for a quick quote, respond positively: `<{USER_PROXY_AGENT_NAME}> : I encountered a small hiccup trying to get that instant price.` Then, proceed to **"Transitioning to Custom Quote" (Step 5)**, passing known details.
            5.  **Transitioning to Custom Quote (if Quick Quote path exhausted/failed):**
                - Gather known details: `product_name` (from LPA or user description, to be mapped to `product_group` by PQA or clarified), `quantity` (for `total_quantity_`), `width` (for `width_in_inches_`), `height` (for `height_in_inches_`) (if collected).

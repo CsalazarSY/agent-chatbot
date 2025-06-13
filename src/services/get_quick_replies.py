@@ -1,77 +1,95 @@
 """Service for extracting quick reply data from agent messages."""
+
 # /src/services/get_quick_replies.py
 
 import json
 import re
-from typing import Optional, Tuple, List, Dict, Any
+from typing import Optional, Tuple
 
 # Import the DTO for QuickReplyAttachment to validate the parsed structure
-from src.tools.hubspot.conversation.dto_requests import QuickReplyOption, QuickReplyAttachment
+from src.tools.hubspot.conversation.dto_requests import (
+    QuickReplyOption,
+    QuickReplyAttachment,
+)
+from src.models.quick_replies.quick_reply_markdown import (
+    QUICK_REPLIES_START_TAG,
+    QUICK_REPLIES_END_TAG,
+)
 
-def extract_quick_replies(raw_reply_content: str) -> Tuple[str, Optional[QuickReplyAttachment]]:
-    """
-    Extracts quick reply JSON string from the end of an agent's message,
+
+def extract_quick_replies(
+    raw_reply_content: str,
+) -> Tuple[str, Optional[QuickReplyAttachment]]:
+    f"""
+    Extracts a custom quick reply tag format from an agents message,
     parses it into a QuickReplyAttachment object, and returns the cleaned message
     and the attachment object.
 
+    The expected format is:
+    {QUICK_REPLIES_START_TAG}<value_type>:[JSON_ARRAY_OF_STRINGS]{QUICK_REPLIES_END_TAG}
+    e.g., {QUICK_REPLIES_START_TAG}country_selection:["United States|US", "Canada|CA"]{QUICK_REPLIES_END_TAG}
+
     Args:
-        raw_reply_content: The raw string content from the agent, which might
-                           contain a quick reply definition at the end.
+        raw_reply_content: The raw string content from the agent.
 
     Returns:
         A tuple containing:
-            - cleaned_message_text: The message text with the quick reply definition removed.
+            - cleaned_message_text: The message text with the quick reply block removed.
             - quick_reply_attachment: A QuickReplyAttachment object if valid quick
-                                      replies were found and parsed, otherwise None.
+                                      replies were found, otherwise None.
     """
     cleaned_message_text = raw_reply_content
-    quick_reply_attachment_obj: Optional[QuickReplyAttachment] = None
+    quick_reply_attachment: Optional[QuickReplyAttachment] = None
 
-    # Regex to find "Quick Replies: [...]" at the end of the string
-    # It captures the JSON part (the list within the brackets)
-    # The regex handles potential whitespace and ensures it's at the end.
-    match = re.search(r"Quick Replies:\s*(\[.*?\])\s*$", raw_reply_content, re.DOTALL)
+    # Regex to find the custom quick reply block.
+    # It captures the value_type and the JSON array string.
+    pattern = re.compile(
+        f"{re.escape(QUICK_REPLIES_START_TAG)}"  # Start tag
+        r"<([^>:]+)>:"  # Capture group 1: value_type (anything not '>' or ':')
+        r"\s*(\[.*?\])\s*"  # Capture group 2: the JSON array
+        f"{re.escape(QUICK_REPLIES_END_TAG)}",  # End tag
+        re.DOTALL,
+    )
+
+    match = pattern.search(raw_reply_content)
 
     if match:
-        quick_reply_json_str = match.group(1)
-        # Remove the matched part (including "Quick Replies: ") from the original message
-        cleaned_message_text = raw_reply_content[:match.start()].strip()
-        
-        try:
-            # Parse the JSON string into a list of dictionaries
-            quick_reply_list_data = json.loads(quick_reply_json_str)
-            
-            # Validate and structure the data using Pydantic models
-            if isinstance(quick_reply_list_data, list):
-                parsed_options = []
-                valid_options = True
-                for item in quick_reply_list_data:
-                    if isinstance(item, dict):
-                        try:
-                            option = QuickReplyOption(**item)
-                            parsed_options.append(option)
-                        except Exception as pydantic_err_option:
-                            print(f"Error parsing individual quick reply option: {item}. Error: {pydantic_err_option}")
-                            valid_options = False
-                            break 
-                    else:
-                        print(f"Invalid item type in quick_reply_list_data: {type(item)}. Expected dict.")
-                        valid_options = False
-                        break
-                
-                if valid_options and parsed_options: # Ensure we have some valid options
-                    quick_reply_attachment_obj = QuickReplyAttachment(quickReplies=parsed_options)
-                elif not parsed_options:
-                     print("No valid quick reply options were parsed from the JSON data.")
-                # If valid_options is False, an error has already been printed.
+        value_type = match.group(1).strip()
+        json_array_str = match.group(2)
+        # Remove the entire matched block from the original message
+        cleaned_message_text = pattern.sub("", raw_reply_content).strip()
 
-            else:
-                print(f"Parsed quick reply data is not a list: {type(quick_reply_list_data)}")
+        try:
+            options_list = json.loads(json_array_str)
+            parsed_options = []
+
+            if isinstance(options_list, list):
+                for item in options_list:
+                    if not isinstance(item, str):
+                        continue  # Skip non-string items in the list
+
+                    parts = item.split("|", 1)
+                    if len(parts) == 2:
+                        label, value = parts
+                    else:
+                        label = value = item
+
+                    parsed_options.append(
+                        QuickReplyOption(valueType=value_type, label=label, value=value)
+                    )
+
+                if parsed_options:
+                    quick_reply_attachment = QuickReplyAttachment(
+                        quickReplies=parsed_options
+                    )
 
         except json.JSONDecodeError as e:
-            print(f"Failed to decode Quick Replies JSON: {e}. String was: {quick_reply_json_str}")
+            print(
+                f"Failed to decode Quick Replies JSON: {e}. String was: {json_array_str}"
+            )
         except Exception as e_gen:
-            # Catch any other unexpected errors during parsing or Pydantic validation
-            print(f"An unexpected error occurred while processing quick replies: {e_gen}. JSON string was: {quick_reply_json_str}")
+            print(
+                f"An unexpected error occurred while processing quick replies: {e_gen}. Tag was: {match.group(0)}"
+            )
 
-    return cleaned_message_text, quick_reply_attachment_obj 
+    return cleaned_message_text, quick_reply_attachment
