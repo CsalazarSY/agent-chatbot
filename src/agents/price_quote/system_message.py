@@ -8,7 +8,7 @@ from src.agents.agent_names import (
     PLANNER_AGENT_NAME,
 )
 
-from src.models.custom_quote.form_fields_markdown import (
+from src.markdown_info.custom_quote.form_fields_markdown import (
     CUSTOM_QUOTE_FORM_MARKDOWN_DEFINITION,
 )
 
@@ -19,10 +19,10 @@ from src.agents.price_quote.instructions_constants import (
 )
 
 # Import Quick Reply Definitions
-from src.models.quick_replies.quick_reply_markdown import (
+from src.markdown_info.quick_replies.quick_reply_markdown import (
     QUICK_REPLY_STRUCTURE_DEFINITION,
 )
-from src.models.quick_replies.pqa_references import (
+from src.markdown_info.quick_replies.pqa_references import (
     PQA_PRODUCT_GROUP_SELECTION_QR,
     PQA_MATERIAL_SELECTION_QR,
 )

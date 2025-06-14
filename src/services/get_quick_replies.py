@@ -11,7 +11,7 @@ from src.tools.hubspot.conversation.dto_requests import (
     QuickReplyOption,
     QuickReplyAttachment,
 )
-from src.models.quick_replies.quick_reply_markdown import (
+from src.markdown_info.quick_replies.quick_reply_markdown import (
     QUICK_REPLIES_START_TAG,
     QUICK_REPLIES_END_TAG,
 )

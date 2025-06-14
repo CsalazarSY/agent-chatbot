@@ -14,7 +14,7 @@ from src.agents.agent_names import (
     get_all_agent_names_as_string,
 )
 from src.tools.sticker_api.sy_api import API_ERROR_PREFIX
-from src.models.quick_replies.quick_reply_markdown import (
+from src.markdown_info.quick_replies.quick_reply_markdown import (
     QUICK_REPLIES_START_TAG,
     QUICK_REPLIES_END_TAG,
 )

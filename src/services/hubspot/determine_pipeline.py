@@ -2,7 +2,7 @@ from typing import Tuple, Optional
 
 from src.tools.hubspot.tickets.dto_requests import TicketCreationProperties
 from src.tools.hubspot.tickets.constants import TypeOfTicketEnum
-from src.models.custom_quote.constants import (
+from src.markdown_info.custom_quote.constants import (
     ProductGroupEnum,
     TypeOfStickerEnum,
     TypeOfTattooEnum,

@@ -1,5 +1,5 @@
-# /src/models/quick_replies/live_product_references.py
-from src.models.quick_replies.quick_reply_markdown import (
+# /src/markdown_info/quick_replies/live_product_references.py
+from .quick_reply_markdown import (
     QUICK_REPLIES_START_TAG,
     QUICK_REPLIES_END_TAG,
 )

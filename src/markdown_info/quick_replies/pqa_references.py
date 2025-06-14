@@ -3,9 +3,9 @@ This file contains example "Quick Replies: [...]" string constants for the Price
 to use in its system message examples or for internal reference.
 """
 
-# /src/models/quick_replies/pqa_references.py
+# /src/markdown_info/quick_replies/pqa_references.py
 
-from src.models.quick_replies.quick_reply_markdown import (
+from .quick_reply_markdown import (
     QUICK_REPLIES_START_TAG,
     QUICK_REPLIES_END_TAG,
 )

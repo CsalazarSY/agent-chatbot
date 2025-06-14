@@ -11,10 +11,10 @@ from src.agents.agent_names import (
 from src.tools.sticker_api.sy_api import (
     API_ERROR_PREFIX,
 )
-from src.models.quick_replies.quick_reply_markdown import (
+from src.markdown_info.quick_replies.quick_reply_markdown import (
     QUICK_REPLY_STRUCTURE_DEFINITION,
 )
-from src.models.quick_replies.live_product_references import (
+from src.markdown_info.quick_replies.live_product_references import (
     LPA_PRODUCT_CLARIFICATION_QR,
     LPA_COUNTRY_SELECTION_QR,
 )

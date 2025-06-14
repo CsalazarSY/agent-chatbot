@@ -7,7 +7,7 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 
 # Import Enums from custom_quote constants
-from src.models.custom_quote.constants import (
+from src.markdown_info.custom_quote.constants import (
     UseTypeEnum,
     BusinessCategoryEnum,
     LocationEnum,
