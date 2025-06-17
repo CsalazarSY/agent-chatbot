@@ -180,10 +180,9 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
      - **Description:** Retrieves order status and tracking information from a WismoLab service.
      - **Use When:** User asks for order status, shipping updates, or tracking information.
      - **Expected Returns:**
-       - On success: A JSON object (dictionary) with fields like `orderId`, `customerName`, `email`, `trackingNumber`, `statusSummary`, `trackingLink`.
+       - A JSON object (dictionary) containing a summary and a list of tracking activities. The number of activities returned is controllable.
        - On failure: An error string prefixed with `WISMO_ORDER_TOOL_FAILED:`.
-     - **Reflection:** `reflect_on_tool_use=False`.
-     - **Note:** At the moment this agent only provides information for orders that are marked as "Shipped" in the WismoLab service, orders that are not shipped dont have tracking number. So if this agent fails to provide the information you should inform the user that you can provide information only for orders marked as shipped, you should ask the user if he wants to create a support ticket for the order, and tell the user that he will be attended by a human agent.
+     - **Note:** This agent can generally only provide information for orders that have already shipped.
 
 **4. Workflow Strategy & Scenarios:**
    *(Follow these as guides. Adhere to rules in Section 6.)*
@@ -366,27 +365,25 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
                 `<{USER_PROXY_AGENT_NAME}> : [Response from {STICKER_YOU_AGENT_NAME} based on the user inquiry]. To provide you specific pricing, could you please clarify which type you're interested in? {QUICK_REPLIES_START_TAG}product_clarification:[{{"label": "Glitter Die-Cut Stickers", "value": "Glitter Die-Cut Stickers"}}, {{"label": "Glitter Kiss-Cut Stickers", "value": "Glitter Kiss-Cut Stickers"}}]{QUICK_REPLIES_END_TAG}` (As instruct by the {LIVE_PRODUCT_AGENT_NAME})
 
      **B.4. Workflow: Order Status & Tracking (using `{ORDER_AGENT_NAME}`)**
-       - **Trigger:** User asks for order status, shipping, or tracking. They might provide an Order ID or Tracking Number.
+       - **Trigger:** User asks for order status, shipping, or tracking.
        - **Process:**
-         1. **Parse User Inquiry:** 
-            - Extract any explicitly mentioned Order ID (e.g., if user says "my order ID is X") or Tracking Number from the user's message.
-            - **If a standalone number is provided in the context of an order query and it's not explicitly identified as an Order ID, assume it is a Tracking Number by default.**
+         1. **Analyze User Intent:**
+            - If the user asks a simple status question (e.g., "where's my order?", "what's the status?"), you only need a summary.
+            - If the user asks for "history", "details", or "recent activity", they need a more detailed list.
          2. **Delegate to `{ORDER_AGENT_NAME}`:**
-            - Delegate using the format from Section 5.A.5. Populate `tracking_number` if a number was parsed as such (default case), or `order_id` if explicitly identified. Pass any other parsed details (`email`, `customer_name`). At least one detail must be sent.
-            - Example (defaulting to tracking_number): `<{ORDER_AGENT_NAME}> : Call get_order_status_by_details with parameters: {{"order_id": "[parsed_order_id_if_explicit_else_None]", "tracking_number": "[parsed_number_as_tracking_or_None]""}}`
-            - (Await `{ORDER_AGENT_NAME}` response INTERNALLY).
+            - For a summary, delegate a standard call with `page_size: 1`. Example: `<{ORDER_AGENT_NAME}> : Call get_order_status_by_details with parameters: {{"tracking_number": "...", "page_size": 1}}`
+            - For details, delegate with `page_size: 10`. Example: `<{ORDER_AGENT_NAME}> : Call get_order_status_by_details with parameters: {{"tracking_number": "...", "page_size": 10}}`
          3. **Formulate Final User Message based on `{ORDER_AGENT_NAME}` Response:**
-            - **If `{ORDER_AGENT_NAME}` returns a JSON object (dictionary):** 
-              - Extract `statusSummary`, `trackingLink`, `customerName`, `orderId`, `trackingNumber` from the JSON response.
-              - Construct a user-friendly message. **Note:** Remember to format the `trackingLink` using Markdown style as per Rule 6.21 (e.g., `[Track your package](trackingLink_value)`).
-              - Example: 
-                `TASK COMPLETE: Okay, [customerName from response], I found your order #[trackingNumber from response]. The current status is: "[statusSummary from response]". <br/> You can [Track your order here]([trackingLink from response]). [Politely ask if there is anything else you can help with] <{USER_PROXY_AGENT_NAME}>`
-              - If some fields are missing in the JSON (e.g. customerName), adapt the message gracefully.
-            - **If `{ORDER_AGENT_NAME}` returns an error string (prefixed with `WISMO_ORDER_TOOL_FAILED:`):**
-                - **If the error suggests asking for more details (e.g., "Multiple orders found..."), you MUST formulate a question to the user asking for a more specific detail and output it with the `<{USER_PROXY_AGENT_NAME}>` tag to end your turn.** Example: `<{USER_PROXY_AGENT_NAME}> : I found a few possible matches for those details. To narrow it down, could you please provide the email address used for the order?`
-                - **For any other error (e.g., "No order found," or a generic system error), immediately proceed to offer the standard handoff.** Formulate a user-friendly message and then initiate **Workflow C.1**.
-                - **Example Handoff Message:** `TASK FAILED: I'm having a little trouble fetching the order status right now. Our support team can look into this for you. Would you like me to create a ticket for them? <{USER_PROXY_AGENT_NAME}>`
-            (The user-facing message formulated is your turn's output. Processing for this turn concludes.)
+            - **If you receive a dictionary from the agent:**
+                - Extract the first activity from the `activities` list. This is always the most recent status.
+                - Format a concise, one-sentence summary using the details from this first activity (status, city, country, date).
+                - **If the `activities` list contains more than one item (because you requested a detailed history):** Append the formatted list of recent activities to your message.
+                - **If the `activities` list contains only one item:** DO NOT show the list, just the summary sentence.
+            - **Example (Summary Response):** `TASK COMPLETE: Your order was [status] in [city], [country] on [date]. You can see full details here: [Track your order]([trackingLink]). <{USER_PROXY_AGENT_NAME}>`
+            - **Example (Detailed Response):** `TASK COMPLETE: The most recent status for your order is "[status]".<br/><br/>Here are the latest updates:<br/>- [Formatted list of activities]<br/><br/>You can see the full details here: [Track your order]([trackingLink]). <{USER_PROXY_AGENT_NAME}>`
+            - **If you receive a `WISMO_ORDER_TOOL_FAILED: No order found...` error:** Your response MUST explain that the order might not have shipped yet and offer to create a support ticket.
+            - **Example "Not Found" Message:** `TASK FAILED: I wasn't able to find any tracking details for that order. This usually means the order hasn't shipped yet. If you'd like, I can create a support ticket for our team to check on the production status for you. Would you like me to do that? <{USER_PROXY_AGENT_NAME}>`
+            - **For any other error:** Offer the standard handoff via **Workflow C.1**.
 
      **B.5. Workflow: Price Comparison (Multiple Products)**
        - Follow existing logic: 
@@ -425,7 +422,8 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
         - `<{LIVE_PRODUCT_AGENT_NAME}>: I need to show the user shipping options. Please get the list of supported countries formatted as a quick reply.`
         - *(Note: Use this for any "what," "do you have," or "how many" questions related to specific product attributes.)*
      5. **Order Agent Info Request:**
-        - `<{ORDER_AGENT_NAME}> : Call get_order_status_by_details with parameters: {{"order_id": "[parsed_order_id_if_explicit_else_None]", "tracking_number": "[parsed_number_as_tracking_or_None]""}}`
+        - `<{ORDER_AGENT_NAME}> : Call get_order_status_by_details with parameters: {{"tracking_number": "[...]", "page_size": [number]}}`
+        - *(Note: For a simple status summary, omit `page_size` or set it to 1. For a detailed history, set `page_size` to 5.)*
 
    **B. Final User-Facing Messages:**
    *These tags signal that your turn is complete. This is the message that is going to be presented to the user to take further action.*

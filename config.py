@@ -106,6 +106,10 @@ HUBSPOT_PR_STAGE_ID = os.getenv("HUBSPOT_PR_STAGE_ID")
 HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS = os.getenv("HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS")
 HUBSPOT_CS_STAGE_ID = os.getenv("HUBSPOT_CS_STAGE_ID")
 
+# --- WismoLabs Configuration ---
+WISMOLABS_API_URL = os.getenv("WISMOLABS_API_URL")
+WISMOLABS_CONSULT_URL = os.getenv("WISMOLABS_CONSULT_URL")
+
 # --- Redis Configuration ---
 REDIS_HOST = os.getenv("REDIS_HOST")
 REDIS_PORT = os.getenv("REDIS_PORT", 6380)
@@ -196,6 +200,8 @@ def validate_api_config():
         raise ValueError(
             "REDIS_HOST and REDIS_PASSWORD environment variables must be set."
         )
+    if not WISMOLABS_API_URL:
+        raise ValueError("WISMOLABS_API_URL environment variable not set in .env file.")
 
 
 # Run on import
