@@ -263,72 +263,12 @@ async def sy_get_design_preview(
 
 # --- Helper function for country quick replies ---
 def _format_countries_as_qr(countries: List[Country]) -> str:
-    """Internal helper to format a list of Country objects into the Quick Reply string."""
-    if not countries:
-        return ""
-    option_strings = [f"{country.name}|{country.code}" for country in countries]
-    json_array_str = json.dumps(option_strings, ensure_ascii=False)
-    return f"{QUICK_REPLIES_START_TAG}<country_selection>:{json_array_str}{QUICK_REPLIES_END_TAG}"
-
-
-async def get_live_products(
-    name: Optional[str] = None,
-    format: Optional[str] = None,
-    material: Optional[str] = None,
-) -> ProductListResponse | str:
-    """
-    Retrieves a filtered and scored list of up to 20 products based on search criteria.
-    This tool is designed to be faster by pre-processing products before an LLM needs to analyze them.
-    It calls the internal sy_list_products() and then applies a scoring algorithm.
-    """
-    # Step 1: Get the full product list from the actual API
-    all_products_response = await sy_list_products()
-    if isinstance(all_products_response, str):
-        return f"{API_ERROR_PREFIX} Could not retrieve product list for filtering. Upstream error: {all_products_response}"
-
-    # Step 2: Prepare a unique set of lowercase search terms from all inputs
-    search_terms = set()
-    if name:
-        search_terms.update(term.lower() for term in re.split(r"[\s,-]+", name) if term)
-    if format:
-        search_terms.update(
-            term.lower() for term in re.split(r"[\s,-]+", format) if term
-        )
-    if material:
-        search_terms.update(
-            term.lower() for term in re.split(r"[\s,-]+", material) if term
-        )
-
-    if not search_terms:
-        # If no criteria are given, return all the products
-        return all_products_response
-
-    # Step 3: Iterate through all products and calculate a score for each one
-    product_scores = []
-    for product in all_products_response:
-        score = 0
-        # Create a single, lowercase string of the product's key attributes for easy searching
-        product_text = f"{product.name.lower() if product.name else ''} {product.material.lower() if product.material else ''} {product.format.lower() if product.format else ''}"
-
-        for term in search_terms:
-            if term in product_text:
-                score += 1
-
-        if score > 0:
-            product_scores.append({"score": score, "product": product})
-
-    # Step 4: Sort the scored products and prepare the final list
-    if not product_scores:
-        return ProductListResponse(
-            root=[]
-        )  # Return an empty list if no products matched
-
-    sorted_products = sorted(product_scores, key=lambda x: x["score"], reverse=True)
-
-    # Extract only the ProductDetail objects from the sorted list, up to a max of 20
-    top_products = [item["product"] for item in sorted_products[:20]]
-
-    return ProductListResponse(root=top_products)
+    """Formats a list of Country objects into a JSON string for Quick Replies."""
+    qr_options = [
+        {"label": country["name"], "value": country["name"]} for country in countries
+    ]
+    # Note: <country_selection> is a placeholder type. The Planner should use this.
+    return f"{{QUICK_REPLIES_START_TAG}}<country_selection>:{json.dumps(qr_options)}{{QUICK_REPLIES_END_TAG}}"
 
 
 async def get_live_countries(
@@ -363,6 +303,69 @@ async def get_live_countries(
         ]
 
     return CountriesResponse(countries=filtered_countries)
+
+
+async def get_live_products(
+    name: Optional[str] = None,
+    format: Optional[str] = None,
+    material: Optional[str] = None,
+) -> ProductListResponse | str:
+    """
+    Retrieves a filtered and scored list of up to 20 products based on search criteria.
+    This tool is designed to be faster by pre-processing products before an LLM needs to analyze them.
+    It calls the internal sy_list_products() and then applies a scoring algorithm.
+    Handles '*' as a wildcard for any field, meaning that field will not be used for filtering.
+    """
+    # Step 1: Get the full product list from the actual API
+    all_products_response = await sy_list_products()
+    if isinstance(all_products_response, str):
+        return f"{API_ERROR_PREFIX} Could not retrieve product list for filtering. Upstream error: {all_products_response}"
+
+    # Step 2: Prepare a unique set of lowercase search terms, ignoring wildcards.
+    search_terms = set()
+    # Only add terms if the input is not None and not a wildcard '*'
+    if name and name != "*":
+        search_terms.update(term.lower() for term in re.split(r"[\s,-]+", name) if term)
+    if format and format != "*":
+        search_terms.update(
+            term.lower() for term in re.split(r"[\s,-]+", format) if term
+        )
+    if material and material != "*":
+        search_terms.update(
+            term.lower() for term in re.split(r"[\s,-]+", material) if term
+        )
+
+    if not search_terms:
+        # If no criteria are given (or all are wildcards), return all products parsed into the correct model.
+        return ProductListResponse(root=all_products_response)
+
+    # Step 3: Iterate through all products and calculate a score for each one
+    product_scores = []
+    for product in all_products_response:
+        score = 0
+        # Create a single, lowercase string of the product's key attributes for easy searching
+        product_text = f"{product.get('name', '').lower()} {product.get('material', '').lower()} {product.get('format', '').lower()}"
+
+        for term in search_terms:
+            if term in product_text:
+                score += 1
+
+        if score > 0:
+            # We append the original dictionary 'product' here
+            product_scores.append({"score": score, "product": product})
+
+    # Step 4: Sort the scored products and prepare the final list
+    if not product_scores:
+        # Return an empty list wrapped in the Pydantic model if no products matched
+        return ProductListResponse(root=[])
+
+    sorted_products = sorted(product_scores, key=lambda x: x["score"], reverse=True)
+
+    # Extract only the ProductDetail dictionaries from the sorted list, up to a max of 20
+    top_products = [item["product"] for item in sorted_products[:20]]
+
+    # Finally, parse the list of dictionaries into the Pydantic model before returning
+    return ProductListResponse(root=top_products)
 
 
 # --- Orders ---

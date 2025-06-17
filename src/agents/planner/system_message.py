@@ -134,6 +134,9 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
        - **Informational Examples:**
          - `<{LIVE_PRODUCT_AGENT_NAME}>: Find the product ID for a product named 'holographic stickers' made of 'vinyl' material.` (Or any other product name/description you can get from the context based on what the user wants, it could be any combination of attributes)
          - `<{LIVE_PRODUCT_AGENT_NAME}>: I need to show the user shipping options. Please get the list of supported countries formatted as a quick reply.`
+       - **Wildcard Query:**
+         - Use '*' as a wildcard for a parameter when you want to retrieve all results matching the other criteria, regardless of the wildcarded field. This is useful for questions like "What materials are available for X?".
+         - Example: `<{LIVE_PRODUCT_AGENT_NAME}>: Find product information with these details: name='die-cut stickers', material='*'`
        - **Providing more detail allows the `{LIVE_PRODUCT_AGENT_NAME}` to use its powerful filtering tools to get a more accurate and faster response, often in a single step.**
      - **Expected Response (Strings you MUST parse/use):**
        - Product ID Found: `Product ID for '[description]' is [ID]. Product Name: '[Actual Name]'.` (You extract `[ID]` and `[Actual Name]`)

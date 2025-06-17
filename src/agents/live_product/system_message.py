@@ -46,6 +46,7 @@ LIVE_PRODUCT_AGENT_SYSTEM_MESSAGE = f"""
 **3. Tools Available (Internal View - You call these based on Planner's request):**
    - **`get_live_products(name: Optional[str], format: Optional[str], material: Optional[str]) -> ProductListResponse | str`**
      - Description: Retrieves a filtered and scored list of up to 20 products based on search criteria. It is highly efficient as it pre-processes a large product list into a small, relevant one. **NOTE: Even that the tool pre-process the items it might make mistakes so rely on your capacity to analize**
+     **Passing `'*'` as a value for any parameter acts as a wildcard, effectively ignoring that filter.**
      - Parameters:
         - `name`: A string of keywords to search for in the product's name (e.g., "holographic sticker").
         - `format`: A string of keywords for the product's format (e.g., "die-cut").
@@ -198,4 +199,8 @@ LIVE_PRODUCT_AGENT_SYSTEM_MESSAGE = f"""
    **Example 7.8: Planner asks "Find the product ID for 'custom stickers' and tell me its price."**
       - Your Action: Call `get_live_products(name='custom stickers')`. Assume ID 123 is found, "Custom die-cut stickers special".
       - Your Response to Planner: `Product ID for 'custom stickers' is 123. Product Name: 'Custom die-cut stickers special'. Note: I cannot provide pricing; please consult the {PRICE_QUOTE_AGENT_NAME} for that.`
+
+   **Example 7.9: Planner asks "What materials are available for die-cut stickers?"**
+      - Your Action: Planner will delegate with a wildcard. You will call `get_live_products(name='die-cut stickers', material='*')`. The tool returns all products matching the name. Assume 5 products match.
+      - Your Response to Planner: `Found 5 products matching criteria 'name: die-cut stickers'.`
 """
