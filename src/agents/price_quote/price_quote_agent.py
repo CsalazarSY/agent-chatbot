@@ -3,8 +3,7 @@
 # /src/agents/price_quote/price_quote_agent.py
 
 # --- Type Hint Imports ---
-from typing import Optional, List, Callable
-from autogen_core.memory import Memory
+from typing import List, Callable
 
 # --- Third Party Imports ---
 from autogen_agentchat.agents import AssistantAgent
@@ -15,9 +14,6 @@ from autogen_ext.models.openai import OpenAIChatCompletionClient
 from src.tools.sticker_api.sy_api import (
     sy_get_specific_price,
     sy_get_price_tiers,
-    sy_list_countries,
-    sy_verify_login,  # Internal use for token checks
-    sy_perform_login,  # Internal use for token refresh
 )
 
 # Import the updated system message string

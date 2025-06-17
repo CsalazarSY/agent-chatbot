@@ -2,10 +2,9 @@
 
 # /src/agents/live_product/live_product_agent.py
 
-from typing import Optional, List, Callable
+from typing import List, Callable
 
 from autogen_agentchat.agents import AssistantAgent
-from autogen_core.memory import Memory
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 from src.agents.live_product.system_message import (
@@ -13,13 +12,12 @@ from src.agents.live_product.system_message import (
 )
 from src.agents.agent_names import LIVE_PRODUCT_AGENT_NAME
 
-# Import specific tools for this agent
-from src.tools.sticker_api.sy_api import sy_list_products, sy_list_countries
+from src.tools.sticker_api.sy_api import get_live_products, get_live_countries
 
 # List of tools for the LiveProductAgent
 live_product_tools: List[Callable] = [
-    sy_list_products,
-    sy_list_countries,
+    get_live_products,
+    get_live_countries,
 ]
 
 

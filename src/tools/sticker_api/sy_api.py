@@ -4,6 +4,7 @@
 import json
 import traceback
 from typing import Optional, List, Dict
+import re
 import httpx
 import config
 
@@ -12,15 +13,21 @@ from src.tools.sticker_api.dtos.responses import (
     LoginResponse,
     LoginStatusResponse,
     CountriesResponse,
+    Country,
     SpecificPriceResponse,
     PriceTiersResponse,
     ProductListResponse,
+    ProductDetail,
     OrderDetailResponse,
     OrderListResponse,
     SuccessResponse,
     DesignResponse,
     DesignPreviewResponse,
     OrderItemStatus,
+)
+from src.markdown_info.quick_replies.quick_reply_markdown import (
+    QUICK_REPLIES_START_TAG,
+    QUICK_REPLIES_END_TAG,
 )
 
 # Standardized Error Prefix
@@ -252,6 +259,110 @@ async def sy_get_design_preview(
             f"{API_ERROR_PREFIX} Unexpected successful response type: "
             f"{type(result)}. Expected Dict."
         )
+
+
+# --- Helper function for country quick replies ---
+def _format_countries_as_qr(countries: List[Country]) -> str:
+    """Internal helper to format a list of Country objects into the Quick Reply string."""
+    if not countries:
+        return ""
+    option_strings = [f"{country.name}|{country.code}" for country in countries]
+    json_array_str = json.dumps(option_strings, ensure_ascii=False)
+    return f"{QUICK_REPLIES_START_TAG}<country_selection>:{json_array_str}{QUICK_REPLIES_END_TAG}"
+
+
+async def get_live_products(
+    name: Optional[str] = None,
+    format: Optional[str] = None,
+    material: Optional[str] = None,
+) -> ProductListResponse | str:
+    """
+    Retrieves a filtered and scored list of up to 20 products based on search criteria.
+    This tool is designed to be faster by pre-processing products before an LLM needs to analyze them.
+    It calls the internal sy_list_products() and then applies a scoring algorithm.
+    """
+    # Step 1: Get the full product list from the actual API
+    all_products_response = await sy_list_products()
+    if isinstance(all_products_response, str):
+        return f"{API_ERROR_PREFIX} Could not retrieve product list for filtering. Upstream error: {all_products_response}"
+
+    # Step 2: Prepare a unique set of lowercase search terms from all inputs
+    search_terms = set()
+    if name:
+        search_terms.update(term.lower() for term in re.split(r"[\s,-]+", name) if term)
+    if format:
+        search_terms.update(
+            term.lower() for term in re.split(r"[\s,-]+", format) if term
+        )
+    if material:
+        search_terms.update(
+            term.lower() for term in re.split(r"[\s,-]+", material) if term
+        )
+
+    if not search_terms:
+        # If no criteria are given, return all the products
+        return all_products_response
+
+    # Step 3: Iterate through all products and calculate a score for each one
+    product_scores = []
+    for product in all_products_response:
+        score = 0
+        # Create a single, lowercase string of the product's key attributes for easy searching
+        product_text = f"{product.name.lower() if product.name else ''} {product.material.lower() if product.material else ''} {product.format.lower() if product.format else ''}"
+
+        for term in search_terms:
+            if term in product_text:
+                score += 1
+
+        if score > 0:
+            product_scores.append({"score": score, "product": product})
+
+    # Step 4: Sort the scored products and prepare the final list
+    if not product_scores:
+        return ProductListResponse(
+            root=[]
+        )  # Return an empty list if no products matched
+
+    sorted_products = sorted(product_scores, key=lambda x: x["score"], reverse=True)
+
+    # Extract only the ProductDetail objects from the sorted list, up to a max of 20
+    top_products = [item["product"] for item in sorted_products[:20]]
+
+    return ProductListResponse(root=top_products)
+
+
+async def get_live_countries(
+    name: Optional[str] = None,
+    code: Optional[str] = None,
+    returnAsQuickReply: bool = False,
+) -> CountriesResponse | str:
+    """
+    Retrieves a list of supported countries. Can filter by name/code or return the
+    full list formatted as a Quick Reply string for fast UI rendering.
+    """
+    response = await sy_list_countries()
+    if isinstance(response, str):
+        return f"{API_ERROR_PREFIX} Could not retrieve country list. Upstream error: {response}"
+
+    all_countries = response.countries
+
+    # Fast path for generating UI quick replies
+    if returnAsQuickReply:
+        return _format_countries_as_qr(all_countries)
+
+    # Standard filtering logic
+    filtered_countries = all_countries
+    if code:
+        filtered_countries = [
+            c for c in filtered_countries if c.code.lower() == code.lower()
+        ]
+    if name:
+        # Further filter the already filtered list
+        filtered_countries = [
+            c for c in filtered_countries if c.name.lower() == name.lower()
+        ]
+
+    return CountriesResponse(countries=filtered_countries)
 
 
 # --- Orders ---
