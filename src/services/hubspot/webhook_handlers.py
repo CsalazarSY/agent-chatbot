@@ -14,6 +14,9 @@ from autogen_agentchat.messages import (
 )
 
 # Models/Types
+from src.services.hubspot.ack_recieved_mesage import (
+    send_ack_of_received_to_conversation,
+)
 from src.tools.hubspot.conversation.dto_responses import (
     MessageDetail,
     MessageType,
@@ -264,6 +267,8 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
         # 3. Trigger agent if relevant
         if is_relevant_message:
             user_message_for_agent = None  # Initialize
+            # Send an ACK message to HubSpot to stop retries and inform the user.
+            await send_ack_of_received_to_conversation(conversation_id)
 
             # Primary: Use text content if available
             if message_content:

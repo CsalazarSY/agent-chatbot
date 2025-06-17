@@ -108,7 +108,7 @@ HUBSPOT_CS_STAGE_ID = os.getenv("HUBSPOT_CS_STAGE_ID")
 
 # --- Redis Configuration ---
 REDIS_HOST = os.getenv("REDIS_HOST")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6380))
+REDIS_PORT = os.getenv("REDIS_PORT", 6380)
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 
 

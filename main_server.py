@@ -276,23 +276,23 @@ async def hubspot_webhook_endpoint(
             # Deduplication check for individual message_id
             is_processed_message = await is_message_processed(message_id)
             if is_processed_message:  # Check if True
-                print(f"     > Skipping processed message ID: {message_id}")
+                print(f"    > Skipping processed message ID: {message_id}")
                 continue
 
             # Check if the entire conversation has been handed off
             is_conversation_disabled = await is_conversation_handed_off(conversation_id)
             if is_conversation_disabled:
                 print(
-                    f"     > Skipping event for handed-off conversation ID: {conversation_id} (message_id: {message_id})"
+                    f"    > Skipping event for handed-off conversation ID: {conversation_id} (message_id: {message_id})"
                 )
                 continue  # Skip to the next event
 
             # If not a duplicate message and conversation not handed off, add to processing set
             await add_message_to_processing(message_id)
 
-            # Schedule background task to fetch details and process
+            # Schedule background task to fetch details and process for the agent
             print(
-                f"    > Scheduling background task: ConvID={conversation_id}, MsgID={message_id}"
+                f"    > Scheduling agent processing task: ConvID={conversation_id}, MsgID={message_id}"
             )
             background_tasks.add_task(
                 process_incoming_hubspot_message,
