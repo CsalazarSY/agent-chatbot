@@ -5,6 +5,7 @@ import traceback
 import uuid  # Added for generating conversation IDs
 import re  # Import regex module
 from typing import Sequence, Optional, Dict, Union, ClassVar, Any
+import json  # Add json import
 
 # AutoGen imports
 from autogen_agentchat.ui import Console
@@ -61,6 +62,8 @@ from config import (
     LLM_SECONDARY_MODEL_FAMILY,
 )
 
+from src.services.redis_client import get_redis_client  # Import the redis client
+
 # Define AgentType alias for clarity
 AgentType = Union[AssistantAgent, UserProxyAgent]
 
@@ -74,10 +77,6 @@ class AgentService:
     # --- Class Attributes for Shared State ---
     primary_model_client: ClassVar[Optional[OpenAIChatCompletionClient]] = None
     secondary_model_client: ClassVar[Optional[OpenAIChatCompletionClient]] = None
-
-    conversation_states: ClassVar[Dict[str, Any]] = (
-        {}
-    )  # In-memory state store (stores state dicts)
 
     _initialized: ClassVar[bool] = False  # Flag for one-time initialization
 
@@ -293,17 +292,22 @@ class AgentService:
                 current_conversation_id = str(uuid.uuid4())
                 # print(f"<--- Starting new conversation with ID: {current_conversation_id} --->")
             else:
-                # --- Attempt to Load State --- #
-                if current_conversation_id in AgentService.conversation_states:
-                    # print(f"<--- Loading state for conversation ID: {current_conversation_id} --->")
-                    saved_state_dict = AgentService.conversation_states[
-                        current_conversation_id
-                    ]
-                else:
-                    # ID provided, but no state found - treat as new conversation with this ID
-                    print(
-                        f"<--- New conversation started with provided ID: {current_conversation_id} (no prior state found) --->"
-                    )
+                # --- Attempt to Load State from Redis --- #
+                async with get_redis_client() as redis:
+                    # Prefix keys for good practice, e.g., "conv_state:<id>"
+                    redis_key = f"conv_state:{current_conversation_id}"
+                    saved_state_json = await redis.get(redis_key)
+                    if saved_state_json:
+                        print(
+                            f"<--- Loading state from Redis for conversation ID: {current_conversation_id} --->"
+                        )
+                        saved_state_dict = json.loads(saved_state_json)
+                    else:
+                        # ID provided, but no state found - treat as new conversation with this ID
+                        print(
+                            f"<--- New conversation started with provided ID: {current_conversation_id} (no prior state found) --->"
+                        )
+                        saved_state_dict = None
 
             # Create memory for this request, containing the conversation ID
             planner_memory = ListMemory()
@@ -480,8 +484,6 @@ class AgentService:
                     error_message = f"Error loading state into new chat instance for {current_conversation_id}: {load_err}. Starting fresh."
                     print(f"    - WARN: {error_message}")
                     await group_chat.reset()  # Reset the new instance
-                    # Clear the invalid state from storage
-                    AgentService.conversation_states.pop(current_conversation_id, None)
 
             # --- Prepare the next message --- #
             # The user_message represents the *next* input in the conversation
@@ -506,10 +508,17 @@ class AgentService:
                     task=next_message, cancellation_token=cancellation_token
                 )
 
-            # --- Save State --- #
-            # Save state from the instance we just ran
+            # --- Save State to Redis --- #
             final_state_dict = await group_chat.save_state()
-            AgentService.conversation_states[current_conversation_id] = final_state_dict
+            async with get_redis_client() as redis:
+                redis_key = f"conv_state:{current_conversation_id}"
+                # Serialize the state dictionary to a JSON string
+                final_state_json = json.dumps(final_state_dict)
+                # Save to Redis with an expiration time
+                # This prevents old conversations from cluttering Redis forever.
+                await redis.set(
+                    redis_key, final_state_json, ex=86400
+                )  # 86400 seconds = 24 hours
 
         except Exception as e:
             error_message = f"Error during AutoGen task execution: {e}"

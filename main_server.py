@@ -45,6 +45,7 @@ from src.services.hubspot.messages_filter import (
 )
 
 # Import the refresh token service function
+from src.services.redis_client import close_redis_pool, initialize_redis_pool
 from src.services.sy_refresh_token import refresh_sy_token
 
 # Import the new HTML formatting service
@@ -55,19 +56,27 @@ from src.services.message_to_html import convert_message_to_html
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Lifespan to control the FastAPI app"""
-    # Code to run on startup
-    print("--- Server starting up: Triggering initial SY token refresh... ---")
-    # Call the refresh service directly
-    refresh_success = await refresh_sy_token()
-    if refresh_success:
-        print("--- Initial SY API token refresh successful. ---")
-    else:
-        print(
-            "!!! WARNING: Initial SY API token refresh failed. API calls requiring token will fail until refreshed. !!!"
-        )
-    yield
-    # Code to run on shutdown (if needed)
-    print("--- Server shutting down... ---")
+    # --- Startup ---
+    try:
+        # Initialize Redis Pool
+        await initialize_redis_pool()
+
+        # Trigger initial SY token refresh
+        print("--- Server starting up: Triggering initial SY token refresh... ---")
+        refresh_success = await refresh_sy_token()
+        if refresh_success:
+            print("--- Initial SY API token refresh successful. ---")
+        else:
+            print(
+                "!!! WARNING: Initial SY API token refresh failed. API calls will fail. !!!"
+            )
+
+        yield
+
+    finally:
+        # --- Shutdown ---
+        print("--- Server shutting down... ---")
+        await close_redis_pool()
 
 
 app = FastAPI(

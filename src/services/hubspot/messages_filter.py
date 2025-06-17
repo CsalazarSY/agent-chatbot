@@ -1,57 +1,58 @@
 """
-Manages filters for HubSpot messages, including tracking messages currently being processed
-and conversations that have been handed off and should be skipped.
+Manages filters for HubSpot messages using Redis, including tracking processed messages
+and handed-off conversations.
 """
 
-# /src/services/hubspot_webhooks/messages_filter.py
+from src.services.redis_client import get_redis_client
 
-import asyncio
-from typing import Set
+# Define the keys we will use in Redis
+PROCESSED_MESSAGES_KEY = "hubspot:processed_messages"
+HANDED_OFF_CONVERSATIONS_KEY = "hubspot:handed_off_conversations"
 
-# --- Global In-Memory Stores ---
-# Stores message_ids currently being processed to prevent duplicate processing.
-PROCESSED_MESSAGES: Set[str] = set()
-MESSAGE_ID_LOCK = asyncio.Lock()
-
-# Stores conversation_ids that have been marked as handed off (e.g., an "Issue" ticket was created).
-# Messages from these conversations should typically be skipped.
-HANDED_OFF_CONVERSATIONS: Set[str] = set()
-HANDED_OFF_CONVERSATIONS_LOCK = asyncio.Lock()
+# Expiry times in seconds
+MESSAGE_EXPIRY_SECONDS = 2 * 60 * 60  # 2 hours
+CONVERSATION_EXPIRY_SECONDS = 72 * 60 * 60  # 72 hours
 
 
 # --- Message ID Processing Helpers ---
 async def is_message_processed(message_id: str) -> bool:
-    """Checks if a message_id is currently in the processing set."""
-    async with MESSAGE_ID_LOCK:
-        return message_id in PROCESSED_MESSAGES
+    """Checks if a message_id is in the Redis processing set."""
+    async with get_redis_client() as redis:
+        return await redis.sismember(PROCESSED_MESSAGES_KEY, message_id)
 
 
 async def add_message_to_processing(message_id: str):
-    """Adds a message_id to the processing set."""
-    async with MESSAGE_ID_LOCK:
-        PROCESSED_MESSAGES.add(message_id)
+    """Adds a message_id to the Redis processing set.
+    We can set an expiry time (e.g., 1 hour) to auto-clean old message IDs.
+    """
+    async with get_redis_client() as redis:
+        await redis.sadd(PROCESSED_MESSAGES_KEY, message_id)
+        # Refresh the expiration on the set each time we add a message
+        await redis.expire(PROCESSED_MESSAGES_KEY, MESSAGE_EXPIRY_SECONDS)
 
 
 async def remove_message_from_processing(message_id: str):
-    """Removes a message_id from the processing set."""
-    async with MESSAGE_ID_LOCK:
-        PROCESSED_MESSAGES.discard(message_id)
+    """Removes a message_id from the Redis processing set."""
+    async with get_redis_client() as redis:
+        await redis.srem(PROCESSED_MESSAGES_KEY, message_id)
 
 
 # --- Handed-Off Conversation Helpers ---
-async def is_conversation_handed_off(conversation_id: str):
-    """Checks if a conversation_id is in the handed-off set."""
-    async with HANDED_OFF_CONVERSATIONS_LOCK:
-        return conversation_id in HANDED_OFF_CONVERSATIONS
+async def is_conversation_handed_off(conversation_id: str) -> bool:
+    """Checks if a conversation_id is in the Redis handed-off set."""
+    async with get_redis_client() as redis:
+        return await redis.sismember(HANDED_OFF_CONVERSATIONS_KEY, conversation_id)
 
 
 async def add_conversation_to_handed_off(conversation_id: str):
-    """Adds a conversation_id to the handed-off set."""
-    async with HANDED_OFF_CONVERSATIONS_LOCK:
-        HANDED_OFF_CONVERSATIONS.add(conversation_id)
+    """Adds a conversation_id to the Redis handed-off set."""
+    async with get_redis_client() as redis:
+        await redis.sadd(HANDED_OFF_CONVERSATIONS_KEY, conversation_id)
+        # Refresh the expiration on the set each time we add a conversation
+        await redis.expire(HANDED_OFF_CONVERSATIONS_KEY, CONVERSATION_EXPIRY_SECONDS)
 
 
 async def remove_conversation_from_handed_off(conversation_id: str):
-    """Removes a conversation_id from the handed-off set (e.g., if it needs to be re-activated)."""
-    async with HANDED_OFF_CONVERSATIONS_LOCK:
-        HANDED_OFF_CONVERSATIONS.discard(conversation_id)
+    """Removes a conversation_id from the Redis handed-off set."""
+    async with get_redis_client() as redis:
+        await redis.srem(HANDED_OFF_CONVERSATIONS_KEY, conversation_id)

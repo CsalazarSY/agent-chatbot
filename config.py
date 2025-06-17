@@ -62,7 +62,7 @@ CHROMA_EMBEDDING_MODEL_NAME_CONFIG = os.getenv("CHROMA_EMBEDDING_MODEL_NAME")
 CHROMA_DB_PATH_CONFIG: str | None = None
 if _CHROMA_DB_RELATIVE_PATH:
     try:
-        # Assume config.py is in the project root, same level as .env
+        # config.py is in the project root, same level as .env
         # Construct path relative to the directory of THIS config file.
         project_root = Path(__file__).resolve().parent
         absolute_chroma_path = (project_root / _CHROMA_DB_RELATIVE_PATH).resolve(
@@ -105,6 +105,11 @@ HUBSPOT_PR_STAGE_ID = os.getenv("HUBSPOT_PR_STAGE_ID")
 # Customer Success Pipeline
 HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS = os.getenv("HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS")
 HUBSPOT_CS_STAGE_ID = os.getenv("HUBSPOT_CS_STAGE_ID")
+
+# --- Redis Configuration ---
+REDIS_HOST = os.getenv("REDIS_HOST")
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6380))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 
 
 # --- Validation ---
@@ -186,6 +191,10 @@ def validate_api_config():
     if not HUBSPOT_CS_STAGE_ID:
         raise ValueError(
             "HUBSPOT_CS_STAGE_ID environment variable not set in .env file."
+        )
+    if not REDIS_HOST or not REDIS_PASSWORD:
+        raise ValueError(
+            "REDIS_HOST and REDIS_PASSWORD environment variables must be set."
         )
 
 
