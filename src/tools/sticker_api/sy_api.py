@@ -29,9 +29,21 @@ from src.markdown_info.quick_replies.quick_reply_markdown import (
     QUICK_REPLIES_START_TAG,
     QUICK_REPLIES_END_TAG,
 )
+from src.markdown_info.quick_replies.live_product_references import (
+    LPA_PRODUCT_QUICK_REPLIES_LABELS,
+)
 
 # Standardized Error Prefix
 API_ERROR_PREFIX = "SY_TOOL_FAILED:"
+
+# Create a lookup map for efficiency
+_product_label_map = {
+    item["productId"]: item["quick_reply_label"]
+    for item in LPA_PRODUCT_QUICK_REPLIES_LABELS
+}
+_product_name_map = {
+    item["productId"]: item["name"] for item in LPA_PRODUCT_QUICK_REPLIES_LABELS
+}
 
 
 # --- Helper Function for API Requests with Retry ---
@@ -312,18 +324,21 @@ async def get_live_products(
 ) -> ProductListResponse | str:
     """
     Retrieves a filtered and scored list of up to 20 products based on search criteria.
-    This tool is designed to be faster by pre-processing products before an LLM needs to analyze them.
-    It calls the internal sy_list_products() and then applies a scoring algorithm.
+    Each product will include a pre-defined 'quick_reply_label'.
     Handles '*' as a wildcard for any field, meaning that field will not be used for filtering.
     """
     # Step 1: Get the full product list from the actual API
-    all_products_response = await sy_list_products()
-    if isinstance(all_products_response, str):
-        return f"{API_ERROR_PREFIX} Could not retrieve product list for filtering. Upstream error: {all_products_response}"
+    all_products_api_data = await sy_list_products()
+    if isinstance(all_products_api_data, str):
+        return f"{{API_ERROR_PREFIX}} Could not retrieve product list for filtering. Upstream error: {{all_products_api_data}}"
 
-    # Step 2: Prepare a unique set of lowercase search terms, ignoring wildcards.
+    if not isinstance(all_products_api_data, list):
+        return (
+            f"{{API_ERROR_PREFIX}} sy_list_products did not return a list as expected."
+        )
+
+    # Step 2: Prepare search terms
     search_terms = set()
-    # Only add terms if the input is not None and not a wildcard '*'
     if name and name != "*":
         search_terms.update(term.lower() for term in re.split(r"[\s,-]+", name) if term)
     if format and format != "*":
@@ -335,37 +350,58 @@ async def get_live_products(
             term.lower() for term in re.split(r"[\s,-]+", material) if term
         )
 
-    if not search_terms:
-        # If no criteria are given (or all are wildcards), return all products parsed into the correct model.
-        return ProductListResponse(root=all_products_response)
+    # Step 3: Score and sort products if search terms are provided
+    product_candidates = []
+    if search_terms:
+        product_scores = []
+        for product_dict in all_products_api_data:
+            if not isinstance(product_dict, dict):
+                continue  # Skip non-dict items
+            score = 0
+            product_text = f"{product_dict.get('name', '').lower()} {product_dict.get('material', '').lower()} {product_dict.get('format', '').lower()}"
+            for term in search_terms:
+                if term in product_text:
+                    score += 1
+            if score > 0:
+                # Correctly append a dictionary, not a set
+                product_scores.append({"score": score, "product": product_dict})
 
-    # Step 3: Iterate through all products and calculate a score for each one
-    product_scores = []
-    for product in all_products_response:
-        score = 0
-        # Create a single, lowercase string of the product's key attributes for easy searching
-        product_text = f"{product.get('name', '').lower()} {product.get('material', '').lower()} {product.get('format', '').lower()}"
+        if not product_scores:
+            return ProductListResponse(root=[])
 
-        for term in search_terms:
-            if term in product_text:
-                score += 1
+        sorted_products_with_score = sorted(
+            product_scores, key=lambda x: x["score"], reverse=True
+        )
+        # Take the top 20 products after sorting
+        product_candidates = [
+            item["product"] for item in sorted_products_with_score[:20]
+        ]
+    else:
+        # If no search terms, use all products
+        product_candidates = all_products_api_data
 
-        if score > 0:
-            # We append the original dictionary 'product' here
-            product_scores.append({"score": score, "product": product})
+    # Step 4: Enrich the final list of products with the quick_reply_label
+    enriched_products = []
+    for product_dict in product_candidates:
+        if not isinstance(product_dict, dict):
+            continue
 
-    # Step 4: Sort the scored products and prepare the final list
-    if not product_scores:
-        # Return an empty list wrapped in the Pydantic model if no products matched
-        return ProductListResponse(root=[])
+        product_id = product_dict.get("id")
 
-    sorted_products = sorted(product_scores, key=lambda x: x["score"], reverse=True)
+        # Use map to get the consistent name and label, falling back to API data
+        label = _product_label_map.get(
+            product_id, product_dict.get("name", "Unknown Product")
+        )
+        product_name_from_map = _product_name_map.get(
+            product_id, product_dict.get("name")
+        )
 
-    # Extract only the ProductDetail dictionaries from the sorted list, up to a max of 20
-    top_products = [item["product"] for item in sorted_products[:20]]
+        enriched_product = product_dict.copy()
+        enriched_product["name"] = product_name_from_map  # Ensure consistent name
+        enriched_product["quick_reply_label"] = label
+        enriched_products.append(enriched_product)
 
-    # Finally, parse the list of dictionaries into the Pydantic model before returning
-    return ProductListResponse(root=top_products)
+    return ProductListResponse(root=enriched_products)
 
 
 # --- Orders ---

@@ -132,16 +132,18 @@ class ProductDetail(BaseModel):
         None, description="Material type (e.g., 'Vinyl', 'Paper')."
     )
     adhesives: Optional[List[str]] = Field(
-        [], description="List of available adhesive options."
+        default_factory=list, description="List of available adhesive options."
     )
     leadingEdgeOptions: Optional[List[str]] = Field(
-        [], description="List of available leading edge options (for roll labels)."
+        default_factory=list,
+        description="List of available leading edge options (for roll labels).",
     )
     whiteInkOptions: Optional[List[str]] = Field(
-        [], description="List of available white ink options."
+        default_factory=list, description="List of available white ink options."
     )
     finishes: Optional[List[str]] = Field(
-        [], description="List of available finish options (e.g., 'Glossy', 'Matte')."
+        default_factory=list,
+        description="List of available finish options (e.g., 'Glossy', 'Matte').",
     )
     defaultWidth: Optional[float] = Field(
         None, description="Default width suggested for this product (inches)."
@@ -150,9 +152,13 @@ class ProductDetail(BaseModel):
         None, description="Default height suggested for this product (inches)."
     )
     accessories: Optional[List[AccessoryOption]] = Field(
-        [],
+        default_factory=list,
         description="List of accessories available for this product. Maps to Swagger's Accessory model.",
     )  # Uses imported AccessoryOption
+    quick_reply_label: Optional[str] = Field(
+        None,
+        description="Pre-defined suggested label for quick replies, looked up by product ID.",
+    )
 
 
 class ProductListResponse(RootModel[List[ProductDetail]]):
