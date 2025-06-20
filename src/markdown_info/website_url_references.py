@@ -8,4 +8,6 @@ SY_STICKER_MAKER_LINK = "[Sticker Maker](https://www.stickeryou.com/sticker-make
 SY_PAGE_MAKER_LINK = "[Page Maker](https://www.stickeryou.com/page-maker)"
 SY_VINYL_EDITOR_LINK = "[Vinyl Editor](https://www.stickeryou.com/vinyleditor)"
 
-SY_PRODUCT_FIRST_LINK = "[Product First Link](https://stickeryou.com/productfirst)"
+SY_PRODUCT_FIRST_LINK = (
+    "[Explore all our products here](https://www.stickeryou.com/products)"
+)
