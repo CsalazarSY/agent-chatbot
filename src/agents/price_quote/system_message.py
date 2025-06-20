@@ -74,10 +74,10 @@ PRICE_QUOTE_AGENT_SYSTEM_MESSAGE = f"""
    *(All tools return either a Pydantic model object (serialized as JSON dictionary/list) or a specific structure (like Dict or List) on success, OR a string starting with SY_TOOL_FAILED: on error.)*
 
    **Pricing:**
-   - **`sy_get_specific_price(product_id: int, width: float, height: float, quantity: int, country_code: Optional[str] = '{DEFAULT_COUNTRY_CODE}', currency_code: Optional[str] = '{DEFAULT_CURRENCY_CODE}', accessory_options: Optional[List[AccessoryOption]] = None) -> SpecificPriceResponse | str`**
-     - *Purpose: Retrieves a specific price for a product configuration.*
-   - **`sy_get_price_tiers(product_id: int, width: float, height: float, country_code: Optional[str] = '{DEFAULT_COUNTRY_CODE}', currency_code: Optional[str] = '{DEFAULT_CURRENCY_CODE}', accessory_options: Optional[List[AccessoryOption]] = None, quantity: Optional[int] = None) -> PriceTiersResponse | str`**
-     - *Purpose: Retrieves price tiers for a product, showing price breaks at different quantities.*
+   - **`sy_get_specific_price(product_id: int, width: float, height: float, quantity: int, sizeUnit: str = "inches", country_code: Optional[str] = '{DEFAULT_COUNTRY_CODE}', currency_code: Optional[str] = '{DEFAULT_CURRENCY_CODE}', accessory_options: Optional[List[AccessoryOption]] = None) -> SpecificPriceResponse | str`**
+     - *Purpose: Retrieves a specific price for a product configuration. The `sizeUnit` can be 'inches' or 'cm'.*
+   - **`sy_get_price_tiers(product_id: int, width: float, height: float, sizeUnit: str = "inches", country_code: Optional[str] = '{DEFAULT_COUNTRY_CODE}', currency_code: Optional[str] = '{DEFAULT_CURRENCY_CODE}', accessory_options: Optional[List[AccessoryOption]] = None, quantity: Optional[int] = None) -> PriceTiersResponse | str`**
+     - *Purpose: Retrieves price tiers for a product, showing price breaks at different quantities. The `sizeUnit` can be 'inches' or 'cm'.*
 
 **4. General Workflow Strategy & Scenarios:**
    - **Overall Approach:** Receive request from `{PLANNER_AGENT_NAME}`. Analyze the request:

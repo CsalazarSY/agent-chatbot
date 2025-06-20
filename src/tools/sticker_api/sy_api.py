@@ -821,6 +821,7 @@ async def sy_get_price_tiers(
     product_id: int,
     width: float,
     height: float,
+    sizeUnit: str = "inches",
     country_code: Optional[str] = None,
     currency_code: Optional[str] = None,
     accessory_options: Optional[List[Dict]] = None,
@@ -833,8 +834,9 @@ async def sy_get_price_tiers(
 
     Parameters:
         product_id (int): The unique identifier of the product.
-        width (float): The desired width in inches.
-        height (float): The desired height in inches.
+        width (float): The desired width.
+        height (float): The desired height.
+        sizeUnit (str): The unit for width and height ('inches' or 'cm'). Defaults to 'inches'.
         country_code (Optional[str]): Two-letter ISO country code for shipping/pricing context (defaults to config).
         currency_code (Optional[str]): ISO currency code (e.g., 'USD', 'CAD') (defaults to config).
         accessory_options (Optional[List[Dict]]): List of selected accessories, each a dict like {"accessoryId": int, "quantity": int}.
@@ -871,9 +873,17 @@ async def sy_get_price_tiers(
     api_url = (
         f"{config.API_BASE_URL}/api/{config.API_VERSION}/Pricing/{product_id}/pricings"
     )
+
+    # Convert dimensions to inches if necessary
+    width_inches = float(width)
+    height_inches = float(height)
+    if sizeUnit.lower() in ["cm", "centimeter", "centimeters"]:
+        width_inches /= 2.54
+        height_inches /= 2.54
+
     payload = {
-        "width": float(width),
-        "height": float(height),
+        "width": width_inches,
+        "height": height_inches,
         "countryCode": country_code or config.DEFAULT_COUNTRY_CODE,
         "currencyCode": currency_code or config.DEFAULT_CURRENCY_CODE,
         "accessoryOptions": accessory_options or [],
@@ -900,7 +910,8 @@ async def sy_get_specific_price(
     product_id: int,
     width: float,
     height: float,
-    quantity: int,  # Quantity is required here
+    quantity: int,
+    sizeUnit: str = "inches",
     country_code: Optional[str] = None,
     currency_code: Optional[str] = None,
     accessory_options: Optional[List[Dict]] = None,
@@ -913,17 +924,18 @@ async def sy_get_specific_price(
 
     Parameters:
         product_id (int): The unique identifier of the product.
-        width (float): The desired width in inches.
-        height (float): The desired height in inches.
+        width (float): The desired width.
+        height (float): The desired height.
         quantity (int): The specific quantity required for pricing. Required.
+        sizeUnit (str): The unit for width and height ('inches' or 'cm'). Defaults to 'inches'.
         country_code (Optional[str]): Two-letter ISO country code for shipping/pricing context (defaults to config).
         currency_code (Optional[str]): ISO currency code (e.g., 'USD', 'CAD') (defaults to config).
         accessory_options (Optional[List[Dict]]): List of selected accessories, each a dict like {"accessoryId": int, "quantity": int}.
 
     Request body example (type: SpecificPriceRequest):
         {
-            "width": 2.0,
-            "height": 2.0,
+            "width": 2.0, # Assumed to be in inches by the API
+            "height": 2.0, # Assumed to be in inches by the API
             "countryCode": "CA",
             "quantity": 250,
             "currencyCode": "CAD",
@@ -948,9 +960,17 @@ async def sy_get_specific_price(
     api_url = (
         f"{config.API_BASE_URL}/api/{config.API_VERSION}/Pricing/{product_id}/pricing"
     )
+
+    # Convert dimensions to inches if necessary
+    width_inches = float(width)
+    height_inches = float(height)
+    if sizeUnit.lower() in ["cm", "centimeter", "centimeters"]:
+        width_inches /= 2.54
+        height_inches /= 2.54
+
     payload = {
-        "width": float(width),
-        "height": float(height),
+        "width": width_inches,
+        "height": height_inches,
         "countryCode": country_code or config.DEFAULT_COUNTRY_CODE,
         "quantity": int(quantity),
         "currencyCode": currency_code or config.DEFAULT_CURRENCY_CODE,
