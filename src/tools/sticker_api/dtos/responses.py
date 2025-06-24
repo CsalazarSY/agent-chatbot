@@ -177,6 +177,21 @@ class ProductListResponse(RootModel[List[ProductDetail]]):
         return self.root[item]
 
 
+class EnhancedProductListResponse(BaseModel):
+    """A richer response for product list queries, including counts and pre-formatted quick replies."""
+
+    total_matches: int = Field(
+        description="The total number of products found that matched the search criteria, before any truncation (e.g., to top 20)."
+    )
+    products: List[ProductDetail] = Field(
+        description="A list of the most relevant products (potentially a subset, e.g., top 20 scored matches)."
+    )
+    quick_reply_string: Optional[str] = Field(
+        None,
+        description="A pre-formatted quick reply string if multiple ambiguous products were found and clarification is needed.",
+    )
+
+
 class OrderItemStatus(OrderItemBase):
     """Represents the status of a single item within an order, returned by sy_get_order_item_statuses (GET /v1/Orders/{id}/items/status). Inherits fields from the imported OrderItemBase."""
 

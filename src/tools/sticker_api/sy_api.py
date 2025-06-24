@@ -24,6 +24,7 @@ from src.tools.sticker_api.dtos.responses import (
     DesignResponse,
     DesignPreviewResponse,
     OrderItemStatus,
+    EnhancedProductListResponse,
 )
 from src.markdown_info.quick_replies.quick_reply_markdown import (
     QUICK_REPLIES_START_TAG,
@@ -283,6 +284,17 @@ def _format_countries_as_qr(countries: List[Country]) -> str:
     return f"{{QUICK_REPLIES_START_TAG}}<country_selection>:{json.dumps(qr_options)}{{QUICK_REPLIES_END_TAG}}"
 
 
+def _format_products_as_qr(products: List[ProductDetail]) -> str:
+    """Formats a list of ProductDetail objects into a JSON string for Quick Replies."""
+    qr_options = [p.quick_reply_label for p in products if p.quick_reply_label]
+    qr_options.append("None of these / Need more help")
+    qr_json_array = json.dumps(qr_options)
+    return (
+        f"{QUICK_REPLIES_START_TAG}<product_clarification>:"
+        f"{qr_json_array}{QUICK_REPLIES_END_TAG}"
+    )
+
+
 async def get_live_countries(
     name: Optional[str] = None,
     code: Optional[str] = None,
@@ -321,11 +333,12 @@ async def get_live_products(
     name: Optional[str] = None,
     format: Optional[str] = None,
     material: Optional[str] = None,
-) -> ProductListResponse | str:
+) -> EnhancedProductListResponse | str:
     """
-    Retrieves a filtered and scored list of up to 20 products based on search criteria.
-    Each product will include a pre-defined 'quick_reply_label'.
-    Handles '*' as a wildcard for any field, meaning that field will not be used for filtering.
+    Retrieves a filtered and scored list of products based on search criteria.
+    Returns a rich object containing the total number of matches, a list of the top 20
+    most relevant products, and a pre-formatted quick reply string if the results
+    are ambiguous.
     """
     # Step 1: Get the full product list from the actual API
     all_products_api_data = await sy_list_products()
@@ -340,18 +353,21 @@ async def get_live_products(
     # Step 2: Prepare search terms
     search_terms = set()
     if name and name != "*":
-        search_terms.update(term.lower() for term in re.split(r"[\s,-]+", name) if term)
+        search_terms.update(
+            term.lower() for term in re.split(r"[\\s,-]+", name) if term
+        )
     if format and format != "*":
         search_terms.update(
-            term.lower() for term in re.split(r"[\s,-]+", format) if term
+            term.lower() for term in re.split(r"[\\s,-]+", format) if term
         )
     if material and material != "*":
         search_terms.update(
-            term.lower() for term in re.split(r"[\s,-]+", material) if term
+            term.lower() for term in re.split(r"[\\s,-]+", material) if term
         )
 
     # Step 3: Score and sort products if search terms are provided
     product_candidates = []
+    total_matches = 0
     if search_terms:
         product_scores = []
         for product_dict in all_products_api_data:
@@ -363,32 +379,31 @@ async def get_live_products(
                 if term in product_text:
                     score += 1
             if score > 0:
-                # Correctly append a dictionary, not a set
                 product_scores.append({"score": score, "product": product_dict})
 
+        total_matches = len(product_scores)
         if not product_scores:
-            return ProductListResponse(root=[])
+            return EnhancedProductListResponse(
+                total_matches=0, products=[], quick_reply_string=None
+            )
 
         sorted_products_with_score = sorted(
             product_scores, key=lambda x: x["score"], reverse=True
         )
-        # Take the top 20 products after sorting
         product_candidates = [
             item["product"] for item in sorted_products_with_score[:20]
         ]
     else:
-        # If no search terms, use all products
         product_candidates = all_products_api_data
+        total_matches = len(product_candidates)
 
-    # Step 4: Enrich the final list of products with the quick_reply_label
-    enriched_products = []
+    # Step 4: Enrich the candidates and convert to Pydantic models for easier handling
+    enriched_product_models = []
     for product_dict in product_candidates:
         if not isinstance(product_dict, dict):
             continue
 
         product_id = product_dict.get("id")
-
-        # Use map to get the consistent name and label, falling back to API data
         label = _product_label_map.get(
             product_id, product_dict.get("name", "Unknown Product")
         )
@@ -397,11 +412,38 @@ async def get_live_products(
         )
 
         enriched_product = product_dict.copy()
-        enriched_product["name"] = product_name_from_map  # Ensure consistent name
+        enriched_product["name"] = product_name_from_map
         enriched_product["quick_reply_label"] = label
-        enriched_products.append(enriched_product)
+        enriched_product_models.append(ProductDetail(**enriched_product))
 
-    return ProductListResponse(root=enriched_products)
+    # Step 5: Determine definitive match and generate quick replies if needed
+    definitive_product = None
+    if name and name != "*":
+        search_name_lower = name.lower()
+        for p in enriched_product_models:
+            if p.name.lower() == search_name_lower or (
+                p.quick_reply_label and p.quick_reply_label.lower() == search_name_lower
+            ):
+                definitive_product = p
+                break
+
+    quick_reply_string = None
+    products_to_return = []
+
+    if definitive_product:
+        products_to_return = [definitive_product]
+    else:
+        products_to_return = enriched_product_models
+        # Generate QR string only if there's ambiguity (multiple products, no definitive match)
+        if len(products_to_return) > 1:
+            quick_reply_string = _format_products_as_qr(products_to_return)
+
+    # Step 6: Return the rich response object
+    return EnhancedProductListResponse(
+        total_matches=total_matches,
+        products=products_to_return,
+        quick_reply_string=quick_reply_string,
+    )
 
 
 # --- Orders ---
