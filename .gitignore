@@ -2,6 +2,7 @@
 *chroma_db/
 *chromaRAG/
 chroma_db_store_miniLM/
+SY_Knowledge_Base*/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
