@@ -1,11 +1,14 @@
 """Centralized service for managing agent interactions and state."""
 
 # /src/agents/agents_services.py
+from typing import Sequence, Optional, Dict, Union, ClassVar
 import traceback
 import uuid  # Added for generating conversation IDs
 import re  # Import regex module
-from typing import Sequence, Optional, Dict, Union, ClassVar, Any
 import json  # Add json import
+
+from src.services.json_utils import json_serializer_default
+from src.services.redis_client import get_redis_client
 
 # AutoGen imports
 from autogen_agentchat.ui import Console
@@ -14,7 +17,6 @@ from autogen_agentchat.agents import UserProxyAgent, AssistantAgent
 from autogen_agentchat.base import TaskResult
 from autogen_agentchat.conditions import (
     MaxMessageTermination,
-    FunctionCallTermination,
     TextMentionTermination,
 )
 from autogen_agentchat.messages import BaseAgentEvent, BaseChatMessage, TextMessage
@@ -62,11 +64,8 @@ from config import (
     LLM_SECONDARY_MODEL_FAMILY,
 )
 
-from src.services.redis_client import get_redis_client  # Import the redis client
-
 # Define AgentType alias for clarity
 AgentType = Union[AssistantAgent, UserProxyAgent]
-
 
 class AgentService:
     """
@@ -513,7 +512,7 @@ class AgentService:
             async with get_redis_client() as redis:
                 redis_key = f"conv_state:{current_conversation_id}"
                 # Serialize the state dictionary to a JSON string
-                final_state_json = json.dumps(final_state_dict)
+                final_state_json = json.dumps(final_state_dict, default=json_serializer_default)
                 # Save to Redis with an expiration time
                 # This prevents old conversations from cluttering Redis forever.
                 await redis.set(
