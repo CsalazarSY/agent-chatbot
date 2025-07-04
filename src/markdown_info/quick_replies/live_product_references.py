@@ -485,6 +485,6 @@ LPA_PRODUCT_QUICK_REPLIES_LABELS = [
         "name": "Permanent Gold Foil Image Transfer",
         "format": "Image Transfers",
         "material": "Permanent Gold Image Transfer Glossy",
-        "quick_reply_label": "Permanent Gold Foil Image Transfer (Image Transfers)",
+        "quick_reply_label": "Permanent Gold Foil Image Transfer (Glossy)",
     },
 ]
