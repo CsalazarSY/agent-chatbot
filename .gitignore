@@ -4,6 +4,8 @@
 chroma_db_store_miniLM/
 SY_Knowledge_Base*/
 
+.kilocode/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
