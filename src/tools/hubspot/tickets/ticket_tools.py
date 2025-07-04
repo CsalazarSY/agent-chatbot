@@ -234,14 +234,17 @@ async def create_support_ticket_for_conversation(
         # Make a mutable copy of the properties to potentially modify pipeline/stage
         updated_properties = properties.model_copy(deep=True)
 
-        # Determine pipeline and stage using the new helper function
-        pipeline_id_to_use, pipeline_stage_to_use = determine_pipeline_and_stage(
-            properties
-        )
+        # Determine the pipeline and stage for the ticket
+        try:
+            pipeline_id, stage_id = determine_pipeline_and_stage(properties)
+        except Exception as determination_exc:
+            # If determination fails, return an error instead of proceeding
+            return f"TOOL_LOGIC_ERROR: Failed to determine pipeline/stage. Details: {determination_exc}"
 
-        # Set pipeline and stage on the properties object that will be sent
-        updated_properties.hs_pipeline = pipeline_id_to_use
-        updated_properties.hs_pipeline_stage = pipeline_stage_to_use
+        # Assign the determined pipeline and stage to the properties object
+        # This ensures they are included in the request to HubSpot
+        updated_properties.hs_pipeline = pipeline_id
+        updated_properties.hs_pipeline_stage = stage_id
 
         # Ensure critical fields are present (Pydantic model validation already does this on instantiation)
         # but an explicit check before calling the generic tool adds a layer of safety.

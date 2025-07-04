@@ -61,20 +61,22 @@ async def lifespan(_: FastAPI):
     """Lifespan to control the FastAPI app"""
     #  Startup
     setup_custom_logger()
-    log_message("Application Startup")
+    log_message("Application Startup", level=1, prefix="--- --- ---")
 
     try:
         # Initialize Redis Pool
         await initialize_redis_pool()
 
         # Trigger initial SY token refresh
-        log_message("Server starting up: Triggering initial SY token refresh")
+        log_message("Server starting up: Triggering initial SY token refresh", level=2)
         refresh_success = await refresh_sy_token()
         if refresh_success:
-            log_message("Initial SY API token refresh successful")
+            log_message("Initial SY API token refresh successful", level=3)
         else:
             log_message(
-                "!!! WARNING: Initial SY API token refresh failed. API calls will fail. !!!"
+                "WARNING: Initial SY API token refresh failed. API calls will fail. !!!",
+                level=1,
+                log_type="warning",
             )
 
         yield
@@ -205,11 +207,6 @@ async def chat_endpoint(request: ChatRequest):
                     potential_reply_msg, (TextMessage, ThoughtEvent)
                 ):
                     reply_message = potential_reply_msg
-                    log_message(
-                        f"Found Planner message at index {i} (type: {type(reply_message).__name__}) before end_turn event.",
-                        level=3,
-                        prefix="-",
-                    )
                     break  # Found the most recent relevant message
 
         # Fallback if the specific sequence wasn't found (should be rare)
@@ -274,14 +271,14 @@ async def hubspot_webhook_endpoint(
     Specifically handles 'newMessage' events for INCOMING visitor messages.
     Validates, deduplicates, and triggers background processing.
     """
-    log_message("HubSpot Webhook Received")
 
     # Process individual events (assuming HubSpot might send multiple)
     # The payload *is* the list of events
     for event in payload:
         log_message(
             f"Processing Event: Type={event.subscriptionType}, Attempt={event.attemptNumber}, Event ID={event.eventId}",
-            level=2,
+            level=1,
+            prefix="--- --- ---"
         )
 
         # Only process new message events
@@ -293,7 +290,7 @@ async def hubspot_webhook_endpoint(
             if not conversation_id or not message_id:
                 log_message(
                     "Skipping event: Missing conversationId or messageId.",
-                    level=3,
+                    level=2,
                     prefix="!!",
                     log_type="warning",
                 )
@@ -304,8 +301,9 @@ async def hubspot_webhook_endpoint(
             if is_processed_message:  # Check if True
                 log_message(
                     f"Skipping processed message ID: {message_id}",
-                    level=3,
-                    prefix=">",
+                    level=2,
+                    prefix="!!",
+                    log_type="warning",
                 )
                 continue
 
@@ -316,8 +314,9 @@ async def hubspot_webhook_endpoint(
             if is_conversation_disabled:
                 log_message(
                     f"Skipping event for handed-off conversation ID: {conversation_id} (message_id: {message_id})",
-                    level=3,
-                    prefix=">",
+                    level=2,
+                    prefix="!!",
+                    log_type="warning",
                 )
                 continue  # Skip to the next event
 
@@ -325,20 +324,10 @@ async def hubspot_webhook_endpoint(
             await add_message_to_processing(message_id)
 
             # Schedule background task to fetch details and process for the agent
-            log_message(
-                f"Scheduling agent processing task: ConvID={conversation_id}, MsgID={message_id}",
-                level=3,
-                prefix=">",
-            )
             background_tasks.add_task(
                 process_incoming_hubspot_message,
                 conversation_id=conversation_id,
                 message_id=message_id,
-            )
-
-        else:
-            log_message(
-                f"Skipping event type: {event.subscriptionType}", level=3, prefix="<"
             )
 
     # Return 200 OK immediately for HubSpot webhook best practice

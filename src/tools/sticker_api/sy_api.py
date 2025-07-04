@@ -7,7 +7,6 @@ from typing import Optional, List, Dict
 import re
 import httpx
 import config
-from src.services.sy_token_manager import get_sy_api_token
 from src.services.logger_config import log_message
 
 # Import specific DTOs using absolute paths from src
@@ -124,8 +123,8 @@ async def _make_sy_api_request(
 
                     refresh_successful = await refresh_sy_token()
                     if refresh_successful:
-                        headers_base["Authorization"] = f"Bearer {get_sy_api_token()}"
-                        log_message("Retrying request with new token.", level=3)
+                        headers_base["Authorization"] = f"Bearer {config.get_sy_api_token()}"
+                        log_message("Retrying request with new token.", level=3, log_type="warning")
                         continue  # Retry the request with the new token
                     else:
                         log_message("Token refresh failed. Aborting request.", level=3, log_type="error")

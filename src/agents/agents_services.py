@@ -294,7 +294,6 @@ class AgentService:
             # --- Determine Conversation ID & Create Request Context --- #
             if not current_conversation_id:
                 current_conversation_id = str(uuid.uuid4())
-                # log_message(f"<--- Starting new conversation with ID: {current_conversation_id} --->", level=1)
             else:
                 # --- Attempt to Load State from Redis --- #
                 async with get_redis_client() as redis:
@@ -302,10 +301,6 @@ class AgentService:
                     redis_key = f"conv_state:{current_conversation_id}"
                     saved_state_json = await redis.get(redis_key)
                     if saved_state_json:
-                        log_message(
-                            f"<--- Loading state from Redis for conversation ID: {current_conversation_id} --->",
-                            level=1,
-                        )
                         saved_state_dict = json.loads(saved_state_json)
                     else:
                         # ID provided, but no state found - treat as new conversation with this ID
@@ -546,15 +541,10 @@ class AgentService:
             try:
                 await cls.primary_model_client.close()
                 cls.primary_model_client = None
-                log_message("\n--- Shared Primary Model Client closed successfully. ---", level=1)
                 closed_primary = True
             except Exception as e:
-                log_message("\n--- Error closing shared Primary Model Client: {e} ---", level=1)
+                log_message(f"Error closing shared Primary Model Client: {e}", log_type="error")
         else:
-            log_message(
-                "--- Shared Primary Model Client already closed or never initialized. ---",
-                level=1,
-            )
             closed_primary = (
                 True  # Considered 'closed' if never initialized or already None
             )
@@ -563,15 +553,10 @@ class AgentService:
             try:
                 await cls.secondary_model_client.close()
                 cls.secondary_model_client = None
-                log_message("\n--- Shared Secondary Model Client closed successfully. ---", level=1)
                 closed_secondary = True
             except Exception as e:
-                log_message("\n--- Error closing shared Secondary Model Client: {e} ---", level=1)
+                log_message(f"Error closing shared Secondary Model Client: {e}", log_type="error")
         else:
-            log_message(
-                "--- Shared Secondary Model Client already closed or never initialized. ---",
-                level=1,
-            )
             closed_secondary = (
                 True  # Considered 'closed' if never initialized or already None
             )
@@ -588,7 +573,7 @@ class AgentService:
 try:
     AgentService.initialize_shared_state()
 except Exception as init_err:
-    log_message(f"!!! FAILED to initialize AgentService state on module import: {init_err}", level=1)
+    log_message(f"FAILED to initialize AgentService state on module import: {init_err}", log_type="error")
     # Decide if the application should stop or continue in a degraded state
 
 # --- Create an instance for convenience ---
