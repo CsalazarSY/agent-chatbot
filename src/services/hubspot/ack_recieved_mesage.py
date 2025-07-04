@@ -5,6 +5,7 @@ from src.tools.hubspot.conversation.conversation_tools import (
 )
 from src.tools.hubspot.conversation.dto_requests import CreateMessageRequest
 from src.markdown_info.ACK_message import ACK_MESSAGE_HTML, ACK_MESSAGE_TEXT
+from src.services.logger_config import log_message
 
 
 async def send_ack_of_received_to_conversation(conversation_id: str):
@@ -30,12 +31,16 @@ async def send_ack_of_received_to_conversation(conversation_id: str):
 
         if isinstance(result, str):
             # If the tool returns a string, it's an error message
-            print(
-                f"Failed to send acknowledgment message to conversation {conversation_id}: {result}"
+            log_message(
+                f"Failed to send acknowledgment message to conversation {conversation_id}: {result}",
+                level=3,
+                log_type="error",
             )
             return
 
     except Exception as e:
-        print(
-            f"An unexpected error occurred while sending acknowledgment for conversation {conversation_id}: {e}"
+        log_message(
+            f"An unexpected error occurred in send_ack_of_received_to_conversation for {conversation_id}: {e}",
+            level=2,
+            log_type="error",
         )

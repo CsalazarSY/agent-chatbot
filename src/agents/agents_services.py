@@ -9,6 +9,7 @@ import json  # Add json import
 
 from src.services.json_utils import json_serializer_default
 from src.services.redis_client import get_redis_client
+from src.services.logger_config import setup_custom_logger, log_message
 
 # AutoGen imports
 from autogen_agentchat.ui import Console
@@ -92,9 +93,9 @@ class AgentService:
     @staticmethod
     def initialize_shared_state():
         """Initializes the shared class attributes ONCE."""
-
+        setup_custom_logger()
         if AgentService._initialized:
-            print("\n!!! AgentService already initialized. Skipping. !!!")
+            log_message("AgentService already initialized. Skipping.", level=2, prefix="!!!")
             return
 
         try:
@@ -135,8 +136,10 @@ class AgentService:
             AgentService._initialized = True
 
         except Exception as e:
-            print(
-                f"\n\n!!! CRITICAL ERROR during AgentService shared state initialization: {e}"
+            log_message(
+                f"CRITICAL ERROR during AgentService shared state initialization: {e}",
+                log_type="error",
+                prefix="!!!",
             )
             traceback.print_exc()
 
@@ -196,14 +199,15 @@ class AgentService:
         4. Fallback: If none of the above, let the LLM decide (should be rare).
         """
         if not AgentService._initialized:
-            print(
-                "<- WARN: custom_speaker_selector called before AgentService fully initialized. Defaulting to Planner."
+            log_message(
+                "<- WARN: custom_speaker_selector called before AgentService fully initialized. Defaulting to Planner.",
+                log_type="warning",
             )
             return PLANNER_AGENT_NAME
 
         # Ensure messages list is not empty
         if not messages:
-            print("Selector: No messages, defaulting to Planner.")
+            log_message("Selector: No messages, defaulting to Planner.", level=2)
             return PLANNER_AGENT_NAME
 
         last_message = messages[-1]
@@ -245,8 +249,9 @@ class AgentService:
                     elif delegated_agent_name == ORDER_AGENT_NAME:
                         return ORDER_AGENT_NAME
                     else:
-                        print(
-                            f"<- WARN: Selector found delegation pattern but agent '{delegated_agent_name}' is unknown. Defaulting to Planner."
+                        log_message(
+                            f"<- WARN: Selector found delegation pattern but agent '{delegated_agent_name}' is unknown. Defaulting to Planner.",
+                            log_type="warning",
                         )
                         return PLANNER_AGENT_NAME  # Fallback if agent name invalid
                 else:
@@ -289,7 +294,7 @@ class AgentService:
             # --- Determine Conversation ID & Create Request Context --- #
             if not current_conversation_id:
                 current_conversation_id = str(uuid.uuid4())
-                # print(f"<--- Starting new conversation with ID: {current_conversation_id} --->")
+                # log_message(f"<--- Starting new conversation with ID: {current_conversation_id} --->", level=1)
             else:
                 # --- Attempt to Load State from Redis --- #
                 async with get_redis_client() as redis:
@@ -297,14 +302,16 @@ class AgentService:
                     redis_key = f"conv_state:{current_conversation_id}"
                     saved_state_json = await redis.get(redis_key)
                     if saved_state_json:
-                        print(
-                            f"<--- Loading state from Redis for conversation ID: {current_conversation_id} --->"
+                        log_message(
+                            f"<--- Loading state from Redis for conversation ID: {current_conversation_id} --->",
+                            level=1,
                         )
                         saved_state_dict = json.loads(saved_state_json)
                     else:
                         # ID provided, but no state found - treat as new conversation with this ID
-                        print(
-                            f"<--- New conversation started with provided ID: {current_conversation_id} (no prior state found) --->"
+                        log_message(
+                            f"<--- New conversation started with provided ID: {current_conversation_id} (no prior state found) --->",
+                            level=1,
                         )
                         saved_state_dict = None
 
@@ -481,7 +488,7 @@ class AgentService:
                     await group_chat.load_state(saved_state_dict)
                 except Exception as load_err:
                     error_message = f"Error loading state into new chat instance for {current_conversation_id}: {load_err}. Starting fresh."
-                    print(f"    - WARN: {error_message}")
+                    log_message(f"    - WARN: {error_message}", log_type="warning")
                     await group_chat.reset()  # Reset the new instance
 
             # --- Prepare the next message --- #
@@ -521,7 +528,7 @@ class AgentService:
 
         except Exception as e:
             error_message = f"Error during AutoGen task execution: {e}"
-            print(f"\n\n!!! {error_message}")
+            log_message(f"!!! {error_message}", log_type="error", prefix="")
             traceback.print_exc()
             task_result = None  # Ensure result is None on error
 
@@ -539,13 +546,14 @@ class AgentService:
             try:
                 await cls.primary_model_client.close()
                 cls.primary_model_client = None
-                print("\n--- Shared Primary Model Client closed successfully. ---")
+                log_message("\n--- Shared Primary Model Client closed successfully. ---", level=1)
                 closed_primary = True
             except Exception as e:
-                print(f"\n--- Error closing shared Primary Model Client: {e} ---")
+                log_message("\n--- Error closing shared Primary Model Client: {e} ---", level=1)
         else:
-            print(
-                "--- Shared Primary Model Client already closed or never initialized. ---"
+            log_message(
+                "--- Shared Primary Model Client already closed or never initialized. ---",
+                level=1,
             )
             closed_primary = (
                 True  # Considered 'closed' if never initialized or already None
@@ -555,13 +563,14 @@ class AgentService:
             try:
                 await cls.secondary_model_client.close()
                 cls.secondary_model_client = None
-                print("\n--- Shared Secondary Model Client closed successfully. ---")
+                log_message("\n--- Shared Secondary Model Client closed successfully. ---", level=1)
                 closed_secondary = True
             except Exception as e:
-                print(f"\n--- Error closing shared Secondary Model Client: {e} ---")
+                log_message("\n--- Error closing shared Secondary Model Client: {e} ---", level=1)
         else:
-            print(
-                "--- Shared Secondary Model Client already closed or never initialized. ---"
+            log_message(
+                "--- Shared Secondary Model Client already closed or never initialized. ---",
+                level=1,
             )
             closed_secondary = (
                 True  # Considered 'closed' if never initialized or already None
@@ -579,7 +588,7 @@ class AgentService:
 try:
     AgentService.initialize_shared_state()
 except Exception as init_err:
-    print(f"!!! FAILED to initialize AgentService state on module import: {init_err}")
+    log_message(f"!!! FAILED to initialize AgentService state on module import: {init_err}", level=1)
     # Decide if the application should stop or continue in a degraded state
 
 # --- Create an instance for convenience ---

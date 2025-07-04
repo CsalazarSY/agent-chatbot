@@ -28,14 +28,20 @@ from src.agents.agent_names import (
     USER_PROXY_AGENT_NAME,
 )  # Ensure UserProxyAgent is also available if needed for prompts
 
+from src.services.logger_config import setup_custom_logger, log_message
+
 
 # --- --- Main Execution --- --- #
 async def main_cli():
     """Main CLI loop for interacting with the AgentService."""
-    print("--- AutoGen Agent Chat CLI ---")
-    print("Type 'exit' or 'quit' to end the session.")
-    print("A new conversation will start if no ID is provided or found.")
-    print("Continuing a conversation will load its previous state if an ID is entered.")
+    setup_custom_logger()
+    log_message("--- AutoGen Agent Chat CLI ---", prefix="")
+    log_message("Type 'exit' or 'quit' to end the session.", prefix="")
+    log_message("A new conversation will start if no ID is provided or found.", prefix="")
+    log_message(
+        "Continuing a conversation will load its previous state if an ID is entered.",
+        prefix="",
+    )
 
     conversation_id: Optional[str] = None
 
@@ -44,12 +50,14 @@ async def main_cli():
             if conversation_id:
                 prompt = f"User (ConvID: {conversation_id}): "
             else:
-                prompt = f"User (New Conversation - or enter existing ID to continue): "
+                prompt = (
+                    f"User (New Conversation - or enter existing ID to continue): "
+                )
 
             user_input = input(prompt).strip()
 
             if user_input.lower() in ["exit", "quit"]:
-                print("Exiting CLI.")
+                log_message("Exiting CLI.", prefix="")
                 break
 
             # Check if user entered a potential conversation ID to continue
@@ -66,21 +74,23 @@ async def main_cli():
                 )
                 if try_conv_id == "y":
                     conversation_id = user_input
-                    print(
-                        f"Attempting to continue conversation with ID: {conversation_id}"
+                    log_message(
+                        f"Attempting to continue conversation with ID: {conversation_id}",
+                        prefix="",
                     )
                     user_input = input(
                         f"Your message for {USER_PROXY_AGENT_NAME} (Conversation: {conversation_id}): "
                     ).strip()
                     if not user_input:
-                        print(
-                            "No message entered after setting ID. Please provide input."
+                        log_message(
+                            "No message entered after setting ID. Please provide input.",
+                            prefix="",
                         )
                         continue
                 # If not 'y', the original input will be treated as a new message for a new conversation
 
             if not user_input:
-                print("No message entered. Try again or type 'exit'.")
+                log_message("No message entered. Try again or type 'exit'.", prefix="")
                 continue
 
             task_result, error_message, returned_conv_id = (
@@ -95,30 +105,38 @@ async def main_cli():
                 conversation_id = returned_conv_id
 
             if error_message:
-                print(f"\n!!! CLI Error: {error_message}")
+                log_message(f"CLI Error: {error_message}", prefix="\n!!!", log_type="error")
             elif task_result:
                 # Output is largely handled by show_console=True in run_chat_session
                 # but we can still print a final summary or stop reason if desired.
                 # For now, the detailed log from show_console=True should suffice.
-                # print(f"\n--- Task Result Summary ---")
-                # print(f"Stop Reason: {task_result.stop_reason}")
+                # log_message(f"\n--- Task Result Summary ---")
+                # log_message(f"Stop Reason: {task_result.stop_reason}")
                 # if task_result.messages and hasattr(task_result.messages[-1], 'content'):
-                #     print(f"Final Message from Planner: {task_result.messages[-1].content}")
+                #     log_message(f"Final Message from Planner: {task_result.messages[-1].content}")
                 pass
             else:
-                print("\n!!! Task finished without a clear result or error.")
+                log_message(
+                    "Task finished without a clear result or error.", prefix="\n!!!", log_type="warning"
+                )
 
     except KeyboardInterrupt:
-        print("\n--- Session interrupted by user. Exiting. ---")
+        log_message(
+            "--- Session interrupted by user. Exiting. ---", prefix="\n", log_type="warning"
+        )
     except Exception as e:
-        print(f"\n--- An unexpected error occurred in the CLI: {e} ---")
-        traceback.print_exc()
+        log_message(
+            f"--- An unexpected error occurred in the CLI: {e} ---",
+            prefix="\n",
+            log_type="error",
+        )
+        log_message(traceback.format_exc(), log_type="error")
     finally:
-        print("--- Closing resources... ---")
+        log_message("--- Closing resources... ---", prefix="")
         # Use the class method for closing, as AgentService instance might not be directly available
         # or the loop might exit before instance cleanup.
         await AgentService.close_client()
-        print("--- CLI session ended. ---")
+        log_message("--- CLI session ended. ---", prefix="")
 
 
 if __name__ == "__main__":

@@ -51,6 +51,7 @@ from src.services.hubspot.messages_filter import (
 )
 
 import config  # For default channel/sender IDs
+from src.services.logger_config import log_message
 
 # --- Globals for Webhook Deduplication ---
 
@@ -65,9 +66,10 @@ async def process_agent_response(
     and send the final reply (plain text and HTML) to HubSpot.
     Runs in the background after the webhook returns 200 OK.
     """
-    # print(
-    #     f"    -> HB Webhook Background task: Process agent response and reply for {conversation_id}"
-    # )
+    log_message(
+        f"HB Webhook Background task: Process agent response and reply for {conversation_id}",
+        level=2,
+    )
 
     raw_text_reply = "Sorry, I encountered an issue and couldn't process your message."  # Default error reply
     html_reply = f"<p>{raw_text_reply}</p>"  # Default HTML error reply
@@ -75,7 +77,7 @@ async def process_agent_response(
     message_type_for_hubspot = "MESSAGE"  # Default to MESSAGE
 
     if error_message:
-        print(f"!!! Agent Error for ConvID {conversation_id}: {error_message}")
+        log_message(f"Agent Error for ConvID {conversation_id}: {error_message}", prefix="!!!", log_type="error")
         # Use default error replies
     elif task_result and task_result.messages:
         # --- Find the message BEFORE the final 'end_planner_turn' tool call --- #
@@ -103,14 +105,14 @@ async def process_agent_response(
                     potential_reply_msg, (TextMessage, ThoughtEvent)
                 ):
                     reply_message = potential_reply_msg
-                    # print(
+                    # log_message(
                     #     f"      - Found Planner message at index {i} (type: {type(reply_message).__name__}) before end_turn event."
                     # )
                     break
 
         # Fallback
         if not reply_message and messages:
-            # print(
+            # log_message(
             #     "       - WARN: Could not reliably find Planner message before end_turn event. Falling back to last message."
             # )
             reply_message = messages[-1]
@@ -148,22 +150,24 @@ async def process_agent_response(
                     message_type_for_hubspot = "COMMENT"
 
             else:
-                print(
-                    f"!!! Agent for ConvID {conversation_id} final message content is not a string: {type(raw_reply_content_from_agent)}"
+                log_message(
+                    f"Agent for ConvID {conversation_id} final message content is not a string: {type(raw_reply_content_from_agent)}", prefix="!!!", log_type="error"
                 )
                 # Use default error reply
         else:
-            print(
-                f"!!! Agent for ConvID {conversation_id} final message has no 'content' attribute."
+            log_message(
+                f"Agent for ConvID {conversation_id} final message has no 'content' attribute.", prefix="!!!", log_type="error"
             )
             # Use default error reply
     else:
-        print(f"!!! No task result or messages for ConvID {conversation_id}.")
+        log_message(f"No task result or messages for ConvID {conversation_id}.", prefix="!!!", log_type="error")
         # Use default error reply
 
     # Send the final reply (or error message) back to the HubSpot thread
-    print(
-        f"      - Sending reply to HubSpot Thread {conversation_id}: Text='{raw_text_reply[:30]}...' HTML='{html_reply[:30]}...'"
+    log_message(
+        f"Sending reply to HubSpot Thread {conversation_id}: Text='{raw_text_reply[:30]}...' HTML='{html_reply[:30]}...'",
+        level=3,
+        prefix="-",
     )
 
     try:
@@ -190,18 +194,18 @@ async def process_agent_response(
         if isinstance(send_result_model, str) and send_result_model.startswith(
             "HUBSPOT_TOOL_FAILED"
         ):
-            print(
-                f"!!!! FAILED to send reply to HubSpot Thread {conversation_id}: {send_result_model}"
+            log_message(
+                f"FAILED to send reply to HubSpot Thread {conversation_id}: {send_result_model}", prefix="!!!!", log_type="error"
             )
         else:
             # Handle unexpected return types if necessary
-            print(f"        > Reply sent to thread {conversation_id}")
+            log_message(f"Reply sent to thread {conversation_id}", level=4, prefix=">")
 
     except Exception as send_exc:
-        print(
-            f"!!! EXCEPTION sending reply to HubSpot Thread {conversation_id}: {send_exc}"
+        log_message(
+            f"EXCEPTION sending reply to HubSpot Thread {conversation_id}: {send_exc}", prefix="!!!", log_type="error"
         )
-        traceback.print_exc()
+        log_message(traceback.format_exc(), log_type="error")
 
 
 async def process_incoming_hubspot_message(conversation_id: str, message_id: str):
@@ -210,7 +214,7 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
     Runs in a background task. Ensures message_id is removed from processing set on completion.
     """
     try:
-        # print(
+        # log_message(
         #     f"    -> HB Webhook Background task: Process incoming HubSpot message {message_id} for thread {conversation_id}"
         # )
 
@@ -219,19 +223,19 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
 
         # 1. Fetch message details
         try:
-            # print(f"        - Fetching message details ({message_id})...")
+            # log_message(f"        - Fetching message details ({message_id})...")
             msg_details_model = await get_message_details(
                 thread_id=conversation_id, message_id=message_id
             )
 
             if isinstance(msg_details_model, MessageDetail):
                 message_content = msg_details_model.text
-                # print(
+                # log_message(
                 #     f"            - Content: {message_content[:20] if message_content else ''}..."
                 # )
-                # print(f"            - Type: {msg_details_model.type}")
-                # print(f"            - Direction: {msg_details_model.direction}")
-                # print(
+                # log_message(f"            - Type: {msg_details_model.type}")
+                # log_message(f"            - Direction: {msg_details_model.direction}")
+                # log_message(
                 #     f"            - Sender: {msg_details_model.senders[0].actorId if msg_details_model.senders else 'N/A'}"
                 # )
 
@@ -252,17 +256,17 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
             elif isinstance(msg_details_model, str) and msg_details_model.startswith(
                 "HUBSPOT_TOOL_FAILED"
             ):
-                print(f"!!! Failed to fetch message details: {msg_details_model}")
+                log_message(f"Failed to fetch message details: {msg_details_model}", prefix="!!!", log_type="error")
             else:
-                print(
-                    f"!!! Unexpected response from get_message_details: {type(msg_details_model)}"
+                log_message(
+                    f"Unexpected response from get_message_details: {type(msg_details_model)}", prefix="!!!", log_type="error"
                 )
 
         except Exception as fetch_exc:
-            print(
-                f"!!! EXCEPTION fetching message details for {message_id}: {fetch_exc}"
+            log_message(
+                f"EXCEPTION fetching message details for {message_id}: {fetch_exc}", prefix="!!!", log_type="error"
             )
-            traceback.print_exc()
+            log_message(traceback.format_exc(), log_type="error")
 
         # 3. Trigger agent if relevant
         if is_relevant_message:
@@ -296,8 +300,10 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
                 )
             else:
                 # Relevant message, but no text content and no usable file attachment found to trigger the agent.
-                print(
-                    f"        > Agent processing skipped for message {message_id}. (Relevant: True, No actionable content: No text and no processable file attachment)"
+                log_message(
+                    f"Agent processing skipped for message {message_id}. (Relevant: True, No actionable content: No text and no processable file attachment)",
+                    level=3,
+                    prefix=">",
                 )
         else:
             # Message was not relevant in the first place (e.g. not incoming, not from visitor, or not MESSAGE type)
@@ -315,13 +321,15 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
                     message_type_info = msg_details_model.type
                 if hasattr(msg_details_model, "direction"):
                     message_direction_info = msg_details_model.direction
-            print(
-                f"        > Agent processing skipped for message {message_id}. (Relevant: False, Type: {message_type_info}, Direction: {message_direction_info}, Sender: {sender_actor_id})"
+            log_message(
+                f"Agent processing skipped for message {message_id}. (Relevant: False, Type: {message_type_info}, Direction: {message_direction_info}, Sender: {sender_actor_id})",
+                level=3,
+                prefix=">",
             )
 
     finally:
         # Ensure the message ID is removed from the processing set
-        # print(
+        # log_message(
         #     f"    <- Background task finished: ConvID={conversation_id}, MsgID={message_id}. Removing from processing set."
         # )
         await remove_message_from_processing(message_id)

@@ -9,6 +9,7 @@ from src.agents.agents_services import AgentService  # To access shared model cl
 from src.agents.message_supervisor.message_supervisor_agent import (
     create_message_supervisor_agent,
 )
+from src.services.logger_config import log_message
 
 
 async def convert_message_to_html(text_message: str) -> str:
@@ -44,23 +45,34 @@ async def convert_message_to_html(text_message: str) -> str:
                 ):
                     formatted_html = supervisor_final_message.content
                 else:
-                    print(
-                        "    !!! WARN: (HTML Service) Supervisor agent did not return expected string content."
+                    log_message(
+                        "(HTML Service) Supervisor agent did not return expected string content.",
+                        level=3,
+                        log_type="warning",
+                        prefix="!!! WARN:",
                     )
             else:
-                print(
-                    "    !!! WARN: (HTML Service) Supervisor agent failed to produce a result."
+                log_message(
+                    "(HTML Service) Supervisor agent failed to produce a result.",
+                    level=3,
+                    log_type="warning",
+                    prefix="!!! WARN:",
                 )
         else:
-            print(
-                "    !!! WARN: (HTML Service) Secondary model client not available for supervisor agent."
+            log_message(
+                "(HTML Service) Secondary model client not available for supervisor agent.",
+                level=3,
+                log_type="warning",
+                prefix="!!! WARN:",
             )
 
     except Exception as supervisor_exc:
-        print(
-            f"!!! EXCEPTION during Supervisor Agent execution (HTML Service): {supervisor_exc}"
+        log_message(
+            f"EXCEPTION during Supervisor Agent execution (HTML Service): {supervisor_exc}",
+            prefix="!!!",
+            log_type="error",
         )
-        traceback.print_exc()
+        log_message(traceback.format_exc(), log_type="error")
         # Fallback to original text is handled by default assignment
 
     # Basic check to ensure some HTML structure if formatting happened

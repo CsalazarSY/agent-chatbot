@@ -12,6 +12,7 @@ from src.agents.message_supervisor.system_message import (
     MESSAGE_SUPERVISOR_SYSTEM_MESSAGE,
 )
 from src.agents.agent_names import MESSAGE_SUPERVISOR_AGENT_NAME
+from src.services.logger_config import log_message
 
 # Import LLM config (assuming it's in the main config.py and .env is loaded)
 from config import LLM_BASE_URL, LLM_API_KEY
@@ -48,7 +49,10 @@ def create_message_supervisor_agent() -> AssistantAgent:
             ),
         )
     except Exception as e:
-        print(f"!!! CRITICAL ERROR: Failed to initialize model client for MessageSupervisorAgent: {e}")
+        log_message(
+            f"!!! CRITICAL ERROR: Failed to initialize model client for MessageSupervisorAgent: {e}",
+            log_type="error",
+        )
         raise RuntimeError(f"Could not create model client for MessageSupervisorAgent: {e}")
 
 

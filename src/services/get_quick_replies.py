@@ -15,6 +15,7 @@ from src.markdown_info.quick_replies.quick_reply_markdown import (
     QUICK_REPLIES_START_TAG,
     QUICK_REPLIES_END_TAG,
 )
+from src.services.logger_config import log_message
 
 
 def extract_quick_replies(
@@ -84,12 +85,16 @@ def extract_quick_replies(
                     )
 
         except json.JSONDecodeError as e:
-            print(
-                f"Failed to decode Quick Replies JSON: {e}. String was: {json_array_str}"
+            log_message(
+                f"Failed to decode Quick Replies JSON: {e}. String was: {json_array_str}",
+                level=3,
+                log_type="error",
             )
         except Exception as e_gen:
-            print(
-                f"An unexpected error occurred while processing quick replies: {e_gen}. Tag was: {match.group(0)}"
+            log_message(
+                f"An unexpected error occurred while processing quick replies: {e_gen}. Tag was: {match.group(0)}",
+                level=3,
+                log_type="error",
             )
 
     return cleaned_message_text, quick_reply_attachment

@@ -48,34 +48,40 @@ from src.services.hubspot.messages_filter import (
 from src.services.redis_client import close_redis_pool, initialize_redis_pool
 from src.services.sy_refresh_token import refresh_sy_token
 
-# Import the new HTML formatting service
+# Import the HTML formatting service
 from src.services.message_to_html import convert_message_to_html
 
+# Print debug function
+from src.services.logger_config import setup_custom_logger, log_message
 
-# --- FastAPI App Setup ---
+
+#  FastAPI App Setup 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Lifespan to control the FastAPI app"""
-    # --- Startup ---
+    #  Startup
+    setup_custom_logger()
+    log_message("Application Startup")
+
     try:
         # Initialize Redis Pool
         await initialize_redis_pool()
 
         # Trigger initial SY token refresh
-        print("--- Server starting up: Triggering initial SY token refresh... ---")
+        log_message("Server starting up: Triggering initial SY token refresh")
         refresh_success = await refresh_sy_token()
         if refresh_success:
-            print("--- Initial SY API token refresh successful. ---")
+            log_message("Initial SY API token refresh successful")
         else:
-            print(
+            log_message(
                 "!!! WARNING: Initial SY API token refresh failed. API calls will fail. !!!"
             )
 
         yield
 
     finally:
-        # --- Shutdown ---
-        print("--- Server shutting down... ---")
+        #  Shutdown 
+        log_message(" Server shutting down... ")
         await close_redis_pool()
 
 
@@ -109,10 +115,10 @@ app.add_middleware(
     allow_headers=["*", "Content-Type"],  # Allow all headers
 )
 
-# --- --- API Endpoint Definition --- --- #
+#   API Endpoint Definition   #
 
 
-# --- Chat Endpoint --- #
+#  Chat Endpoint  #
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
@@ -130,7 +136,7 @@ async def chat_endpoint(request: ChatRequest):
     # Handle errors reported by the service or the invocation
     if error_message:
         # Consider logging the error_message server-side
-        print(f"!!! Error reported: {error_message}")
+        log_message(f"Error reported: {error_message}", log_type="error", prefix="!!!")
         # If ID was missing, final_conversation_id will be None from the service
         status_code = 400 if "conversation_id is required" in error_message else 500
         raise HTTPException(
@@ -143,7 +149,7 @@ async def chat_endpoint(request: ChatRequest):
         err_detail = (
             "Task finished without a result, but no specific error was reported."
         )
-        print(f"!!! {err_detail}")
+        log_message(err_detail, log_type="error", prefix="!!!")
         # Return error but still include the conversation ID if available
         raise HTTPException(
             status_code=500,
@@ -158,15 +164,22 @@ async def chat_endpoint(request: ChatRequest):
         else "Paused/Awaiting Input"
     )  # Adjust default
 
-    ####### --- Process Task Result --- #######
-    print("\n\n\n<< Task Result >>")
+    #######  Process Task Result  #######
+    log_message("<< Task Result >>")
     if error_message:
-        print(f"          - Task failed with error: {error_message}")
+        log_message(
+            f"Task failed with error: {error_message}",
+            level=2,
+            prefix="-",
+            log_type="error",
+        )
     elif task_result:
-        print(f"          - Stop Reason: {stop_reason}")
-        print(f"          - Number of Messages: {len(task_result.messages)}")
+        log_message(f"Stop Reason: {stop_reason}", level=2, prefix="-")
+        log_message(
+            f"Number of Messages: {len(task_result.messages)}", level=2, prefix="-"
+        )
 
-        # --- Find the message BEFORE the final 'end_planner_turn' tool call --- #
+        #  Find the message BEFORE the final 'end_planner_turn' tool call  #
         reply_message: Optional[BaseChatMessage] = None
         messages = task_result.messages
         end_turn_event_index = -1
@@ -192,18 +205,23 @@ async def chat_endpoint(request: ChatRequest):
                     potential_reply_msg, (TextMessage, ThoughtEvent)
                 ):
                     reply_message = potential_reply_msg
-                    print(
-                        f"    - Found Planner message at index {i} (type: {type(reply_message).__name__}) before end_turn event."
+                    log_message(
+                        f"Found Planner message at index {i} (type: {type(reply_message).__name__}) before end_turn event.",
+                        level=3,
+                        prefix="-",
                     )
                     break  # Found the most recent relevant message
 
         # Fallback if the specific sequence wasn't found (should be rare)
         if not reply_message and messages:
-            print(
-                "    - WARN: Could not reliably find Planner message before end_turn event. Falling back to last message."
+            log_message(
+                "Could not reliably find Planner message before end_turn event. Falling back to last message.",
+                level=3,
+                prefix="-",
+                log_type="warning",
             )
             reply_message = messages[-1]
-        # --- End of Finding Reply Message --- #
+        #  End of Finding Reply Message  #
 
         # Extract the reply content from the identified message
         if reply_message and hasattr(reply_message, "content"):
@@ -226,15 +244,17 @@ async def chat_endpoint(request: ChatRequest):
             )
 
     else:
-        print(
-            ">>> TaskResult was not obtained (task might have failed before completion or service error) <<<"
+        log_message(
+            "TaskResult was not obtained (task might have failed before completion or service error)",
+            prefix=">>>",
+            log_type="error",
         )
         final_reply_content = "An issue occurred, and no result was generated."
         # Ensure final_conversation_id is handled even in this case
         if not final_conversation_id:
             final_conversation_id = request.conversation_id or "unknown"
 
-    ####### --- End of Task Result Analysis --- #######
+    #######  End of Task Result Analysis  #######
 
     # Return the reply, the conversation ID (crucial for continuing), and stop reason
     return ChatResponse(
@@ -244,7 +264,7 @@ async def chat_endpoint(request: ChatRequest):
     )
 
 
-# --- HubSpot Webhook Endpoint --- #
+#  HubSpot Webhook Endpoint  #
 @app.post("/hubspot/webhooks")
 async def hubspot_webhook_endpoint(
     payload: WebhookPayload, background_tasks: BackgroundTasks
@@ -254,13 +274,14 @@ async def hubspot_webhook_endpoint(
     Specifically handles 'newMessage' events for INCOMING visitor messages.
     Validates, deduplicates, and triggers background processing.
     """
-    print("\n--- HubSpot Webhook Received ---")
+    log_message("HubSpot Webhook Received")
 
     # Process individual events (assuming HubSpot might send multiple)
     # The payload *is* the list of events
     for event in payload:
-        print(
-            f"  -> Processing Event: Type={event.subscriptionType}, Attempt={event.attemptNumber}, Event ID={event.eventId}"
+        log_message(
+            f"Processing Event: Type={event.subscriptionType}, Attempt={event.attemptNumber}, Event ID={event.eventId}",
+            level=2,
         )
 
         # Only process new message events
@@ -270,20 +291,33 @@ async def hubspot_webhook_endpoint(
 
             # Input validation
             if not conversation_id or not message_id:
-                print("    !! Skipping event: Missing conversationId or messageId.")
+                log_message(
+                    "Skipping event: Missing conversationId or messageId.",
+                    level=3,
+                    prefix="!!",
+                    log_type="warning",
+                )
                 continue
 
             # Deduplication check for individual message_id
             is_processed_message = await is_message_processed(message_id)
             if is_processed_message:  # Check if True
-                print(f"    > Skipping processed message ID: {message_id}")
+                log_message(
+                    f"Skipping processed message ID: {message_id}",
+                    level=3,
+                    prefix=">",
+                )
                 continue
 
             # Check if the entire conversation has been handed off
-            is_conversation_disabled = await is_conversation_handed_off(conversation_id)
+            is_conversation_disabled = await is_conversation_handed_off(
+                conversation_id
+            )
             if is_conversation_disabled:
-                print(
-                    f"    > Skipping event for handed-off conversation ID: {conversation_id} (message_id: {message_id})"
+                log_message(
+                    f"Skipping event for handed-off conversation ID: {conversation_id} (message_id: {message_id})",
+                    level=3,
+                    prefix=">",
                 )
                 continue  # Skip to the next event
 
@@ -291,8 +325,10 @@ async def hubspot_webhook_endpoint(
             await add_message_to_processing(message_id)
 
             # Schedule background task to fetch details and process for the agent
-            print(
-                f"    > Scheduling agent processing task: ConvID={conversation_id}, MsgID={message_id}"
+            log_message(
+                f"Scheduling agent processing task: ConvID={conversation_id}, MsgID={message_id}",
+                level=3,
+                prefix=">",
             )
             background_tasks.add_task(
                 process_incoming_hubspot_message,
@@ -301,13 +337,15 @@ async def hubspot_webhook_endpoint(
             )
 
         else:
-            print(f"    < Skipping event type: {event.subscriptionType}")
+            log_message(
+                f"Skipping event type: {event.subscriptionType}", level=3, prefix="<"
+            )
 
     # Return 200 OK immediately for HubSpot webhook best practice
     return {"statusCode": 200, "status": "Webhook received and processing initiated"}
 
 
-# --- --- Run the Server (for local development) --- --- #
+#   Run the Server (for local development)   #
 if __name__ == "__main__":
     # Use reload=True for development so the server restarts on code changes
     uvicorn.run("main_server:app", host="0.0.0.0", port=8000, reload=True)

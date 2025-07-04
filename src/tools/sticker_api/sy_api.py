@@ -7,6 +7,8 @@ from typing import Optional, List, Dict
 import re
 import httpx
 import config
+from src.services.sy_token_manager import get_sy_api_token
+from src.services.logger_config import log_message
 
 # Import specific DTOs using absolute paths from src
 from src.tools.sticker_api.dtos.responses import (
@@ -122,16 +124,16 @@ async def _make_sy_api_request(
 
                     refresh_successful = await refresh_sy_token()
                     if refresh_successful:
-                        new_token = config.get_sy_api_token()
-                        if new_token:
-                            headers["Authorization"] = f"Bearer {new_token}"
-                            continue  # Go to next iteration of the loop to retry
-                        else:
-                            # Should not happen if refresh_successful is True, but safety check
-                            return f"{API_ERROR_PREFIX} Refresh reported success but token is still None."
+                        headers_base["Authorization"] = f"Bearer {get_sy_api_token()}"
+                        log_message("Retrying request with new token.", level=3)
+                        continue  # Retry the request with the new token
                     else:
-                        print("    - Token refresh failed. Aborting request.")
-                        return f"{API_ERROR_PREFIX} Authentication failed (401) and token refresh failed."
+                        log_message("Token refresh failed. Aborting request.", level=3, log_type="error")
+                        # Return a structured error message
+                        return {
+                            "error": "Authentication failed",
+                            "message": "Token refresh failed.",
+                        }
 
                 # Handle other client/server errors (4xx, 5xx)
                 else:
@@ -165,7 +167,7 @@ async def _make_sy_api_request(
                 raw_text = response.text[:200] if response else "[No Response]"
                 return f"{API_ERROR_PREFIX} Failed to decode response as JSON. Status: {status_code_str}. Body starts: {raw_text}"
             except Exception as e:
-                traceback.print_exc()
+                log_message(traceback.format_exc(), log_type="error")
                 return f"{API_ERROR_PREFIX} Unexpected error in request helper: {type(e).__name__} - {e}"
 
         # Fallback if loop finishes unexpectedly (should ideally not happen)
@@ -1251,5 +1253,5 @@ async def sy_perform_login(
     except (
         Exception
     ) as e:  # Catch other potential errors like JSONDecodeError if response parsing fails outside status check
-        traceback.print_exc()
+        log_message(traceback.format_exc(), log_type="error")
         return f"{API_ERROR_PREFIX} An unexpected error occurred during login. Details: {e}"

@@ -25,6 +25,7 @@ from config import HUBSPOT_CLIENT
 # Import the new pipeline logic helper
 from src.services.hubspot.determine_pipeline import determine_pipeline_and_stage
 from src.services.hubspot.messages_filter import add_conversation_to_handed_off
+from src.services.logger_config import log_message
 
 from src.tools.hubspot.tickets.constants import (
     AssociationCategory,
@@ -169,8 +170,11 @@ async def create_ticket(req: CreateTicketRequest) -> Union[TicketDetailResponse,
                     )
                 else:
                     # This case should ideally not happen if DTO validation is correct
-                    print(
-                        f"Warning: Skipping association due to missing 'to' or 'types' for DTO: {assoc_dto.model_dump_json()}"
+                    log_message(
+                        f"Skipping association due to missing 'to' or 'types' for DTO: {assoc_dto.model_dump_json()}",
+                        level=3,
+                        log_type="warning",
+                        prefix="Warning:",
                     )
 
         # Attempt to find and associate contact if email is provided
@@ -196,7 +200,7 @@ async def create_ticket(req: CreateTicketRequest) -> Union[TicketDetailResponse,
     except ApiException as e:
         return _format_error("create_ticket", e)
     except Exception as e:
-        traceback.print_exc()  # Log the full traceback for unexpected errors
+        log_message(traceback.format_exc(), log_type="error")  # Log the full traceback for unexpected errors
         return _format_error("create_ticket", e)
 
 
@@ -277,12 +281,14 @@ async def create_support_ticket_for_conversation(
             and properties.type_of_ticket == TypeOfTicketEnum.ISSUE
         ):
             await add_conversation_to_handed_off(conversation_id)
-            print(
-                f"        > Added conversation_id: {conversation_id} to handed-off set."
+            log_message(
+                f"Added conversation_id: {conversation_id} to handed-off set.",
+                level=3,
+                prefix=">",
             )
 
         return ticket_creation_result
 
     except Exception as e:
-        traceback.print_exc()
+        log_message(traceback.format_exc(), log_type="error")
         return _format_error("create_support_ticket_for_conversation", e)
