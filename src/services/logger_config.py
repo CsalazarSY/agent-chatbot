@@ -10,6 +10,13 @@ def setup_custom_logger():
     Configures the root logger for the application.
     This should be called once when the application starts.
     """
+    # Uvicorn and other servers can pre-configure logging.
+    # To ensure our format is used, we clear existing handlers
+    # and re-configure with basicConfig.
+    root_logger = logging.getLogger()
+    if root_logger.hasHandlers():
+        root_logger.handlers.clear()
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(message)s",
@@ -35,8 +42,9 @@ def log_message(
     indentation = "  " * (level - 1)
 
     # Get the actual logger function (e.g., logging.info, logging.warning)
-    logger_func = getattr(logging, log_type, logging.info)
+    # logger_func = getattr(logging, log_type, logging.info)
 
     # Construct and log the final message
     log_string = f"{indentation}{prefix} {message}"
-    logger_func(log_string)
+    # logger_func(log_string)
+    print(log_string)

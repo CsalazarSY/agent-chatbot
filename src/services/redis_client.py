@@ -15,7 +15,7 @@ async def initialize_redis_pool():
     """Initializes the Redis connection pool."""
     global redis_pool
     if redis_pool is None:
-        log_message("Initializing Redis connection pool...", level=1, prefix="---")
+        log_message("Initializing Redis connection pool...", level=3)
         try:
             # Construct the redis URL with 'rediss://' for SSL connections
             redis_url = f"rediss://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}"
@@ -27,7 +27,7 @@ async def initialize_redis_pool():
             # Test the connection
             client = redis.Redis(connection_pool=redis_pool)
             await client.ping()
-            log_message("Redis connection pool initialized successfully.", level=1, prefix="---")
+            log_message("Redis connection pool initialized successfully.", level=3)
         except Exception as e:
             log_message(
                 f"Failed to initialize Redis connection pool: {e}",

@@ -71,7 +71,7 @@ async def lifespan(_: FastAPI):
         log_message("Server starting up: Triggering initial SY token refresh", level=2)
         refresh_success = await refresh_sy_token()
         if refresh_success:
-            log_message("Initial SY API token refresh successful", level=3)
+            log_message("Initial SY API token refresh successful", level=2)
         else:
             log_message(
                 "WARNING: Initial SY API token refresh failed. API calls will fail. !!!",

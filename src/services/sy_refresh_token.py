@@ -20,7 +20,7 @@ async def refresh_sy_token() -> bool:
     Returns:
         bool: True if the token was successfully refreshed and updated, False otherwise.
     """
-    log_message("Attempting to refresh SY API token", level=2, prefix="....")
+    log_message("Attempting to refresh SY API token", level=3)
     if not SY_API_USERNAME or not SY_API_PASSWORD:
         log_message(
             "SY_API_USERNAME or SY_API_PASSWORD not set in environment variables.",
@@ -51,7 +51,7 @@ async def refresh_sy_token() -> bool:
                 new_token = login_response.token
                 expiry = login_response.expirationMinutes
                 log_message(
-                    f"Successfully obtained SY API token. Expires in: {expiry} minutes."
+                    f"Successfully obtained SY API token. Expires in: {expiry} minutes.", level=3
                 )
                 # Update the token in config
                 set_sy_api_token(new_token)
