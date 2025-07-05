@@ -1,6 +1,6 @@
 """HubSpot Ticket Tools"""
 
-from .ticket_tools import create_support_ticket_for_conversation
+from .ticket_tools import create_ticket, create_support_ticket_for_conversation
 from .constants import (
     AssociationCategory,
     AssociationTypeIdTicket,
@@ -22,6 +22,7 @@ from .dto_responses import (
 )
 
 __all__ = [
+    "create_ticket",
     "create_support_ticket_for_conversation",
     "AssociationCategory",
     "AssociationTypeIdTicket",

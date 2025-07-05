@@ -13,11 +13,8 @@ from hubspot.crm.tickets import (
     ApiException,
     PublicAssociationsForObject,
     PublicObjectId,
-    AssociationSpec,
 )
-from hubspot.crm.associations.v4.models import (
-    AssociationSpec,
-)
+from hubspot.crm.associations.v4.models import AssociationSpec
 
 # Import the shared HubSpot API HUBSPOT_CLIENT instance from config
 from config import HUBSPOT_CLIENT

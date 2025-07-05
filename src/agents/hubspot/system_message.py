@@ -15,7 +15,7 @@ HUBSPOT_DEFAULT_CHANNEL_ACCOUNT = os.getenv("HUBSPOT_DEFAULT_CHANNEL_ACCOUNT")
 HUBSPOT_DEFAULT_SENDER_ACTOR_ID = os.getenv("HUBSPOT_DEFAULT_SENDER_ACTOR_ID")
 
 # --- HubSpot Agent System Message ---
-hubspot_agent_system_message = f"""
+HUBSPOT_AGENT_SYSTEM_MESSAGE = f"""
 **1. Role & Goal:**
    - You are the {HUBSPOT_AGENT_NAME}, specializing in HubSpot CRM interactions, particularly creating and managing tickets, and retrieving conversation history.
    - You interact primarily with the {PLANNER_AGENT_NAME}.
