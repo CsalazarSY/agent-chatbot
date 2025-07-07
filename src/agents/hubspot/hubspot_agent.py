@@ -8,7 +8,7 @@ from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 # Import ALL tool functions
-from src.tools.hubspot.conversation.conversation_tools import (
+from src.tools.hubspot.conversation import (
     get_actor_details,
     get_actors_batch,
     get_channel_account_details,
@@ -27,12 +27,12 @@ from src.tools.hubspot.conversation.conversation_tools import (
 )
 
 # Import Ticket tools
-from src.tools.hubspot.tickets.ticket_tools import (
+from src.tools.hubspot.tickets import (
     create_support_ticket_for_conversation,
 )
 
 # Import system message
-from src.agents.hubspot.system_message import hubspot_agent_system_message
+from src.agents.hubspot.system_message import HUBSPOT_AGENT_SYSTEM_MESSAGE
 
 # Import Agent Name
 from src.agents.agent_names import HUBSPOT_AGENT_NAME
@@ -84,7 +84,7 @@ def create_hubspot_agent(
     hubspot_assistant = AssistantAgent(
         name=HUBSPOT_AGENT_NAME,
         description="Interacts with HubSpot APIs. Manages conversation threads (get, list, update/archive [DevOnly]), messages (get, send COMMENT/MESSAGE), actors, channels, and inboxes. Its primary ticket-related function is to create specialized support tickets linked to conversations for handoffs. Returns raw dicts/lists or confirmation strings.",
-        system_message=hubspot_agent_system_message,
+        system_message=HUBSPOT_AGENT_SYSTEM_MESSAGE,
         model_client=model_client,
         memory=[memory] if memory else None,
         tools=all_hubspot_tools,

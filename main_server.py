@@ -7,6 +7,7 @@ import json
 from typing import Optional
 from contextlib import asynccontextmanager
 import uvicorn
+import config
 
 # FastAPI imports
 from fastapi import FastAPI, HTTPException, BackgroundTasks
@@ -62,6 +63,9 @@ async def lifespan(_: FastAPI):
     #  Startup
     setup_custom_logger()
     log_message("Application Startup", level=1, prefix="--- --- ---")
+
+    # Log critical config values now that logger is ready
+    log_message(f"ChromaDB path: {config.CHROMA_DB_PATH_CONFIG}", prefix="!!!")
 
     try:
         # Initialize Redis Pool

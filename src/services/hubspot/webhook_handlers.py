@@ -33,7 +33,6 @@ from src.tools.hubspot.conversation.conversation_tools import (
 )
 
 # Centralized Agent Service
-from src.agents.agents_services import agent_service
 from src.agents.agent_names import PLANNER_AGENT_NAME
 
 # Import HTML Formatting Service
@@ -267,6 +266,8 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
                     user_message_for_agent = f"A file from the user has been uploaded: {file_name}"
 
             if user_message_for_agent:
+                from src.agents.agents_services import agent_service
+
                 task_result, error_message, _ = await agent_service.run_chat_session(
                     user_message=user_message_for_agent,
                     show_console=True,  # Set to False if running purely as backend service

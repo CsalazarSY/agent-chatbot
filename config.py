@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 from hubspot import HubSpot
 from pathlib import Path
 
-from src.services.logger_config import log_message
 
 # Load environment variables from .env file
 load_dotenv()
@@ -71,23 +70,9 @@ if _CHROMA_DB_RELATIVE_PATH:
             strict=False
         )
         CHROMA_DB_PATH_CONFIG = str(absolute_chroma_path)
-        log_message(f"ChromaDB path: {CHROMA_DB_PATH_CONFIG}", prefix="!!!")
-    except FileNotFoundError:
-        # This block might be less likely to be hit if strict=False and we construct from __file__
-        log_message(
-            f"ChromaDB path '{_CHROMA_DB_RELATIVE_PATH}' from .env, relative to {project_root}, does not resolve to an existing location. This might cause issues.",
-            prefix="!!! WARNING:",
-            log_type="warning",
-        )
-        # Fallback to simple absolute if robust resolution fails
-        CHROMA_DB_PATH_CONFIG = str(Path(_CHROMA_DB_RELATIVE_PATH).absolute())
-    except Exception as e:
-        log_message(
-            f"ERROR resolving ChromaDB path '{_CHROMA_DB_RELATIVE_PATH}': {e}",
-            prefix="!!! ERROR:",
-            log_type="error",
-        )
-        CHROMA_DB_PATH_CONFIG = None  # Ensure it's None if resolution fails badly
+    except Exception:
+        # If resolution fails, let it be None. The validation below will catch it.
+        CHROMA_DB_PATH_CONFIG = None
 
 
 # --- HubSpot Configuration ---
@@ -219,8 +204,6 @@ validate_api_config()
 try:
     HUBSPOT_CLIENT = HubSpot(access_token=HUBSPOT_API_TOKEN)
 except Exception as e:
-    log_message(
-        f"Error initializing HubSpot client: {e}", prefix="\n!!! <-", log_type="error"
-    )
-    HUBSPOT_CLIENT = None
-    raise ValueError(f"Failed to initialize HubSpot client: {e}")
+    # Raise the error so the app fails fast if HubSpot can't be initialized.
+    # The logging of this failure will be handled at the application's entry point.
+    raise ValueError(f"Failed to initialize HubSpot client: {e}") from e

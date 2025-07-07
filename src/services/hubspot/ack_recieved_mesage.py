@@ -1,11 +1,8 @@
 import config
-from src.tools.hubspot.conversation.conversation_tools import (
-    get_thread_details,
-    send_message_to_thread,
-)
-from src.tools.hubspot.conversation.dto_requests import CreateMessageRequest
-from src.markdown_info.ACK_message import ACK_MESSAGE_HTML, ACK_MESSAGE_TEXT
-from src.services.logger_config import log_message
+from src.tools.hubspot.conversation import send_message_to_thread
+from src.tools.hubspot.conversation import CreateMessageRequest
+from src.markdown_info import ACK_message
+from src.services import logger_config
 
 
 async def send_ack_of_received_to_conversation(conversation_id: str):
@@ -17,8 +14,8 @@ async def send_ack_of_received_to_conversation(conversation_id: str):
         # 1. Construct the message payload using the CreateMessageRequest DTO
         message_payload = CreateMessageRequest(
             type="MESSAGE",
-            text=ACK_MESSAGE_TEXT,
-            richText=ACK_MESSAGE_HTML,
+            text=ACK_message.ACK_MESSAGE_TEXT,
+            richText=ACK_message.ACK_MESSAGE_HTML,
             senderActorId=config.HUBSPOT_DEFAULT_SENDER_ACTOR_ID,
             channelId=config.HUBSPOT_DEFAULT_CHANNEL,
             channelAccountId=config.HUBSPOT_DEFAULT_CHANNEL_ACCOUNT,
@@ -31,7 +28,7 @@ async def send_ack_of_received_to_conversation(conversation_id: str):
 
         if isinstance(result, str):
             # If the tool returns a string, it's an error message
-            log_message(
+            logger_config.log_message(
                 f"Failed to send acknowledgment message to conversation {conversation_id}: {result}",
                 level=3,
                 log_type="error",
@@ -39,7 +36,7 @@ async def send_ack_of_received_to_conversation(conversation_id: str):
             return
 
     except Exception as e:
-        log_message(
+        logger_config.log_message(
             f"An unexpected error occurred in send_ack_of_received_to_conversation for {conversation_id}: {e}",
             level=2,
             log_type="error",

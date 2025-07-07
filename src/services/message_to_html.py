@@ -5,7 +5,6 @@
 import traceback
 
 # Agent Service and Supervisor Agent
-from src.agents.agents_services import AgentService  # To access shared model client
 from src.agents.message_supervisor.message_supervisor_agent import (
     create_message_supervisor_agent,
 )
@@ -30,6 +29,8 @@ async def convert_message_to_html(text_message: str) -> str:
 
     try:
         # Use the secondary model client from the shared AgentService state
+        from src.agents.agents_services import AgentService  # To access shared model client
+
         if AgentService.secondary_model_client:
             supervisor_agent = create_message_supervisor_agent()
 
