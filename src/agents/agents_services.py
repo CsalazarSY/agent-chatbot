@@ -9,7 +9,7 @@ import json  # Add json import
 
 from src.services.json_utils import json_serializer_default
 from src.services.redis_client import get_redis_client
-from src.services.logger_config import setup_custom_logger, log_message
+from src.services.logger_config import log_message
 
 # AutoGen imports
 from autogen_agentchat.ui import Console
@@ -93,7 +93,7 @@ class AgentService:
     @staticmethod
     def initialize_shared_state():
         """Initializes the shared class attributes ONCE."""
-        setup_custom_logger()
+
         if AgentService._initialized:
             log_message("AgentService already initialized. Skipping.", level=2, prefix="!!!")
             return

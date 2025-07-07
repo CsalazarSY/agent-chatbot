@@ -53,7 +53,7 @@ from src.services.sy_refresh_token import refresh_sy_token
 from src.services.message_to_html import convert_message_to_html
 
 # Print debug function
-from src.services.logger_config import setup_custom_logger, log_message
+from src.services.logger_config import log_message
 
 
 #  FastAPI App Setup 
@@ -61,7 +61,6 @@ from src.services.logger_config import setup_custom_logger, log_message
 async def lifespan(_: FastAPI):
     """Lifespan to control the FastAPI app"""
     #  Startup
-    setup_custom_logger()
     log_message("Application Startup", level=1, prefix="--- --- ---")
 
     # Log critical config values now that logger is ready
