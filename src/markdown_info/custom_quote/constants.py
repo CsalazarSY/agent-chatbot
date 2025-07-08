@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import List, Dict, Any, Union, Optional
 
 
@@ -219,9 +219,11 @@ class TypeOfPackagingEnum(str, Enum):
         return [e.value for e in cls]
 
 
-class PouchSizeEnum(str, Enum):
+class PouchSizeEnum(StrEnum):
+    """Enum for pouch sizes."""
+
     S_3x5_FLAT_HANGHOLE = '3" x 5" (Flat with Hanghole)'
-    M_5x7x3_5_STANDUP = '5"x 7" x 3.5" (Stand-Up)'
+    M_5x7x3_STANDUP = '5"x 7" x 3" (Stand-Up)'
     L_6x9x3_5_STANDUP = '6" x 9" x 3.5" (Stand-Up)'
 
     @classmethod

@@ -16,6 +16,11 @@ def log_message(
     # Calculate indentation. Level 1 has no indent.
     indentation = "  " * (level - 1)
 
+    if level == 1:
+        newLines = "\n\n"
+    else:
+        newLines = ""
+
     # Construct and log the final message
-    log_string = f"{indentation}{prefix} {message}"
+    log_string = f"{newLines}{indentation}{prefix} {message}"
     print(log_string)

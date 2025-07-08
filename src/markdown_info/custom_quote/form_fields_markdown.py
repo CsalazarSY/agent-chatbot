@@ -2,8 +2,6 @@
 This file contains the markdown definition of the custom quote form.
 """
 
-from src.agents.agent_names import PLANNER_AGENT_NAME
-from src.tools.hubspot.tickets.constants import TypeOfTicketEnum
 from .constants import (
     ProductGroupEnum,
     TypeOfClingEnum,
@@ -18,11 +16,7 @@ from .constants import (
     PreferredFormatEnum,
     PouchSizeEnum,
     PouchLabelMaterialEnum,
-    WhatSizeOfTapeEnum,
-    # Keeping disabled enums for reference in disabled fields section
-    UseTypeEnum,
-    BusinessCategoryEnum,
-    LocationEnum,
+    WhatSizeOfTapeEnum
 )
 
 CUSTOM_QUOTE_FORM_MARKDOWN_DEFINITION = f"""
@@ -205,6 +199,12 @@ The following defines the fields, requirements, and conditional logic for collec
 - `location`
 - `call_requested`
 - `application_use_`
+- `have_you_ordered_with_us_before_`
+- `how_did_you_find_us_`
+- `number_of_colours_in_design_`
+- `preferred_format_stickers`
+- `upload_your_vector_artwork`
+- `what_kind_of_content_would_you_like_to_hear_about_`
 - `hs_legal_communication_consent_checkbox`
 
 **VII. System Generated Fields (For AI agents internal use only):**

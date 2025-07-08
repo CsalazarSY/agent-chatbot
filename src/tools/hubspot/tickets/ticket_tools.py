@@ -57,85 +57,40 @@ def _format_error(tool_name: str, e: Exception) -> str:
 
 async def create_ticket(req: CreateTicketRequest) -> Union[TicketDetailResponse, str]:
     """
-    Creates a new HubSpot ticket with the given properties and associations.
+    Creates a new HubSpot ticket with the given properties and optional associations.
     This is a general-purpose ticket creation tool.
 
-    The `req` parameter (type `CreateTicketRequest`) should be structured as follows:
-    - `properties`: An object (type `CreateTicketProperties`) containing ticket fields.
-        Key fields include:
-        - `subject: str` (required)
-        - `content: str` (required)
-        - `hs_pipeline: Optional[str]` (defaults to '0' - e.g., the first configured pipeline - in DTO if not provided)
-        - `hs_pipeline_stage: Optional[str]` (defaults to '2' - e.g., a stage like 'Waiting on Contact' - in DTO if not provided)
-        - `hs_ticket_priority: Optional[str]` (e.g., "HIGH", "MEDIUM", "LOW")
-        - The `CreateTicketProperties` DTO uses `model_config = {"extra": "allow"}`,
-          allowing any other valid HubSpot ticket properties (including custom ones)
-          to be included. These should use their HubSpot internal names.
-          Boolean values for properties are often sent as strings ("true" or "false").
-    - `associations`: An optional list of objects (type `AssociationToCreate`) to link this ticket to other HubSpot objects.
-      Each `AssociationToCreate` object should have:
-        - `to`: An object (type `AssociationToObject`) with an `id: str` of the target HubSpot object (e.g., conversation ID, contact ID).
-        - `types`: A list containing one or more objects (type `AssociationTypeSpec`) that define the nature of the link.
-          Each `AssociationTypeSpec` requires:
-            - `associationCategory: str` (e.g., "HUBSPOT_DEFINED" for standard HubSpot associations).
-            - `associationTypeId: int` (A specific ID representing the type of association.
-              For example, use `DEFAULT_TICKET_TO_CONVERSATION_TYPE_ID` (which is 32) to link to a conversation/thread,
-              or `AssociationTypeIdTicket.TICKET_TO_CONTACT.value` (which is 16) to link to a contact.
-              It's crucial to use the correct `associationTypeId` for your specific
-              HubSpot instance and the objects you are linking).
+    The `req` parameter is a `CreateTicketRequest` object with two main parts:
+    - `properties`: A `TicketCreationProperties` object containing ticket fields. This model allows
+      any valid HubSpot ticket property (standard or custom) using its HubSpot internal name.
+        - **Required:** `subject`, `content`, `hs_ticket_priority`.
+        - **Custom Properties:** Any other fields like `product_group`, `total_quantity_`, etc.
+        - **Contact Properties:** You can include `email` and `phone` here; the system will handle them.
+    - `associations`: An optional list to link this ticket to other HubSpot objects, like a conversation.
 
-    **Example Full Payload for Creating a HubSpot Ticket:**
-
-    The following JSON demonstrates a comprehensive payload for creating a new ticket.
-    It includes linking the new ticket to an existing HubSpot conversation and populating
-    various standard and custom ticket properties.
-
+    **Example Payload Structure:**
     ```json
     {
+      "properties": {
+        "subject": "Inquiry about custom stickers",
+        "content": "User needs a quote for 500 custom stickers.",
+        "hs_ticket_priority": "MEDIUM",
+        "type_of_ticket": "Quote",
+        "email": "customer@example.com",
+        "product_group": "Stickers",
+        "total_quantity_": 500
+      },
       "associations": [
         {
-          "to": {
-            "id": "9214555237"  // ID of the conversation to associate this ticket with
-          },
-          "types": [
-            {
-              "associationCategory": "HUBSPOT_DEFINED",
-              "associationTypeId": 32 // Corresponds to DEFAULT_TICKET_TO_CONVERSATION_TYPE_ID
-            }
-          ]
+          "to": { "id": "987654321" },
+          "types": [{ "associationCategory": "HUBSPOT_DEFINED", "associationTypeId": 32 }]
         }
-      ],
-      "properties": {
-        "subject": "New Ticket Subject - From API",
-        "content": "This ticket was created via the API with various custom properties populated, and associated with a conversation.",
-        "hs_pipeline": "0",        // Target pipeline ID (e.g., default service pipeline)
-        "hs_pipeline_stage": "1",  // Target stage ID within the pipeline (e.g., 'New')
-        "hs_ticket_priority": "HIGH",
-        "type_of_ticket": "Quote", // Custom property
-        "use_type": "Personal",    // Custom property
-        "additional_instructions_": "Please ensure all details are double-checked.", // Custom property
-        "application_use_": "For an upcoming personal event.", // Custom property
-        "business_category": "Amateur Sport", // Custom property (enumeration)
-        "call_requested": "false",           // Custom property (boolean as string)
-        "have_you_ordered_with_us_before_": "true", // Custom property
-        "height_in_inches_": 2,             // Custom property (number)
-        "how_did_you_find_us_": "Google Search", // Custom property
-        "location": "USA",                 // Custom property
-        "number_of_colours_in_design_": "1", // Custom property
-        "preferred_format": "Pages",       // Custom property
-        "product_group": "Tattoo",         // Custom property, drives conditional logic elsewhere
-        "promotional_product_distributor_": "true", // Custom property
-        "total_quantity_": 100,            // Custom property (number)
-        "type_of_tattoo_": "Glitter Tattoo", // Custom property, conditional
-        "what_kind_of_content_would_you_like_to_hear_about_": "Business Products and News", // Custom property
-        "width_in_inches_": 2              // Custom property (number)
-      }
+      ]
     }
     ```
 
     Returns:
-        A HubSpot SDK `SimplePublicObject` (the `api_response`) on successful creation,
-        or an error string prefixed with `HUBSPOT_TICKET_TOOL_ERROR_PREFIX` on failure.
+        A `TicketDetailResponse` object on success, or an error string on failure.
     """
     if not HUBSPOT_CLIENT:
         return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} create_ticket - HUBSPOT_CLIENT not initialized."
@@ -206,23 +161,16 @@ async def create_support_ticket_for_conversation(
     properties: TicketCreationProperties,
 ) -> TicketDetailResponse | str:
     """
-    Creates a HubSpot support ticket specifically for an existing conversation/thread,
-    with predefined pipeline settings for chatbot-initiated tickets.
+    Creates and associates a HubSpot support ticket with an existing conversation.
 
-    This tool simplifies ticket creation for handoff scenarios from a chatbot conversation.
+    This tool is a specialized wrapper around the generic `create_ticket` function.
+    It automatically determines the correct pipeline and stage for the new ticket
+    based on the provided properties, simplifying the process for the Planner.
 
     Args:
-        conversation_id: str: The ID of the HubSpot conversation/thread to associate this ticket with.
-        properties (TicketCreationProperties): An object containing all ticket properties including:
-            - `subject: str` (required)
-            - `content: str` (required)
-            - `hs_ticket_priority: str` (required)
-            - `type_of_ticket: TypeOfTicketEnum` (required, defaults to INQUIRY)
-            - ... and other optional custom quote fields.
-
-    Returns:
-        A HubSpot SDK `SimplePublicObject` on successful creation, or an error string prefixed
-        with `HUBSPOT_TICKET_TOOL_ERROR_PREFIX` on failure.
+        conversation_id: The ID of the HubSpot conversation to link the ticket to.
+        properties: A `TicketCreationProperties` object containing all ticket details
+                    (e.g., subject, content, priority, and any custom fields).
     """
     if not HUBSPOT_CLIENT:
         return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} create_support_ticket_for_conversation - HUBSPOT_CLIENT not initialized."

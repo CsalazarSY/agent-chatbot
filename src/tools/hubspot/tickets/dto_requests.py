@@ -84,6 +84,12 @@ class TicketCreationProperties(BaseModel):
         description="The priority of the ticket (e.g., 'HIGH', 'MEDIUM', 'LOW').",
     )
 
+    # --- Contact Properties ---
+    firstname: Optional[str] = Field(None, description="First name of the contact.")
+    lastname: Optional[str] = Field(None, description="Last name of the contact.")
+    email: Optional[str] = Field(None, description="Email address of the contact.")
+    phone: Optional[str] = Field(None, description="Phone number of the contact.")
+
     # --- Base Ticket Information Properties ---
     type_of_ticket: TypeOfTicketEnum = Field(
         TypeOfTicketEnum.INQUIRY,
