@@ -276,7 +276,7 @@ async def sy_get_design_preview(
 
 
 # --- Helper function for country quick replies ---
-def _format_countries_as_qr(countries: List[Country]) -> str:
+def format_countries_as_qr(countries: List[Country]) -> str:
     """Formats a list of Country objects into a JSON string for Quick Replies."""
     qr_options = [
         {"label": country["name"], "value": country["name"]} for country in countries
@@ -285,7 +285,7 @@ def _format_countries_as_qr(countries: List[Country]) -> str:
     return f"{{QUICK_REPLIES_START_TAG}}<country_selection>:{json.dumps(qr_options)}{{QUICK_REPLIES_END_TAG}}"
 
 
-def _format_products_as_qr(products: List[ProductDetail]) -> str:
+def format_products_as_qr(products: List[ProductDetail]) -> str:
     """Formats a list of ProductDetail objects into a JSON string for Quick Replies."""
     qr_options = [p.quick_reply_label for p in products if p.quick_reply_label]
     qr_options.append("None of these / Need more help")
@@ -313,7 +313,7 @@ async def get_live_countries(
 
     # Fast path for generating UI quick replies
     if returnAsQuickReply:
-        return _format_countries_as_qr(all_countries)
+        return format_countries_as_qr(all_countries)
 
     # Standard filtering logic
     filtered_countries = all_countries

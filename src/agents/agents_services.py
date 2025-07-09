@@ -449,7 +449,7 @@ class AgentService:
             sticker_you_agent = create_sticker_you_agent(
                 AgentService.secondary_model_client
             )
-            live_product_agent = create_live_product_agent(
+            live_product_agent = await create_live_product_agent(
                 AgentService.secondary_model_client
             )
             price_quote_agent = create_price_quote_agent(

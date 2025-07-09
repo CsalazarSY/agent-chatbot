@@ -1,6 +1,7 @@
 
 def log_message(
     message: str,
+    log_type: str = "info",
     level: int = 1,
     prefix: str = "->",
 ):
