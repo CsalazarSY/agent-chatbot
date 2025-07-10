@@ -4,6 +4,9 @@
 import traceback
 from typing import Optional
 
+# --- Import the WebSocket manager ---
+from src.services.websocket_manager import manager
+
 # AutoGen imports
 from autogen_agentchat.base import TaskResult
 from autogen_agentchat.messages import (
@@ -196,6 +199,10 @@ async def process_agent_response(
             f"EXCEPTION sending reply to HubSpot Thread {conversation_id}: {send_exc}", level=3, prefix="!!!", log_type="error"
         )
         log_message(traceback.format_exc(), log_type="error")
+    finally:
+        # --- send STOP signal via WebSocket ---
+        # This runs after the message has been sent or an error occurred.
+        await manager.send_message("STOP_PROCESSING", conversation_id)
 
 
 async def process_incoming_hubspot_message(conversation_id: str, message_id: str):
@@ -247,8 +254,9 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
         # 3. Trigger agent if relevant
         if is_relevant_message:
             user_message_for_agent = None  # Initialize
-            # Send an ACK message to HubSpot to stop retries and inform the user.
-            await send_ack_of_received_to_conversation(conversation_id)
+
+            # Send START_PROCESSING signal via WebSocket
+            await manager.send_message("START_PROCESSING", conversation_id)
 
             # Primary: Use text content if available
             if message_content:

@@ -7,6 +7,7 @@ from . import logger_config
 from . import message_to_html
 from . import redis_client
 from . import sy_refresh_token
+from . import websocket_manager
 
 __all__ = [
     "clean_agent_tags",
@@ -16,4 +17,5 @@ __all__ = [
     "message_to_html",
     "redis_client",
     "sy_refresh_token",
+    "websocket_manager",
 ]

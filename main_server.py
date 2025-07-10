@@ -2,6 +2,11 @@
 
 # main_server.py
 
+import asyncio
+import time
+from typing import Dict, List
+from fastapi import WebSocket, WebSocketDisconnect
+
 # System imports
 import json
 from typing import Optional
@@ -55,6 +60,12 @@ from src.services.message_to_html import convert_message_to_html
 # Print debug function
 from src.services.logger_config import log_message
 
+# --- WebSocket Connection Manager ---
+from src.services.websocket_manager import (
+    manager,
+    initialize_websocket_manager,
+    close_websocket_manager,
+)
 
 #  FastAPI App Setup 
 @asynccontextmanager
@@ -69,10 +80,13 @@ async def lifespan(_: FastAPI):
     try:
         # Initialize Redis Pool
         await initialize_redis_pool()
+        # Initialize WebSocket Manager
+        await initialize_websocket_manager()
 
         # Trigger initial SY token refresh
         log_message("Server starting up: Triggering initial SY token refresh", level=2)
         refresh_success = await refresh_sy_token()
+
         if refresh_success:
             log_message("Initial SY API token refresh successful", level=2)
         else:
@@ -86,7 +100,8 @@ async def lifespan(_: FastAPI):
 
     finally:
         #  Shutdown 
-        log_message(" Server shutting down... ")
+        log_message("Server shutting down... ")
+        await close_websocket_manager()
         await close_redis_pool()
 
 
@@ -119,6 +134,19 @@ app.add_middleware(
     ],  # Allow all methods (GET, POST, etc.)
     allow_headers=["*", "Content-Type"],  # Allow all headers
 )
+
+# --- WebSocket Endpoint ---
+@app.websocket("/ws/{conversation_id}")
+async def websocket_endpoint(websocket: WebSocket, conversation_id: str):
+    await manager.connect(websocket, conversation_id)
+    try:
+        while True:
+            # This loop keeps the connection alive.
+            # It will break automatically when the client disconnects.
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, conversation_id)
+
 
 #   API Endpoint Definition   #
 
@@ -274,6 +302,9 @@ async def hubspot_webhook_endpoint(
     Specifically handles 'newMessage' events for INCOMING visitor messages.
     Validates, deduplicates, and triggers background processing.
     """
+
+    await manager.send_message("START_PROCESSING", payload[0].objectId)
+    return {"statusCode": 200, "status": "Webhook received and processing initiated"}
 
     # Process individual events (assuming HubSpot might send multiple)
     # The payload *is* the list of events
