@@ -53,10 +53,10 @@ HUBSPOT_AGENT_SYSTEM_MESSAGE = f"""
    **Conversations/Threads:**
    - **`send_message_to_thread(thread_id: str, message_type: str, content: str, sender_type: str = "BOT", sender_actor_id: Optional[str] = None, rich_text_content: Optional[str] = None) -> MessageDetailResponse | str`**
      - **Description:** Sends a message to a specific HubSpot conversation thread.
-     - **CRITICAL USAGE NOTE:** This tool is intended for sending `COMMENT` type messages (internal notes) or for specific bot interactions if designed. The {PLANNER_AGENT_NAME} should NOT use this to send its final user-facing reply; the Planner's own output mechanism handles that.
+     - **CRITICAL USAGE NOTE:** This tool is intended for sending `COMMENT` (internal notes) and `MESSAGE` (messages to the user) or for specific bot interactions if designed. The {PLANNER_AGENT_NAME} should NOT use this to send its final user-facing reply; the Planner's own output mechanism handles that.
      - **Parameters:**
        - `thread_id: str`: The ID of the HubSpot conversation thread.
-       - `message_type: str`: Type of message. For internal notes by the bot, this should be "COMMENT".
+       - `message_type: str`: Type of message. `COMMENT` for internal notes, `MESSAGE` for messages to the user.
        - `content: str`: The plain text content of the message.
        - `sender_type: str`: Typically "BOT" for automated messages.
        - `sender_actor_id: Optional[str]`: The HubSpot `actorId` for the bot (if configured and needed).

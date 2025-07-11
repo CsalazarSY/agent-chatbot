@@ -1,86 +1,57 @@
-"""Service function to convert plain text/Markdown message to HTML using the Message Supervisor Agent."""
+"""Service function to convert plain text/Markdown message to HTML using the python-markdown library."""
 
 # /src/services/message_to_html.py
 
-import traceback
-
-# Agent Service and Supervisor Agent
-from src.agents.message_supervisor.message_supervisor_agent import (
-    create_message_supervisor_agent,
-)
+import markdown
 from src.services.logger_config import log_message
+import html
+
+
+# --- Markdown Converter Setup ---
+# We instantiate this once to be reused.
+# Extensions:
+# - 'nl2br': Converts single newlines ('\n') into <br> tags, as specified in our Planner prompt.
+# - 'fenced_code': Handles code blocks correctly (e.g., ```python ... ```).
+# - 'tables': For rendering markdown tables.
+# - 'sane_lists': For more robust list parsing.
+md_converter = markdown.Markdown(
+    extensions=["nl2br", "fenced_code", "tables", "sane_lists"]
+)
 
 
 async def convert_message_to_html(text_message: str) -> str:
     """
-    Uses the Message Supervisor Agent to convert a text message (potentially Markdown)
-    into an HTML string.
+    Uses the 'python-markdown' library to convert a text message (potentially Markdown)
+    into an HTML string. This is a direct, fast, and reliable replacement for the
+    previous Message Supervisor Agent.
 
     Args:
         text_message: The raw text message to format.
 
     Returns:
-        The formatted HTML string, or the original text message if formatting fails.
+        The formatted HTML string.
     """
-    if not text_message:  # Handle empty input
+    if not text_message or not text_message.strip():
         return "<p></p>"
 
-    formatted_html = text_message  # Default to original text
-
     try:
-        # Use the secondary model client from the shared AgentService state
-        from src.agents.agents_services import AgentService  # To access shared model client
+        # The core conversion logic is now a single, synchronous call.
+        # We keep the function async to not block the event loop where it's called.
+        html_output = md_converter.convert(text_message)
 
-        if AgentService.secondary_model_client:
-            supervisor_agent = create_message_supervisor_agent()
+        # After conversion, reset the converter to clear any internal states
+        # This is good practice if the server is long-running.
+        md_converter.reset()
 
-            supervisor_result = await supervisor_agent.run(task=text_message)
+        log_message(f"HTML Output: {html_output}", prefix="\n\n\n\n\n\n\n\n---", log_type="info", level=1)
+        return html_output
 
-            if supervisor_result and supervisor_result.messages:
-                # The supervisor should return only the HTML string as the last message content
-                supervisor_final_message = supervisor_result.messages[-1]
-                if (
-                    hasattr(supervisor_final_message, "content")
-                    and isinstance(supervisor_final_message.content, str)
-                    and supervisor_final_message.content.strip()  # Ensure not empty string
-                ):
-                    formatted_html = supervisor_final_message.content
-                else:
-                    log_message(
-                        "(HTML Service) Supervisor agent did not return expected string content.",
-                        level=3,
-                        log_type="warning",
-                        prefix="!!! WARN:",
-                    )
-            else:
-                log_message(
-                    "(HTML Service) Supervisor agent failed to produce a result.",
-                    level=3,
-                    log_type="warning",
-                    prefix="!!! WARN:",
-                )
-        else:
-            log_message(
-                "(HTML Service) Secondary model client not available for supervisor agent.",
-                level=3,
-                log_type="warning",
-                prefix="!!! WARN:",
-            )
-
-    except Exception as supervisor_exc:
+    except Exception as e:
         log_message(
-            f"EXCEPTION during Supervisor Agent execution (HTML Service): {supervisor_exc}",
+            f"EXCEPTION during Markdown to HTML conversion: {e}",
             prefix="!!!",
             log_type="error",
         )
-        log_message(traceback.format_exc(), log_type="error")
-        # Fallback to original text is handled by default assignment
-
-    # Basic check to ensure some HTML structure if formatting happened
-    # If it still looks like plain text, wrap it in <p>
-    if formatted_html == text_message and not formatted_html.strip().startswith("<"):
-        formatted_html = f"<p>{formatted_html}</p>"
-    elif not formatted_html.strip():  # Handle case where supervisor returns empty
-        formatted_html = "<p></p>"
-
-    return formatted_html
+        # Fallback: In case of a very rare error, just wrap the original text in a <p> tag
+        # and perform basic HTML escaping to be safe.
+        return f"<p>{html.escape(text_message)}</p>"
