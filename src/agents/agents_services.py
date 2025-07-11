@@ -185,19 +185,7 @@ class AgentService:
     def custom_speaker_selector(
         messages: Sequence[BaseAgentEvent | BaseChatMessage],
     ) -> str | None:
-        """Determines the next speaker based on explicit rules and message content.
-
-        Rules:
-        1. If the last message is from the User Proxy, the Planner must speak next.
-        2. If the last message is from a Specialist Agent (SY, Product, HubSpot),
-           the Planner must speak next to process the result.
-        3. If the last message is from the Planner:
-           a. Check if it contains a delegation pattern like '<agent_name> : Call ...'.
-           b. If yes, and 'agent_name' is a known Specialist Agent, that agent speaks next.
-           c. If no delegation is found (e.g., the message ends with '<UserProxyAgent>' or is a question),
-              the User Proxy speaks next (signalling the end of the turn).
-        4. Fallback: If none of the above, let the LLM decide (should be rare).
-        """
+        """Determines the next speaker based on explicit rules and message content."""
         if not AgentService._initialized:
             log_message(
                 "<- WARN: custom_speaker_selector called before AgentService fully initialized. Defaulting to Planner.",
@@ -229,32 +217,23 @@ class AgentService:
 
         # Rule 3: Planner spoke -> Check for delegation or end of turn
         if last_message.source == PLANNER_AGENT_NAME:
-            # Ensure content is a string before processing
             if isinstance(last_message.content, str):
                 content = last_message.content.strip()
-                # Regex: Matches '<', then captures word characters (\w+?), then '>' at the start.
-                match = re.match(r"^<(\w+?)>", content)
+                # Use re.search to find the pattern anywhere in the string
+                match = re.search(r"<(\w+?)>", content)
 
                 if match:
-                    delegated_agent_name = match.group(1)  # Extracts the name inside <>
-
-                    if delegated_agent_name == PRICE_QUOTE_AGENT_NAME:
-                        return PRICE_QUOTE_AGENT_NAME
-                    elif delegated_agent_name == STICKER_YOU_AGENT_NAME:
-                        return STICKER_YOU_AGENT_NAME
-                    elif delegated_agent_name == LIVE_PRODUCT_AGENT_NAME:
-                        return LIVE_PRODUCT_AGENT_NAME
-                    elif delegated_agent_name == HUBSPOT_AGENT_NAME:
-                        return HUBSPOT_AGENT_NAME
-                    elif delegated_agent_name == ORDER_AGENT_NAME:
-                        return ORDER_AGENT_NAME
+                    delegated_agent_name = match.group(1)
+                    if delegated_agent_name in specialist_agents:
+                        return delegated_agent_name
                     else:
                         log_message(
                             f"<- WARN: Selector found delegation pattern but agent '{delegated_agent_name}' is unknown. Defaulting to Planner.",
                             log_type="warning",
                         )
-                        return PLANNER_AGENT_NAME  # Fallback if agent name invalid
+                        return PLANNER_AGENT_NAME
                 else:
+                    # No delegation tag found, so it's the end of the turn for the user.
                     return None
             else:
                 # Planner message content is not a string, unexpected.

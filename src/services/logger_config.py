@@ -18,7 +18,7 @@ def log_message(
     indentation = "  " * (level - 1)
 
     if level == 1:
-        newLines = "\n\n"
+        newLines = "\n\n\n\n"
     else:
         newLines = ""
 

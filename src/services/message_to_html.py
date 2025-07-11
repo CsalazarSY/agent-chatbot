@@ -43,7 +43,6 @@ async def convert_message_to_html(text_message: str) -> str:
         # This is good practice if the server is long-running.
         md_converter.reset()
 
-        log_message(f"HTML Output: {html_output}", prefix="\n\n\n\n\n\n\n\n---", log_type="info", level=1)
         return html_output
 
     except Exception as e:
