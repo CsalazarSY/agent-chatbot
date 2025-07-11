@@ -65,6 +65,8 @@ from src.services.websocket_manager import (
     manager,
     initialize_websocket_manager,
     close_websocket_manager,
+    WS_MSG_START_PROCESSING,
+    WS_MSG_STOP_PROCESSING,
 )
 
 #  FastAPI App Setup 
@@ -302,9 +304,6 @@ async def hubspot_webhook_endpoint(
     Specifically handles 'newMessage' events for INCOMING visitor messages.
     Validates, deduplicates, and triggers background processing.
     """
-
-    await manager.send_message("START_PROCESSING", payload[0].objectId)
-    return {"statusCode": 200, "status": "Webhook received and processing initiated"}
 
     # Process individual events (assuming HubSpot might send multiple)
     # The payload *is* the list of events

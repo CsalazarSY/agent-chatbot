@@ -5,7 +5,11 @@ import traceback
 from typing import Optional
 
 # --- Import the WebSocket manager ---
-from src.services.websocket_manager import manager
+from src.services.websocket_manager import (
+    manager,
+    WS_MSG_START_PROCESSING,
+    WS_MSG_STOP_PROCESSING,
+)
 
 # AutoGen imports
 from autogen_agentchat.base import TaskResult
@@ -202,7 +206,7 @@ async def process_agent_response(
     finally:
         # --- send STOP signal via WebSocket ---
         # This runs after the message has been sent or an error occurred.
-        await manager.send_message("STOP_PROCESSING", conversation_id)
+        await manager.send_message(WS_MSG_STOP_PROCESSING, conversation_id)
 
 
 async def process_incoming_hubspot_message(conversation_id: str, message_id: str):
@@ -256,7 +260,11 @@ async def process_incoming_hubspot_message(conversation_id: str, message_id: str
             user_message_for_agent = None  # Initialize
 
             # Send START_PROCESSING signal via WebSocket
-            await manager.send_message("START_PROCESSING", conversation_id)
+            was_signal_sent =await manager.send_message(WS_MSG_START_PROCESSING, conversation_id)
+
+            # If no WebSocket connection is established, send an ACK message instead
+            if not was_signal_sent:
+                await send_ack_of_received_to_conversation(conversation_id)
 
             # Primary: Use text content if available
             if message_content:
