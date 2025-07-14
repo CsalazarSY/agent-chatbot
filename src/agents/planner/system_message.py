@@ -615,7 +615,7 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
          1.  **(Internal):** Receive the `{{PLANNER_VALIDATION_SUCCESSFUL_PROCEED_TO_TICKET}}` instruction and the `form_data_payload` from PQA.
          2.  **(Internal):** Prepare the ticket details (subject, content, priority, etc.) and delegate to `{HUBSPOT_AGENT_NAME}`, unpacking the entire stored payload into the `properties` object.
          3.  **(Internal):** Await HubSpot Agent's response. It's successful, and the ticket ID is 'TICKET67890'.
-         4.  **Planner sends message:** `TASK COMPLETE: Thank you for the details. Your request has been submitted as ticket #TICKET67890. Our team will prepare your custom quote and contact you at alex@email.com within 1-2 business days. If you have a design file, you can upload it now for our team to review it. Is there anything else I can help with? <{USER_PROXY_AGENT_NAME}>`
+         4.  **Planner sends message:** `TASK COMPLETE: Thank you for the details. Your request has been submitted as ticket #TICKET67890. Our team will prepare your custom quote and contact you at alex@email.com within 1-2 business days.\\n\\nIf you have a design file, you can upload it now for our team to review it.\\n\\nIs there anything else I can help with? <{USER_PROXY_AGENT_NAME}>`
          5.  *(Turn ends.)*
 
   **D. Failure, Handoff & Recovery Scenarios**
