@@ -19,8 +19,7 @@ from src.markdown_info.quick_replies.quick_reply_markdown import (
     QUICK_REPLIES_START_TAG,
     QUICK_REPLIES_END_TAG,
 )
-
-# Import HubSpot Pipeline/Stage constants from config
+from src.markdown_info.custom_quote.constants import HubSpotPropertyName
 
 # Import PQA Planner Instruction Constants
 from src.agents.price_quote.instructions_constants import (
@@ -242,7 +241,7 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
          1. **Initiate/Continue with PQA:**
             - Prepare the message for PQA. This will include the user's latest raw response.
             - **If transitioning from a failed Quick Quote and you have collected details like product name, quantity, or size, include them using their HubSpot Internal Names.** (See Section 5.A.3 for format).
-            - Delegate to PQA (using format from Section 5.A.3). Example: `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. User's latest response: 'User agreed to custom quote.' Pre-existing data: {{ "product_group": "[product_name_or_group_from_quick_quote]", "total_quantity_": "[quantity_from_quick_quote]", "width_in_inches_": "[width_from_quick_quote]", "height_in_inches_": "[height_from_quick_quote]" }}. What is the next step?` (Omit `Pre-existing data` if not applicable or no data was reliably gathered. Note: `product_group` should be the actual product group if known, or the user's description if a direct mapping isn't available yet.)
+            - Delegate to PQA (using format from Section 5.A.3). Example: `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. User's latest response: 'User agreed to custom quote.' Pre-existing data: {{ "{HubSpotPropertyName.PRODUCT_CATEGORY.value}": "[product_name_or_category_from_quick_quote]", "{HubSpotPropertyName.TOTAL_QUANTITY.value}": "[quantity_from_quick_quote]", "{HubSpotPropertyName.WIDTH_IN_INCHES.value}": "[width_from_quick_quote]", "{HubSpotPropertyName.HEIGHT_IN_INCHES.value}": "[height_from_quick_quote]" }}. What is the next step?` (Omit `Pre-existing data` if not applicable or no data was reliably gathered. Note: `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` should be the actual product category if known, or the user's description if a direct mapping isn't available yet.)
             - (Await PQA response INTERNALLY).
          
          2. **Act on PQA's Instruction:**
@@ -448,8 +447,8 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
      2. **StickerYou Agent Info Request:** 
         `<{STICKER_YOU_AGENT_NAME}> : Query the knowledge base for: "[natural_language_query_for_info]"`
      3. **PQA Custom Quote Guidance (Initial/Ongoing/Resuming/Confirmation):** 
-        `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. User's latest response: '[User's raw response text, or "User wishes to resume custom quote", or "User agreed to custom quote."]'. Optional: Pre-existing data: {{ "product_group": "[product_name_or_group]", "total_quantity_": "[quantity]", "width_in_inches_": "[width]", "height_in_inches_": "[height]" }}. What is the next step?`
-        *(Include `Pre-existing data` dictionary only if transitioning from a failed quick quote and data was collected and the user intent is clearly to continue with the custom quote. Use HubSpot Internal Names for keys. `product_group` can be the user's description if a direct mapping isn't known yet.)*
+        `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. User's latest response: '[User's raw response text, or "User wishes to resume custom quote", or "User agreed to custom quote."]'. Optional: Pre-existing data: {{ "{HubSpotPropertyName.PRODUCT_CATEGORY.value}": "[product_name_or_category]", "{HubSpotPropertyName.TOTAL_QUANTITY.value}": "[quantity]", "{HubSpotPropertyName.WIDTH_IN_INCHES.value}": "[width]", "{HubSpotPropertyName.HEIGHT_IN_INCHES.value}": "[height]" }}. What is the next step?`
+        *(Include `Pre-existing data` dictionary only if transitioning from a failed quick quote and data was collected and the user intent is clearly to continue with the custom quote. Use HubSpot Internal Names for keys. `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` can be the user's description if a direct mapping isn't known yet.)*
      4. **Live Product Agent Info Request (MUST be structured):**
         - `<{LIVE_PRODUCT_AGENT_NAME}>: Find ID for {{"name": "...", "format": "...", "material": "..."}}`
         - `<{LIVE_PRODUCT_AGENT_NAME}>: Fetch products with these characteristics: {{"name": "...", "format": "...", "material": "..."}}`
@@ -504,12 +503,12 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
       17. **Turn 1 (Offer):** Explain the issue, ask the user if they want a ticket. (Ends turn).
       18. **Turn 2 (If Consented - Get Email):** Ask for email if not already provided. (Ends turn).
       19. **Turn 3 (If Email Provided - Create Ticket):** Delegate to `{HUBSPOT_AGENT_NAME}` as explained in the workflows. Confirm ticket/failure to the user. (Ends turn).
-      20. **HubSpot Ticket Content (General Issues/Handoffs):** Must include: summary of the issue, user email (if provided), technical errors if any, priority. Set `type_of_ticket` to `Issue`. The `{HUBSPOT_AGENT_NAME}` will select the appropriate pipeline.
-      21. **HubSpot Ticket Content (Custom Quotes):** As per Workflow C.1, `subject` and a BRIEF `content` are generated by you. All other details from PQA's `form_data` become individual properties in the `properties` object. `type_of_ticket` is `Quote`. The `{HUBSPOT_AGENT_NAME}` handles pipeline selection.
+      20. **HubSpot Ticket Content (General Issues/Handoffs):** Must include: summary of the issue, user email (if provided), technical errors if any, priority. Set `{HubSpotPropertyName.TYPE_OF_TICKET.value}` to `Issue`. The `{HUBSPOT_AGENT_NAME}` will select the appropriate pipeline.
+      21. **HubSpot Ticket Content (Custom Quotes):** As per Workflow C.1, `{HubSpotPropertyName.SUBJECT.value}` and a BRIEF `{HubSpotPropertyName.CONTENT.value}` are generated by you. All other details from PQA's `form_data` become individual properties in the `properties` object. `{HubSpotPropertyName.TYPE_OF_TICKET.value}` is `Quote`. The `{HUBSPOT_AGENT_NAME}` handles pipeline selection.
       22. **Strict Adherence:** NEVER create ticket without consent AND email (for handoffs/issues where email isn't part of a form).
     
     **VII. General Conduct & Scope:**
-      23. **Error Abstraction:** Hide technical errors from users (except in ticket `content`).
+      23. **Error Abstraction:** Hide technical errors from users (except in ticket `{HubSpotPropertyName.CONTENT.value}`).
       24. **Mode Awareness:** Check for `-dev` prefix.
       25. **Tool Scope:** Adhere to agent tool scopes.
       26. **Tone:** Empathetic and natural.
@@ -604,7 +603,7 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
       - *(...conversation proceeds, PQA asks questions, Planner relays them...)*
       - **LATER IN THE FLOW - PQA has all data and sends completion signal:**
       - **PQA (Internal Response to Planner):**
-         `{PLANNER_VALIDATION_SUCCESSFUL_PROCEED_TO_TICKET}: "form_data_payload": {{ "firstname": "Alex", "email": "alex@email.com", "product_group": "Sticker", ...etc... }}`
+         `{PLANNER_VALIDATION_SUCCESSFUL_PROCEED_TO_TICKET}: "form_data_payload": {{ "{HubSpotPropertyName.FIRSTNAME.value}": "Alex", "{HubSpotPropertyName.EMAIL.value}": "alex@email.com", "{HubSpotPropertyName.PRODUCT_CATEGORY.value}": "Sticker", ...etc... }}`
       - **Planner Turn N (Receives Signal and Creates Ticket):**
          1.  **(Internal):** Receive the `{{PLANNER_VALIDATION_SUCCESSFUL_PROCEED_TO_TICKET}}` instruction and the `form_data_payload` from PQA.
          2.  **(Internal):** Prepare the ticket details (subject, content, priority, etc.) and delegate to `{HUBSPOT_AGENT_NAME}`, unpacking the entire stored payload into the `properties` object.
@@ -665,7 +664,7 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
       - **User (Next Turn):** "my_email@example.com"
       - **Planner Turn 3 (Create Ticket & Confirm):**
           1.  **(Internal):** I have consent and an email. I will now prepare the ticket details, making sure the content is specific to the user's complaint.
-          2.  **(Internal):** Prepare ticket properties: `subject: "Complaint Regarding Sticker Quality"`, `content: "User is reporting a quality issue with their recently received stickers, stating the colors are faded. Please investigate."`, `hs_ticket_priority: "HIGH"`, `type_of_ticket: "Issue"`.
+          2.  **(Internal):** Prepare ticket properties: `{HubSpotPropertyName.SUBJECT.value}: "Complaint Regarding Sticker Quality"`, `{HubSpotPropertyName.CONTENT.value}: "User is reporting a quality issue with their recently received stickers, stating the colors are faded. Please investigate."`, `{HubSpotPropertyName.HS_TICKET_PRIORITY.value}: "HIGH"`, `{HubSpotPropertyName.TYPE_OF_TICKET.value}: "Issue"`.
           3.  **(Internal):** Delegate to `{HUBSPOT_AGENT_NAME}` to create the ticket with these properties.
           4.  **(Internal):** HubSpot Agent confirms successful ticket creation with ID '12345'.
           5.  **Planner sends message:** `TASK COMPLETE: Thank you. I've created a high-priority ticket, #12345, regarding the quality issue. Our team will review this and use your email my_email@example.com to get in touch with you shortly. I hope we can resolve this for you quickly. Is there anything else I can assist you with? <{USER_PROXY_AGENT_NAME}>`
