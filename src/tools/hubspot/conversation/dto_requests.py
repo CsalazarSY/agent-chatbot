@@ -27,12 +27,12 @@ class QuickReplyOption(BaseModel):
 
 class QuickReplyAttachment(BaseModel):
     """Represents a quick replies attachment."""
-    type: str = Field("QUICK_REPLIES", description="The type of attachment, fixed to QUICK_REPLIES.", Literal="QUICK_REPLIES")
+    type: str = Field("QUICK_REPLIES", description="The type of attachment, fixed to QUICK_REPLIES.")
     quickReplies: List[QuickReplyOption] = Field(..., description="A list of quick reply options.")
 
 class FileUploadAttachment(BaseModel):
     """Represents a file attachment."""
-    type: str = Field("FILE", description="The type of attachment, fixed to FILE.", Literal="FILE")
+    type: str = Field("FILE", description="The type of attachment, fixed to FILE.")
     fileId: str = Field(..., description="The ID of the uploaded file in HubSpot.")
     name: Optional[str] = Field(None, description="The name of the file.")
     fileUsageType: Optional[str] = Field(None, description="Usage type like IMAGE, DOCUMENT etc.") # e.g. IMAGE

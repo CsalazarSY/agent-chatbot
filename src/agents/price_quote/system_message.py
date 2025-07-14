@@ -22,10 +22,6 @@ from src.agents.price_quote.instructions_constants import (
 from src.markdown_info.quick_replies.quick_reply_markdown import (
     QUICK_REPLY_STRUCTURE_DEFINITION,
 )
-from src.markdown_info.quick_replies.pqa_references import (
-    PQA_PRODUCT_GROUP_SELECTION_QR,
-    PQA_MATERIAL_SELECTION_QR,
-)
 
 
 # Load environment variables
@@ -178,7 +174,7 @@ PRICE_QUOTE_AGENT_SYSTEM_MESSAGE = f"""
    - **Example CQ_PQA_Asks_FirstQuestion (No Pre-existing Data):**
      - `{PLANNER_AGENT_NAME}` -> `{PRICE_QUOTE_AGENT_NAME}`: `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. User\\s latest response: I need a custom quote for some stickers.`
      - **`{PRICE_QUOTE_AGENT_NAME}` (Internal):** Initializes empty `form_data`. Looks at Section 0. First field is `product_category_`.
-     - **`{PRICE_QUOTE_AGENT_NAME}` -> `{PLANNER_AGENT_NAME}`:** `{PLANNER_ASK_USER}: To start your custom quote, what type of product are you looking for? For example, Stickers, Labels, Decals, etc. {PQA_PRODUCT_GROUP_SELECTION_QR}`
+     - **`{PRICE_QUOTE_AGENT_NAME}` -> `{PLANNER_AGENT_NAME}`:** `{PLANNER_ASK_USER}: To start your custom quote, what type of product are you looking for? For example, Stickers, Labels, Decals, etc. <QuickReplies><product_group>:[{{"label": "Stickers", "value": "Stickers"}}, {{"label": "Labels", "value": "Labels"}}, {{"label": "Decals", "value": "Decals"}}]</QuickReplies>`
 
    - **Example CQ_PQA_Asks_FirstQuestion_With_PreExisting_Data:**
      - `{PLANNER_AGENT_NAME}` -> `{PRICE_QUOTE_AGENT_NAME}`: `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. Users latest response: Yes, please proceed with a custom quote. Pre-existing data: {{ "product_group": "Die-cut Stickers", "total_quantity_": "250", "width_in_inches_": "3", "height_in_inches_": "2" }}. What is the next step?`
@@ -196,7 +192,7 @@ PRICE_QUOTE_AGENT_SYSTEM_MESSAGE = f"""
    - **Example CQ_PQA_Asks_NextQuestion_AfterParsing:**
      - `{PLANNER_AGENT_NAME}` -> `{PRICE_QUOTE_AGENT_NAME}`: `<{PRICE_QUOTE_AGENT_NAME}> : Guide custom quote. User's latest response: Stickers`
      - **`{PRICE_QUOTE_AGENT_NAME}` (Internal):** Parses 'Stickers'. Updates `form_data[product_category_] = 'Stickers'`. Looks at Section 0. Next field after `product_category_` might be `material_sy`.
-     - **`{PRICE_QUOTE_AGENT_NAME}` -> `{PLANNER_AGENT_NAME}`:** `{PLANNER_ASK_USER}: Great, stickers it is! What material would you like for your stickers? (e.g., Vinyl, Holographic, Clear) {PQA_MATERIAL_SELECTION_QR}`
+     - **`{PRICE_QUOTE_AGENT_NAME}` -> `{PLANNER_AGENT_NAME}`:** `{PLANNER_ASK_USER}: Great, stickers it is! What material would you like for your stickers? (e.g., Vinyl, Holographic, Clear) <QuickReplies><material_sy>:[{{"label": "Vinyl", "value": "Vinyl"}}, {{"label": "Holographic", "value": "Holographic"}}, {{"label": "Clear", "value": "Clear"}}]</QuickReplies>`
 
    - **Example CQ_PQA_InternallyValidates_And_Signals_Completion:**
      - (After several turns, PQA's internal `form_data` is: `{{ "firstname": "Jane", "email": "jane@example.com", "product_group": "Stickers", "type_of_sticker_": "Die-Cut Single Stickers", "total_quantity_": 500, ...all other required fields...}}`)

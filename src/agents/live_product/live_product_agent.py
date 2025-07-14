@@ -53,11 +53,11 @@ async def create_live_product_agent(
     # 3. Create the agent instance
     live_product_assistant = AssistantAgent(
         name=LIVE_PRODUCT_AGENT_NAME,
-        description="Expert on a master JSON list of products held in its memory. It answers Planners queries by searching and filtering this internal data. It can return raw JSON or formatted Quick Replies. It can also give information about shipping countries.",
+        description="Expert on a master JSON list of products held in its memory. It answers Planner's queries by searching this data. If multiple products match a query, it returns a structured JSON object containing both the raw product data and a pre-formatted quick-reply string for clarification.",
         system_message=LIVE_PRODUCT_AGENT_SYSTEM_MESSAGE,
         model_client=model_client,
         memory=[lpa_memory],
         tools=live_product_tools,
-        reflect_on_tool_use=False,
+        reflect_on_tool_use=True,
     )
     return live_product_assistant

@@ -9,5 +9,12 @@ SY_PAGE_MAKER_LINK = "[Page Maker](https://www.stickeryou.com/page-maker)"
 SY_VINYL_EDITOR_LINK = "[Vinyl Editor](https://www.stickeryou.com/vinyleditor)"
 
 SY_PRODUCT_FIRST_LINK = (
-    "[Explore all our products here](https://www.stickeryou.com/products)"
+    "[Product selection](https://stickeryou.com/productfirst)"
 )
+
+SY_KEY_SITE_PAGES_LINKS = f"""
+- **Sticker Maker:** {SY_STICKER_MAKER_LINK}
+- **Page Maker:** {SY_PAGE_MAKER_LINK}
+- **Vinyl Editor:** {SY_VINYL_EDITOR_LINK}
+- **Product First (General Product Selection):** {SY_PRODUCT_FIRST_LINK}
+"""

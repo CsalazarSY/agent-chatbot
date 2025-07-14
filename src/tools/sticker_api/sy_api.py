@@ -287,17 +287,21 @@ def format_countries_as_qr(countries: List[Country]) -> str:
 
 def format_products_as_qr(products: List[ProductDetail]) -> str:
     """
-    Formats a list of ProductDetail objects into a JSON string for Quick Replies,
-    using the manually defined labels from LPA_PRODUCT_QUICK_REPLIES_LABELS.
+    Formats a list of ProductDetail objects into a JSON string of objects
+    for Quick Replies, using the manually defined labels.
     """
     qr_options = []
     for p in products:
-        # Match product ID with the lookup map to get the predefined label
         label = _product_label_map.get(p.id)
         if label:
-            qr_options.append(label)
+            # The value should be the same as the label for user clarity
+            qr_options.append({"label": label, "value": label})
 
-    qr_options.append("None of these / Need more help")
+    # Add a fallback option
+    qr_options.append(
+        {"label": "None of these / Need more help", "value": "None of these"}
+    )
+
     qr_json_array = json.dumps(qr_options)
     return (
         f"{QUICK_REPLIES_START_TAG}<product_clarification>:"

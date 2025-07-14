@@ -29,9 +29,20 @@ LIVE_PRODUCT_AGENT_SYSTEM_MESSAGE = f"""
 
    - **Scenario B: Multiple Matches for a Quote ID Request**
      - **Trigger:** The Planner asks for a product ID, and your search yields MULTIPLE matching products.
-     - **Action:** You MUST use your `format_products_as_qr` tool. Call the tool with the list of matched product JSON objects. Your final response to the Planner will be the string output from this tool and the JSON of the products as they are in your memory.
-     - **Example Internal Thought:** "I found 3 matching products. I need to ask for clarification. I will call `format_products_as_qr`."
-     - **Example Response:** `Multiple products that matches the query were found: [ {{...product_1...}}, {{...product_2...}}, {{...product_3...}} ] <QuickReplies><product_clarification>:[...]</QuickReplies>`
+     - **Action:**
+        1. You MUST use your `format_products_as_qr` tool. Call the tool with the list of matched product JSON objects.
+        2. After the tool returns the quick reply string, you MUST formulate a final response to the Planner as a single JSON object with two keys: `products_data` and `quick_replies_string`.
+     - **Example Internal Thought:** "I found 3 matching products. First, I will call `format_products_as_qr`. Then, I will take the string output from that tool and combine it with the raw product list into the final JSON structure."
+     - **Example Response (The final JSON object you send to the Planner):**
+        ```json
+        {{
+          "products_data": [
+            {{ ...product_1... }},
+            {{ ...product_2... }}
+          ],
+          "quick_replies_string": "<QuickReplies><product_clarification>:[ ... ]</QuickReplies>"
+        }}
+        ```
 
    - **Scenario C: Informational Request (Not for a Quote ID)**
      - **Trigger:** The Planner asks for information, like "List all vinyl products" or "How many glitter products do you have?".

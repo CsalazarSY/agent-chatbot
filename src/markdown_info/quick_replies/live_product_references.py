@@ -8,13 +8,13 @@ from .quick_reply_markdown import (
 # to use in its system message examples or for internal reference.
 
 # Example for product clarification when multiple products match
-LPA_PRODUCT_CLARIFICATION_QR = f'{QUICK_REPLIES_START_TAG}<product_clarification>:["Removable Vinyl Stickers (Pages, Glossy)", "Clear Static Cling (Kiss-cut singles)", "None of these / Need more help"]{QUICK_REPLIES_END_TAG}'
+LPA_PRODUCT_CLARIFICATION_QR = f'{QUICK_REPLIES_START_TAG}<product_clarification>:[{{"label": "Removable Vinyl Stickers (Pages, Glossy)", "value": "Removable Vinyl Stickers (Pages, Glossy)"}}, {{"label": "Clear Static Cling (Kiss-cut singles)", "value": "Clear Static Cling (Kiss-cut singles)"}}, {{"label": "None of these / Need more help", "value": "None of these"}}]{QUICK_REPLIES_END_TAG}'
 
 # Example for listing countries (a small subset for the example)
-LPA_COUNTRY_SELECTION_QR = f'{QUICK_REPLIES_START_TAG}<country_selection>:["United States", "Canada", "United Kingdom"]{QUICK_REPLIES_END_TAG}'
+LPA_COUNTRY_SELECTION_QR = f'{QUICK_REPLIES_START_TAG}<country_selection>:[{{"label": "United States", "value": "United States"}}, {{"label": "Canada", "value": "Canada"}}, {{"label": "United Kingdom", "value": "United Kingdom"}}]{QUICK_REPLIES_END_TAG}'
 
 # Example for confirming if the product identified by the agent is correct.
-LPA_PRODUCT_CONFIRMATION_QR = f'{QUICK_REPLIES_START_TAG}<product_confirmation>:["Yes, that\'s the one!|yes_correct_product", "No, that\'s not it|no_incorrect_product"]{QUICK_REPLIES_END_TAG}'
+LPA_PRODUCT_CONFIRMATION_QR = f'{QUICK_REPLIES_START_TAG}<product_confirmation>:[{{"label": "Yes, that\'s the one!", "value": "yes_correct_product"}}, {{"label": "No, that\'s not it", "value": "no_incorrect_product"}}]{QUICK_REPLIES_END_TAG}'
 
 # Products with quick reply labels
 LPA_PRODUCT_QUICK_REPLIES_LABELS = [

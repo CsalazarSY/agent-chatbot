@@ -27,8 +27,8 @@ def extract_quick_replies(
     and the attachment object.
 
     The expected format is:
-    {QUICK_REPLIES_START_TAG}<value_type>:[JSON_ARRAY_OF_STRINGS]{QUICK_REPLIES_END_TAG}
-    e.g., {QUICK_REPLIES_START_TAG}country_selection:["United States|US", "Canada|CA"]{QUICK_REPLIES_END_TAG}
+    {QUICK_REPLIES_START_TAG}<value_type>:[JSON_ARRAY_OF_OBJECTS]{QUICK_REPLIES_END_TAG}
+    e.g., {QUICK_REPLIES_START_TAG}<product_clarification>:[{{"label": "Option 1", "value": "value_1"}}, {{"label": "Option 2", "value": "value_2"}}]{QUICK_REPLIES_END_TAG}
 
     Args:
         raw_reply_content: The raw string content from the agent.
@@ -66,18 +66,20 @@ def extract_quick_replies(
 
             if isinstance(options_list, list):
                 for item in options_list:
-                    if not isinstance(item, str):
-                        continue  # Skip non-string items in the list
+                    # Expect item to be a dictionary {"label": "...", "value": "..."}
+                    if not isinstance(item, dict):
+                        continue  # Skip non-dictionary items
 
-                    parts = item.split("|", 1)
-                    if len(parts) == 2:
-                        label, value = parts
-                    else:
-                        label = value = item
+                    label = item.get("label")
+                    value = item.get("value")
 
-                    parsed_options.append(
-                        QuickReplyOption(valueType=value_type, label=label, value=value)
-                    )
+                    # Ensure both label and value are present
+                    if label is not None and value is not None:
+                        parsed_options.append(
+                            QuickReplyOption(
+                                valueType=value_type, label=str(label), value=str(value)
+                            )
+                        )
 
                 if parsed_options:
                     quick_reply_attachment = QuickReplyAttachment(

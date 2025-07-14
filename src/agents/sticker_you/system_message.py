@@ -11,20 +11,10 @@ from src.agents.agent_names import (
 )
 from src.agents.planner.system_message import COMPANY_NAME
 from src.markdown_info.website_url_references import (
+    SY_KEY_SITE_PAGES_LINKS,
     SY_STICKER_MAKER_LINK,
-    SY_PAGE_MAKER_LINK,
-    SY_VINYL_EDITOR_LINK,
     SY_PRODUCT_FIRST_LINK,
 )
-
-# --- Key Pages Links Formatted for Injection ---
-KEY_SITE_PAGES_LINKS = f"""
-- **Sticker Maker:** {SY_STICKER_MAKER_LINK}
-- **Page Maker:** {SY_PAGE_MAKER_LINK}
-- **Vinyl Editor:** {SY_VINYL_EDITOR_LINK}
-- **Product First (General Product Selection):** {SY_PRODUCT_FIRST_LINK}
-"""
-
 
 STICKER_YOU_AGENT_SYSTEM_MESSAGE = f"""
 **1. Role & Goal:**
@@ -226,5 +216,5 @@ STICKER_YOU_AGENT_SYSTEM_MESSAGE = f"""
      
 **8. Linking to Key Site Pages (For Use in Workflow A):**
    - This section provides the mandatory, predefined Markdown links for key {COMPANY_NAME} tools and pages.
-   `{KEY_SITE_PAGES_LINKS}`
+   `{SY_KEY_SITE_PAGES_LINKS}`
 """
