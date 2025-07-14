@@ -260,3 +260,4 @@ class HubSpotPropertyName(str, Enum):
     SUBJECT = "subject"
     CONTENT = "content"
     TYPE_OF_TICKET = "type_of_ticket"
+    HS_TICKET_PRIORITY = "hs_ticket_priority"

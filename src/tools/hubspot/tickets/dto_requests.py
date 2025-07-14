@@ -8,23 +8,38 @@ from pydantic import BaseModel, Field
 
 # Import Enums from custom_quote constants
 from src.markdown_info.custom_quote.constants import (
-    UseTypeEnum,
-    BusinessCategoryEnum,
-    LocationEnum,
-    ProductGroupEnum,
-    TypeOfClingEnum,
-    TypeOfDecalEnum,
-    TypeOfMagnetEnum,
-    TypeOfPatchEnum,
-    TypeOfLabelEnum,
-    TypeOfStickerEnum,
-    TypeOfTattooEnum,
-    TypeOfTapeEnum,
-    PreferredFormatEnum,
-    TypeOfPackagingEnum,
-    PouchSizeEnum,
-    PouchLabelMaterialEnum,
-    WhatSizeOfTapeEnum,
+    StickerFormatEnum,
+    StickerPageSingleDesignFinishEnum,
+    StickerDieCutFinishEnum,
+    StickerKissCutFinishEnum,
+    StickerRollsFinishEnum,
+    StickerPageMultipleDesignsFinishEnum,
+    StickerTransfersFinishEnum,
+    LabelsFormatEnum,
+    LabelsPageSingleDesignFinishEnum,
+    LabelsKissCutFinishEnum,
+    LabelsRollsFinishEnum,
+    LabelsPageMultipleDesignsFinishEnum,
+    LabelsImageTransfersFinishEnum,
+    ImageTransfersFinishEnum,
+    DecalsFormatEnum,
+    DecalsWallWindowFinishEnum,
+    DecalsFloorOutdoorFinishEnum,
+    DecalsImageTransfersFinishEnum,
+    TempTattoosFormatEnum,
+    TempTattoosPageSingleDesignFinishEnum,
+    TempTattoosKissCutFinishEnum,
+    TempTattoosPageMultipleDesignsFinishEnum,
+    IronOnsFormatEnum,
+    IronOnsPageSingleDesignFinishEnum,
+    IronOnsPageMultipleDesignsFinishEnum,
+    IronOnsTransfersFinishEnum,
+    MagnetsFinishEnum,
+    ClingsFinishEnum,
+    PouchesPouchColorFinishEnum,
+    PouchesPouchSizeFinishEnum,
+    PouchesLabelMaterialFinishEnum,
+    ProductCategoryEnum,
 )
 
 # Import TypeOfTicketEnum from its new location
@@ -96,86 +111,54 @@ class TicketCreationProperties(BaseModel):
         description="The type of ticket (e.g., 'Quote', 'Request', 'Inquiry', 'Issue', 'Other').",
     )
 
-    # --- Custom Quote Ticket Properties (from form_fields_markdown.py) ---
-    use_type: Optional[UseTypeEnum] = Field(
-        None, description="Personal or business use? (e.g., 'Personal', 'Business')"
-    )
-    company: Optional[str] = Field(None, description="Company name")
-    business_category: Optional[BusinessCategoryEnum] = Field(
-        None, description="Business Category (e.g., 'Amateur Sport', 'Other')"
-    )
-    other_business_category: Optional[str] = Field(
-        None, description="Business Category (Other)"
-    )
+    # --- Custom Quote Ticket Properties ---
     promotional_product_distributor_: Optional[bool] = Field(
         None, description="Are you a promotional product distributor? (True/False)"
-    )
-    location: Optional[LocationEnum] = Field(
-        None, description="Location (e.g., 'USA', 'Canada')"
-    )
-    product_group: Optional[ProductGroupEnum] = Field(
-        None, description="Product group (e.g., 'Stickers', 'Decals')"
-    )
-    type_of_cling_: Optional[TypeOfClingEnum] = Field(None, description="Type of Cling")
-    type_of_decal_: Optional[TypeOfDecalEnum] = Field(None, description="Type of Decal")
-    type_of_magnet_: Optional[TypeOfMagnetEnum] = Field(
-        None, description="Type of Magnet"
-    )
-    type_of_patch_: Optional[TypeOfPatchEnum] = Field(None, description="Type of Patch")
-    type_of_label_: Optional[TypeOfLabelEnum] = Field(None, description="Type of Label")
-    type_of_sticker_: Optional[TypeOfStickerEnum] = Field(
-        None, description="Type of Sticker"
-    )
-    type_of_tattoo_: Optional[TypeOfTattooEnum] = Field(
-        None, description="Type of Tattoo"
-    )
-    type_of_tape_: Optional[TypeOfTapeEnum] = Field(None, description="Type of Tape")
-    preferred_format: Optional[PreferredFormatEnum] = Field(
-        None, description="Preferred Format (e.g., 'Pages', 'Die-Cut Singles')"
-    )
-    type_of_packaging_: Optional[TypeOfPackagingEnum] = Field(
-        None, description="Type of Packaging"
-    )
-    pouch_size_: Optional[PouchSizeEnum] = Field(None, description="Pouch Size")
-    pouch_label_material_: Optional[PouchLabelMaterialEnum] = Field(
-        None, description="Pouch Label Material"
-    )
-    what_size_of_tape_: Optional[WhatSizeOfTapeEnum] = Field(
-        None, description="What size of tape?"
     )
     total_quantity_: Optional[float] = Field(None, description="Total Quantity")
     width_in_inches_: Optional[float] = Field(None, description="Width in Inches")
     height_in_inches_: Optional[float] = Field(None, description="Height in Inches")
-    application_use_: Optional[str] = Field(None, description="Application Use")
     additional_instructions_: Optional[str] = Field(
         None, description="Additional Instructions"
-    )
-    call_requested: Optional[bool] = Field(
-        None, description="Request a support call (True/False)"
     )
     upload_your_design: Optional[str] = Field(
         None,
         description="Upload your design (e.g., 'Yes, file provided', 'No, assistance requested') - conceptual, actual file path not stored here",
     )
-    have_you_ordered_with_us_before_: Optional[bool] = Field(
-        None, description="Have you ordered with us before? (True/False)"
-    )
-    how_did_you_find_us_: Optional[str] = Field(
-        None, description="How did you find us?"
-    )
-    number_of_colours_in_design_: Optional[str] = Field(
-        None, description="Number of colours in design (e.g., '1', '2', '3')"
-    )
-    preferred_format_stickers: Optional[PreferredFormatEnum] = Field(
-        None,
-        description="Preferred Format Stickers (Potentially duplicate/specific, using PreferredFormatEnum for now)",
-    )
-    upload_your_vector_artwork: Optional[str] = Field(
-        None, description="Upload your vector artwork (Conceptual file status)"
-    )
-    what_kind_of_content_would_you_like_to_hear_about_: Optional[str] = Field(
-        None, description="What kind of content would you like to hear about?"
-    )
+
+    # --- Custom Quote Ticket Properties for products (from form_fields_markdown.py) ---
+    product_category: Optional[ProductCategoryEnum] = Field(None, description="Product Category")
+    sticker_format: Optional[StickerFormatEnum] = Field(None, description="Sticker Format")
+    sticker_page_single_design_finish: Optional[StickerPageSingleDesignFinishEnum] = Field(None, description="Finish for Sticker Page (Single Design)")
+    sticker_die_cut_finish: Optional[StickerDieCutFinishEnum] = Field(None, description="Finish for Sticker Die-Cut")
+    sticker_kiss_cut_finish: Optional[StickerKissCutFinishEnum] = Field(None, description="Finish for Sticker Kiss-Cut")
+    sticker_rolls_finish: Optional[StickerRollsFinishEnum] = Field(None, description="Finish for Sticker Rolls")
+    sticker_page_multiple_designs_finish: Optional[StickerPageMultipleDesignsFinishEnum] = Field(None, description="Finish for Sticker Page (Multiple Designs)")
+    sticker_transfers_finish: Optional[StickerTransfersFinishEnum] = Field(None, description="Finish for Sticker Transfers")
+    labels_format: Optional[LabelsFormatEnum] = Field(None, description="Labels Format")
+    labels_page_single_design_finish: Optional[LabelsPageSingleDesignFinishEnum] = Field(None, description="Finish for Labels Page (Single Design)")
+    labels_kiss_cut_finish: Optional[LabelsKissCutFinishEnum] = Field(None, description="Finish for Labels Kiss-Cut")
+    labels_rolls_finish: Optional[LabelsRollsFinishEnum] = Field(None, description="Finish for Labels Rolls")
+    labels_page_multiple_designs_finish: Optional[LabelsPageMultipleDesignsFinishEnum] = Field(None, description="Finish for Labels Page (Multiple Designs)")
+    labels_image_transfers_finish: Optional[LabelsImageTransfersFinishEnum] = Field(None, description="Finish for Labels Image Transfers")
+    image_transfers_finish: Optional[ImageTransfersFinishEnum] = Field(None, description="Finish for Image Transfers")
+    decals_format: Optional[DecalsFormatEnum] = Field(None, description="Decals Format")
+    decals_wall_window_finish: Optional[DecalsWallWindowFinishEnum] = Field(None, description="Finish for Decals Wall & Window")
+    decals_floor_outdoor_finish: Optional[DecalsFloorOutdoorFinishEnum] = Field(None, description="Finish for Decals Floor & Outdoor")
+    decals_image_transfers_finish: Optional[DecalsImageTransfersFinishEnum] = Field(None, description="Finish for Decals Image Transfers")
+    temp_tattoos_format: Optional[TempTattoosFormatEnum] = Field(None, description="Temp Tattoos Format")
+    temp_tattoos_page_single_design_finish: Optional[TempTattoosPageSingleDesignFinishEnum] = Field(None, description="Finish for Temp Tattoos Page (Single Design)")
+    temp_tattoos_kiss_cut_finish: Optional[TempTattoosKissCutFinishEnum] = Field(None, description="Finish for Temp Tattoos Kiss-Cut")
+    temp_tattoos_page_multiple_designs_finish: Optional[TempTattoosPageMultipleDesignsFinishEnum] = Field(None, description="Finish for Temp Tattoos Page (Multiple Designs)")
+    iron_ons_format: Optional[IronOnsFormatEnum] = Field(None, description="Iron-Ons Format")
+    iron_ons_page_single_design_finish: Optional[IronOnsPageSingleDesignFinishEnum] = Field(None, description="Finish for Iron-Ons Page (Single Design)")
+    iron_ons_page_multiple_designs_finish: Optional[IronOnsPageMultipleDesignsFinishEnum] = Field(None, description="Finish for Iron-Ons Page (Multiple Designs)")
+    iron_ons_transfers_finish: Optional[IronOnsTransfersFinishEnum] = Field(None, description="Finish for Iron-Ons Transfers")
+    magnets_finish: Optional[MagnetsFinishEnum] = Field(None, description="Finish for Magnets")
+    clings_finish: Optional[ClingsFinishEnum] = Field(None, description="Finish for Clings")
+    pouches_pouch_color_finish: Optional[PouchesPouchColorFinishEnum] = Field(None, description="Pouch Color")
+    pouches_pouch_size_finish: Optional[PouchesPouchSizeFinishEnum] = Field(None, description="Pouch Size")
+    pouches_label_material_finish: Optional[PouchesLabelMaterialFinishEnum] = Field(None, description="Label Material")
 
     model_config = {"extra": "allow"}
 

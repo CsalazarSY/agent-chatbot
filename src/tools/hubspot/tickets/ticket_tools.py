@@ -61,36 +61,18 @@ async def create_ticket(req: CreateTicketRequest) -> Union[TicketDetailResponse,
     This is a general-purpose ticket creation tool.
 
     The `req` parameter is a `CreateTicketRequest` object with two main parts:
-    - `properties`: A `TicketCreationProperties` object containing ticket fields. This model allows
-      any valid HubSpot ticket property (standard or custom) using its HubSpot internal name.
+    - `properties`: A `TicketCreationProperties` object containing all ticket fields. This model allows
+      any valid HubSpot ticket property (standard or custom) by using its HubSpot internal name as the
+      attribute name in the object.
         - **Required:** `subject`, `content`, `hs_ticket_priority`.
-        - **Custom Properties:** Any other fields like `product_group`, `total_quantity_`, etc.
-        - **Contact Properties:** You can include `email` and `phone` here; the system will handle them.
+        - **Custom Quote Properties:** For custom quotes, all fields from the `form_data_payload`
+          (e.g., `product_category`, `total_quantity_`, `sticker_format`, etc.) are passed directly
+          as attributes of this `properties` object.
+        - **Contact Properties:** You can include `email`, `phone`, `firstname`, and `lastname`.
     - `associations`: An optional list to link this ticket to other HubSpot objects, like a conversation.
 
-    **Example Payload Structure:**
-    ```json
-    {
-      "properties": {
-        "subject": "Inquiry about custom stickers",
-        "content": "User needs a quote for 500 custom stickers.",
-        "hs_ticket_priority": "MEDIUM",
-        "type_of_ticket": "Quote",
-        "email": "customer@example.com",
-        "product_group": "Stickers",
-        "total_quantity_": 500
-      },
-      "associations": [
-        {
-          "to": { "id": "987654321" },
-          "types": [{ "associationCategory": "HUBSPOT_DEFINED", "associationTypeId": 32 }]
-        }
-      ]
-    }
-    ```
-
     Returns:
-        A `TicketDetailResponse` object on success, or an error string on failure.
+        The raw `SimplePublicObject` from the HubSpot SDK on success, or an error string on failure.
     """
     if not HUBSPOT_CLIENT:
         return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} create_ticket - HUBSPOT_CLIENT not initialized."
