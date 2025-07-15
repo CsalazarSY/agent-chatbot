@@ -19,9 +19,9 @@ RUN apt-get update && apt-get install -y \
 # Copy ONLY the requirements file into the container.
 # We do this first so Docker can cache this step. If requirements.txt doesn't change, this layer won't have to be rebuilt, saving time.
 COPY requirements.txt .
-
+COPY constraints.txt .
 # Now, run pip install using the requirements file.
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
 # The 'playwright' library needs a special command to download its browsers.
 RUN playwright install --with-deps
