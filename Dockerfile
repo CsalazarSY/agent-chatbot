@@ -1,6 +1,6 @@
 # Dockerfile
 
-FROM syqaaichatbotregistry.azurecr.io/autogen-chatbot-base:1.0
+FROM syqaaichatbotregistry.azurecr.io/autogen-chatbot-base:1.1
 
 WORKDIR /app
 
