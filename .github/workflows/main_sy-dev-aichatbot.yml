@@ -30,7 +30,7 @@ jobs:
       uses: docker/build-push-action@v3
       with:
         push: true
-        tags: syqaaichatbotregistry.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_44e8eb91ac2e41beb5a4dbac7f404374 }}/syqaaichatbotregistry/autogen-chatbot:${{ github.sha }}
+        tags: syqaaichatbotregistry.azurecr.io/autogen-chatbot:${{ github.sha }}
         file: ./Dockerfile
 
   deploy:
@@ -46,6 +46,5 @@ jobs:
       uses: azure/webapps-deploy@v2
       with:
         app-name: 'sy-dev-aichatbot'
-        slot-name: 'production'
         publish-profile: ${{ secrets.AzureAppService_PublishProfile_87b1337bb83d4d0d8299f1aa52edd511 }}
-        images: 'syqaaichatbotregistry.azurecr.io/${{ secrets.AzureAppService_ContainerUsername_44e8eb91ac2e41beb5a4dbac7f404374 }}/syqaaichatbotregistry/autogen-chatbot:${{ github.sha }}'
+        images: 'syqaaichatbotregistry.azurecr.io/autogen-chatbot:${{ github.sha }}'
