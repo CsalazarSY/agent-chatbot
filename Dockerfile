@@ -1,6 +1,6 @@
 # --- STAGE 1: Define the Base ---
-# Use an official, lightweight Linux image that already has Python 3.12 installed.
-FROM python:3.12-slim
+# Use an official, lightweight Linux image that matches your local Python 3.13.
+FROM python:3.13-slim
 
 # --- STAGE 2: Set up the Workspace ---
 # Set the working directory inside the container to a folder named /app.
