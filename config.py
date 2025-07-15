@@ -198,7 +198,7 @@ def validate_api_config():
 
 
 # Run on import
-validate_api_config()
+# validate_api_config()
 
 # --- Initialize HubSpot Client ---
 try:
