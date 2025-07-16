@@ -16,6 +16,7 @@ bcrypt==4.3.0
 beautifulsoup4==4.13.4
 Brotli==1.1.0
 build==1.2.2.post1
+chromadb==1.0.15
 cachetools==5.5.2
 certifi==2025.4.26
 cffi==1.17.1
