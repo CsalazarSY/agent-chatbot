@@ -450,7 +450,7 @@ async def get_live_products(
         products_to_return = enriched_product_models
         # Generate QR string only if there's ambiguity (multiple products, no definitive match)
         if len(products_to_return) > 1:
-            quick_reply_string = _format_products_as_qr(products_to_return)
+            quick_reply_string = format_products_as_qr(products_to_return)
 
     # Step 6: Return the rich response object
     return EnhancedProductListResponse(

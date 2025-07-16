@@ -165,3 +165,16 @@ docker build -t autogen-chatbot
 ```bash
 docker run --rm -p 8000:8000 autogen-chatbot
 ```
+
+### Build Image for Azure CR
+```bash
+docker build -f Dockerfile.base -t syqaaichatbotregistry.azurecr.io/autogen-chatbot-base:1.1 .
+```
+
+### Push the built image
+
+```bash
+docker push syqaaichatbotregistry.azurecr.io/autogen-chatbot-base:1.1
+```
+
+Remember to change the version of the image in both the docker image and update version in the dockerfile (not the base)
