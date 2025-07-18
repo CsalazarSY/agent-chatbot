@@ -12,7 +12,7 @@ SY_PRODUCT_FIRST_LINK = (
     "[Product selection](https://stickeryou.com/productfirst)"
 )
 
-SY_USER_HISTORY_LINK = "[User History](https://stickeryou.com/userhistory)"
+SY_USER_HISTORY_LINK = "[User History](https://stickeryou.com/userorderhistory)"
 
 SY_KEY_SITE_PAGES_LINKS = f"""
 - **Sticker Maker:** {SY_STICKER_MAKER_LINK}
