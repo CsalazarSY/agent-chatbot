@@ -26,9 +26,13 @@ def extract_quick_replies(
     parses it into a QuickReplyAttachment object, and returns the cleaned message
     and the attachment object.
 
-    The expected format is:
+    The format can be:
     {QUICK_REPLIES_START_TAG}<value_type>:[JSON_ARRAY_OF_OBJECTS]{QUICK_REPLIES_END_TAG}
-    e.g., {QUICK_REPLIES_START_TAG}<product_clarification>:[{{"label": "Option 1", "value": "value_1"}}, {{"label": "Option 2", "value": "value_2"}}]{QUICK_REPLIES_END_TAG}
+    or without the colon:
+    {QUICK_REPLIES_START_TAG}<value_type>[JSON_ARRAY_OF_OBJECTS]{QUICK_REPLIES_END_TAG}
+    or even without a value_type tag:
+    {QUICK_REPLIES_START_TAG}[JSON_ARRAY_OF_OBJECTS]{QUICK_REPLIES_END_TAG}
+
 
     Args:
         raw_reply_content: The raw string content from the agent.
@@ -43,11 +47,13 @@ def extract_quick_replies(
     quick_reply_attachment: Optional[QuickReplyAttachment] = None
 
     # Regex to find the custom quick reply block.
-    # It captures the value_type and the JSON array string.
+    # It optionally captures a value_type and requires a JSON array.
     pattern = re.compile(
         f"{re.escape(QUICK_REPLIES_START_TAG)}"  # Start tag
-        r"<([^>:]+)>:"  # Capture group 1: value_type (anything not '>' or ':')
-        r"\s*(\[.*?\])\s*"  # Capture group 2: the JSON array
+        r"(?:<([^>:]+)>)?"  # Optional non-capturing group for the tag
+                                     # Inside, capture group 1: value_type (anything not '>' or ':')
+        r"\s*:?\s*"           # Optional colon, surrounded by optional whitespace
+        r"(\[.*?\])\s*"       # Capture group 2: the JSON array
         f"{re.escape(QUICK_REPLIES_END_TAG)}",  # End tag
         re.DOTALL,
     )
@@ -55,8 +61,10 @@ def extract_quick_replies(
     match = pattern.search(raw_reply_content)
 
     if match:
-        value_type = match.group(1).strip()
+        # If the value_type tag is present, use it; otherwise, use the default.
+        value_type = match.group(1).strip() if match.group(1) else "quick_replies_options"
         json_array_str = match.group(2)
+        
         # Remove the entire matched block from the original message
         cleaned_message_text = pattern.sub("", raw_reply_content).strip()
 
@@ -66,14 +74,12 @@ def extract_quick_replies(
 
             if isinstance(options_list, list):
                 for item in options_list:
-                    # Expect item to be a dictionary {"label": "...", "value": "..."}
                     if not isinstance(item, dict):
-                        continue  # Skip non-dictionary items
+                        continue
 
                     label = item.get("label")
                     value = item.get("value")
 
-                    # Ensure both label and value are present
                     if label is not None and value is not None:
                         parsed_options.append(
                             QuickReplyOption(
