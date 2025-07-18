@@ -99,15 +99,33 @@ HUBSPOT_PR_STAGE_ID = os.getenv("HUBSPOT_PR_STAGE_ID")
 HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS = os.getenv("HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS")
 HUBSPOT_CS_STAGE_ID = os.getenv("HUBSPOT_CS_STAGE_ID")
 
-# --- WismoLabs Configuration ---
-WISMOLABS_API_URL = os.getenv("WISMOLABS_API_URL")
-WISMOLABS_CONSULT_URL = os.getenv("WISMOLABS_CONSULT_URL")
-
 # --- Redis Configuration ---
 REDIS_HOST = os.getenv("REDIS_HOST")
 REDIS_PORT = os.getenv("REDIS_PORT", 6380)
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
 
+# --- WismoLabs API Credentials & Token ---
+WISMOLABS_API_URL = os.getenv("WISMOLABS_API_URL")
+WISMOLABS_TRACKING_URL = os.getenv("WISMOLABS_TRACKING_URL")
+WISMOLABS_USERNAME = os.getenv("WISMOLABS_USERNAME")
+WISMOLABS_PASSWORD = os.getenv("WISMOLABS_PASSWORD")
+
+# Internal variable for dynamic WismoLabs token
+_WISMOLABS_API_AUTH_TOKEN: str | None = None
+
+# --- Token Accessors ---
+def get_wismo_api_token() -> str | None:
+    """Returns the current dynamic WismoLabs API token."""
+    return _WISMOLABS_API_AUTH_TOKEN
+
+
+def set_wismo_api_token(new_token: str | None):
+    """Updates the internal dynamic WismoLabs API token."""
+    global _WISMOLABS_API_AUTH_TOKEN  # Needed to use the module-level variable
+    if new_token:
+        _WISMOLABS_API_AUTH_TOKEN = new_token
+    else:
+        _WISMOLABS_API_AUTH_TOKEN = None
 
 # --- Validation ---
 def validate_api_config():
@@ -195,7 +213,8 @@ def validate_api_config():
         )
     if not WISMOLABS_API_URL:
         raise ValueError("WISMOLABS_API_URL environment variable not set in .env file.")
-
+    if not WISMOLABS_USERNAME or not WISMOLABS_PASSWORD:
+        raise ValueError("WISMOLABS_USERNAME and WISMOLABS_PASSWORD must be set for API authentication.")
 
 # Run on import
 # validate_api_config()

@@ -1,106 +1,162 @@
-"""
-Tools for interacting with the WismoLabs API for order tracking.
-"""
-
-# /src/tools/wismoLabs/orders.py
-
-from typing import Optional, Dict, List
-from urllib.parse import urlencode
+""" This module provides tools to interact with the WismoLabs API for order status retrieval. """
 import httpx
-from pydantic import ValidationError
-
-# Import the new, detailed response model
-from src.tools.wismoLabs.dtos.response import WismoApiResponse, Activity
 import config
+import json
+from typing import Dict
+from pydantic import ValidationError
+from src.services.logger_config import log_message
+from src.tools.wismoLabs.dtos.response import WismoAuthResponse, WismoOrderStatusResponse
 
-WISMO_ORDER_TOOL_ERROR_PREFIX = "WISMO_ORDER_TOOL_FAILED:"
+# --- Constants ---
+WISMO_V1_TOOL_ERROR_PREFIX = "WISMO_V1_TOOL_FAILED:"
 
-
-async def get_order_status_by_details(
-    order_id: Optional[str] = None,
-    tracking_number: Optional[str] = None,
-    customer_name: Optional[str] = None,
-    page_size: int = 1,  # Default to returning only the LATEST activity
-) -> Dict | str:
+# --- Authentication Helper ---
+async def _authenticate_wismo() -> str:
     """
-    Searches WismoLabs for an order and returns a simplified summary. The number
-    of recent activities returned is controlled by the page_size parameter.
+    Authenticates with WismoLabs API and returns a token.
+    Returns error string if authentication fails.
+    """
+    if not all([config.WISMOLABS_API_URL, config.WISMOLABS_USERNAME, config.WISMOLABS_PASSWORD]):
+        return f"{WISMO_V1_TOOL_ERROR_PREFIX} Configuration Error - Missing WismoLabs API credentials."
+    
+    auth_url = f"{config.WISMOLABS_API_URL}/auth"
+    # Use the same headers as working Postman request
+    headers = {
+        "Cache-Control": "no-cache",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive"
+    }
+    payload = {
+        "username": config.WISMOLABS_USERNAME,
+        "password": config.WISMOLABS_PASSWORD
+    }
 
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(auth_url, headers=headers, json=payload)
+            
+            if response.status_code == 200:
+                try:
+                    auth_response = WismoAuthResponse.model_validate(response.json())
+                    config.set_wismo_api_token(auth_response.token)
+                    return auth_response.token
+                except ValidationError as e:
+                    log_message(f"WismoLabs auth response validation error: {e}", log_type="error")
+                    return f"{WISMO_V1_TOOL_ERROR_PREFIX} Invalid authentication response format."
+            else:
+                error_detail = f"Status: {response.status_code}"
+                try:
+                    error_body = response.json()
+                    error_detail += f", Body: {json.dumps(error_body)[:200]}"
+                except json.JSONDecodeError:
+                    error_detail += f", Body: {response.text[:200]}"
+                
+                log_message(f"WismoLabs authentication failed: {error_detail}", log_type="error")
+                return f"{WISMO_V1_TOOL_ERROR_PREFIX} Authentication failed: {error_detail}"
+
+    except httpx.TimeoutException:
+        return f"{WISMO_V1_TOOL_ERROR_PREFIX} Authentication timed out."
+    except httpx.RequestError as req_err:
+        return f"{WISMO_V1_TOOL_ERROR_PREFIX} Network error during authentication: {req_err}"
+    except Exception as e:
+        log_message(f"Unexpected error during WismoLabs authentication: {e}", log_type="error")
+        return f"{WISMO_V1_TOOL_ERROR_PREFIX} Unexpected authentication error: {e}"
+
+# --- Public Tool Function ---
+async def get_wismo_order_status(order_id: str) -> Dict | str:
+    """
+    Retrieves the status of a specific order by its order ID from the WismoLabs v1 API.
+    
     Args:
         order_id: The order ID to search for.
-        tracking_number: The tracking number to search for.
-        customer_name: The customer's name to search for.
-        page_size: The number of recent activities to return. Defaults to 1.
-                   Use a larger number (e.g., 5) for a more detailed history.
 
     Returns:
-        A simplified dictionary with key order details on success, or an error string.
+        A dictionary with the detailed order status on success, or an error string on failure.
     """
-    if not any([order_id, tracking_number, customer_name]):
-        return f"{WISMO_ORDER_TOOL_ERROR_PREFIX} At least one of the following must be provided: order_id, tracking_number, or customer_name."
+    if not order_id:
+        return f"{WISMO_V1_TOOL_ERROR_PREFIX} An Order ID must be provided."
 
-    params = {"ON": order_id, "TRK": tracking_number, "NAME": customer_name}
-    query_params = {k: v for k, v in params.items() if v is not None}
+    # First, ensure we have a valid token
+    current_token = config.get_wismo_api_token()
+    if not current_token:
+        auth_result = await _authenticate_wismo()
+        if auth_result.startswith(WISMO_V1_TOOL_ERROR_PREFIX):
+            return auth_result
+        current_token = auth_result
 
-    if not config.WISMOLABS_API_URL:
-        return f"{WISMO_ORDER_TOOL_ERROR_PREFIX} WismoLabs API URL is not configured."
+    # Make the order status request
+    api_url = f"{config.WISMOLABS_API_URL}/order-status"
+    headers = {
+        "Cache-Control": "no-cache",
+        "Accept": "application/json",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Connection": "keep-alive",
+        "Authorization": f"Bearer {current_token}",
+    }
+    params = {"orderId": order_id}
 
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(config.WISMOLABS_API_URL, params=query_params)
-            response.raise_for_status()
-            wismo_response = WismoApiResponse.model_validate(response.json())
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(api_url, headers=headers, params=params)
 
-            if wismo_response.data.errors:
-                error_message = (
-                    str(wismo_response.data.errors[0])
-                    if wismo_response.data.errors
-                    else "Unknown API error"
-                )
-                return f"{WISMO_ORDER_TOOL_ERROR_PREFIX} {error_message}"
+            if response.status_code == 200:
+                try:
+                    # Validate and serialize the successful response
+                    order_status = WismoOrderStatusResponse.model_validate(response.json())
+                    return order_status.model_dump(by_alias=True)
+                except ValidationError as e:
+                    log_message(f"WismoLabs response validation error for order {order_id}: {e}", log_type="error")
+                    return f"{WISMO_V1_TOOL_ERROR_PREFIX} API response did not match expected format."
+            
+            elif response.status_code == 401:
+                # Try to re-authenticate once
+                auth_result = await _authenticate_wismo()
+                if auth_result.startswith(WISMO_V1_TOOL_ERROR_PREFIX):
+                    return auth_result
+                
+                # Retry the request with new token
+                headers = {
+                    "Cache-Control": "no-cache",
+                    "Accept": "application/json",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "Connection": "keep-alive",
+                    "Authorization": f"Bearer {auth_result}",
+                }
+                response = await client.get(api_url, headers=headers, params=params)
+                
+                if response.status_code == 200:
+                    try:
+                        order_status = WismoOrderStatusResponse.model_validate(response.json())
+                        return order_status.model_dump(by_alias=True)
+                    except ValidationError as e:
+                        return f"{WISMO_V1_TOOL_ERROR_PREFIX} API response did not match expected format."
+                else:
+                    error_detail = f"Status: {response.status_code}"
+                    try:
+                        error_body = response.json()
+                        error_detail += f", Body: {json.dumps(error_body)[:200]}"
+                    except json.JSONDecodeError:
+                        error_detail += f", Body: {response.text[:200]}"
+                    return f"{WISMO_V1_TOOL_ERROR_PREFIX} Request failed after re-authentication: {error_detail}"
+            
+            else:
+                error_detail = f"Status: {response.status_code}"
+                try:
+                    error_body = response.json()
+                    error_detail += f", Body: {json.dumps(error_body)[:200]}"
+                except json.JSONDecodeError:
+                    error_detail += f", Body: {response.text[:200]}"
+                
+                if response.status_code == 404:
+                    return f"{WISMO_V1_TOOL_ERROR_PREFIX} Order not found (404): {error_detail}"
+                else:
+                    return f"{WISMO_V1_TOOL_ERROR_PREFIX} Request failed: {error_detail}"
 
-            if not wismo_response.data.activities:
-                return f"{WISMO_ORDER_TOOL_ERROR_PREFIX} No order found matching the provided details."
-
-            # Slice the activities based on the requested page_size
-            activities_to_return = wismo_response.data.activities[:page_size]
-            activity_dicts = [
-                activity.model_dump(by_alias=True) for activity in activities_to_return
-            ]
-
-            # Gather all known parameters for the link. Note that customer_name comes from the function input, not the API response.
-            link_params = {
-                "TRK": wismo_response.data.tracking_number,
-                "ON": wismo_response.data.order_number,
-                "Name": customer_name,
-            }
-
-            # Filter out any parameters that are None or empty.
-            valid_link_params = {k: v for k, v in link_params.items() if v}
-
-            # Use urlencode to safely build the query string.
-            query_string = urlencode(valid_link_params)
-
-            # Construct the final, clean URL.
-            tracking_link = (
-                f"{config.WISMOLABS_CONSULT_URL}?{query_string}"
-                if query_string
-                else config.WISMOLABS_CONSULT_URL
-            )
-
-            # Assemble the final, simplified dictionary
-            simplified_result = {
-                "orderId": wismo_response.data.order_number,
-                "trackingNumber": wismo_response.data.tracking_number,
-                "trackingLink": tracking_link,
-                "carrierName": wismo_response.data.carrier_name,
-                "statusSummary": wismo_response.data.status_desc,
-                "activities": activity_dicts,  # This will contain 1 or more activities
-            }
-
-            return simplified_result
-
-        except httpx.HTTPStatusError as e:
-            return f"{WISMO_ORDER_TOOL_ERROR_PREFIX} API request failed with status {e.response.status_code}."
-        except (ValidationError, Exception) as e:
-            return f"{WISMO_ORDER_TOOL_ERROR_PREFIX} An unexpected error occurred: {e}"
+    except httpx.TimeoutException:
+        return f"{WISMO_V1_TOOL_ERROR_PREFIX} Request timed out."
+    except httpx.RequestError as req_err:
+        return f"{WISMO_V1_TOOL_ERROR_PREFIX} Network/Connection Error: {req_err}"
+    except Exception as e:
+        return f"{WISMO_V1_TOOL_ERROR_PREFIX} Unexpected error: {e}"

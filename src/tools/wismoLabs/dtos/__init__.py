@@ -1,17 +1,19 @@
 """WismoLabs DTOs package."""
 
+from .request import WismoAuthRequest
 from .response import (
-    MapItem,
-    Activity,
-    Banner,
-    WismoData,
-    WismoApiResponse,
+    WismoAuthResponse,
+    WismoCustomerDetails,
+    WismoOrderStatusResponse,
+    WismoShipmentDates,
+    WismoShipmentDetails,
 )
 
 __all__ = [
-    "MapItem",
-    "Activity",
-    "Banner",
-    "WismoData",
-    "WismoApiResponse",
+    "WismoAuthRequest",
+    "WismoAuthResponse",
+    "WismoCustomerDetails",
+    "WismoOrderStatusResponse",
+    "WismoShipmentDates",
+    "WismoShipmentDetails",
 ]

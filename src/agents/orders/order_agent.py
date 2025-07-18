@@ -1,27 +1,22 @@
 """Defines and creates the Order Agent."""
 
-# /src/agents/orders/order_agent.py
-
 # --- Standard Library Imports ---
-from typing import Optional, List, Callable
+from typing import List, Callable
 
 # --- Third Party Imports ---
 from autogen_agentchat.agents import AssistantAgent
-from autogen_core.memory import Memory
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
 # --- First Party Imports ---
 from src.agents.orders.system_message import ORDER_AGENT_SYSTEM_MESSAGE
 from src.agents.agent_names import ORDER_AGENT_NAME
-from src.tools.wismoLabs.orders import get_order_status_by_details
+from src.tools.wismoLabs.orders import get_wismo_order_status
 
-# --- Collect all tool functions ---
 order_tools: List[Callable] = [
-    get_order_status_by_details,
+    get_wismo_order_status,
 ]
 
-
-# --- Agent Creation Function ---
+# --- Agent Creation Function (No changes needed here, but shown for context) ---
 def create_order_agent(
     model_client: OpenAIChatCompletionClient,
 ) -> AssistantAgent:
@@ -37,7 +32,7 @@ def create_order_agent(
     order_assistant = AssistantAgent(
         name=ORDER_AGENT_NAME,
         description=(
-            "Interacts with WismoLabs API to fetch order status and tracking information. Returns JSON data on success or an error string on failure."
+            "Interacts with WismoLabs API to fetch order status and tracking information using an order ID. Returns detailed JSON data on success or an error string on failure."
         ),
         system_message=ORDER_AGENT_SYSTEM_MESSAGE,
         model_client=model_client,
