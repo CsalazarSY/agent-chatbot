@@ -6,6 +6,7 @@ from src.services.logger_config import log_message
 from src.models.hubspot_webhooks import HubSpotAssignmentPayload
 from src.tools.hubspot.conversation.conversation_tools import send_message_to_thread
 from src.tools.hubspot.conversation.dto_requests import CreateMessageRequest
+from src.services.hubspot.messages_filter import add_conversation_to_handed_off
 
 ASSIGN_SUCCESFUL_MESSAGE = "This conversation will now be attended by a human agent. If you need further assistance in the future, please feel free to initiate a new chat with me."
 ASSIGN_UNSUCCESFUL_MESSAGE = "I've notified our team to assist you. They will get back to you as soon as possible, I will disable AI assistance for this conversation, if you need further assistance feel free to open a new chat."
@@ -66,6 +67,10 @@ async def process_assignment_webhook(payload: HubSpotAssignmentPayload):
                 level=3,
                 prefix="SUCCESS"
             )
+            
+            # If a human agent was successfully assigned, mark conversation as handed off
+            if was_assigned:
+                await add_conversation_to_handed_off(conversation_id)
             
     except Exception as e:
         log_message(
