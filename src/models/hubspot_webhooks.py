@@ -21,6 +21,7 @@ class HubSpotAssignmentPayload(BaseModel):
     hubspot_owner_id: Union[int, str, None] = None  # Can be null, empty string, or int
     type_of_ticket: str
     contact_owner: Optional[int] = None
+    msg: str  # Message indicating the assignment scenario
 
     hs_object_id: int
     hs_pipeline_stage: int

@@ -8,13 +8,16 @@ from src.tools.hubspot.conversation.conversation_tools import send_message_to_th
 from src.tools.hubspot.conversation.dto_requests import CreateMessageRequest
 from src.services.hubspot.messages_filter import add_conversation_to_handed_off
 
-# --- REFINED MESSAGES ---
+# --- REFINED MESSAGES BASED ON SCENARIO ---
 
-# Message for when a human agent was successfully assigned.
-ASSIGN_SUCCESSFUL_MESSAGE = "A team member has been assigned and will reply here shortly. I will now be disabled in this conversation. For any new topics, please feel free to start a new chat."
+# Message for when we're outside working hours
+NO_WORKING_HOURS_MESSAGE = "Our team might not be available right now. I've created a ticket so they can get back to you once they are back online. I will be disabled in this chat while you wait. For new inquiries, you can always start a new chat."
 
-# Message for when no agent was available, but the user is in the queue.
-ASSIGN_UNSUCCESSFUL_MESSAGE = "Our team will get in touch with you as soon as possible. I will be disabled in this chat while you wait. For new inquiries, you can always start a new chat."
+# Message for when a human agent was successfully assigned
+AGENT_ASSIGNED_MESSAGE = "A team member has been assigned and will reply here shortly. I will now step back from this conversation to let them assist you directly. For any new topics, please feel free to start a new chat."
+
+# Message for when we're in working hours but no agent is available
+AGENT_NOT_AVAILABLE_MESSAGE = "Our team has been notified and will get in touch with you as soon as possible. I will be disabled in this chat while you wait. For new inquiries, you can always start a new chat."
 
 async def process_assignment_webhook(payload: HubSpotAssignmentPayload):
     """
@@ -28,20 +31,18 @@ async def process_assignment_webhook(payload: HubSpotAssignmentPayload):
     try:
         conversation_id = str(payload.hs_thread_id)  # Use hs_thread_id as conversation ID
         was_assigned = payload.was_assigned
+        msg_scenario = payload.msg  # Get the specific scenario message
         
-        log_message(
-            f"Processing assignment webhook for conversation {conversation_id}, was_assigned: {was_assigned}",
-            level=1,
-            prefix="ASSIGNMENT"
-        )
-        
-        # Determine message based on assignment status
-        if was_assigned:
-            # Human agent was assigned
-            message_text = ASSIGN_SUCCESSFUL_MESSAGE
+        # Determine message based on the msg scenario
+        if msg_scenario == "no_working_hours":
+            message_text = NO_WORKING_HOURS_MESSAGE
+        elif msg_scenario == "agent_was_assigned":
+            message_text = AGENT_ASSIGNED_MESSAGE
+        elif msg_scenario == "agent_not_available":
+            message_text = AGENT_NOT_AVAILABLE_MESSAGE
         else:
-            # No human agent available, user is queued
-            message_text = ASSIGN_UNSUCCESSFUL_MESSAGE
+            # Fallback for unknown scenarios
+            message_text = "Our team will get in touch with you as soon as possible. I will be disabled in this chat while you wait. For new inquiries, you can always start a new chat."
 
         # Create message request
         message_payload = CreateMessageRequest(
@@ -68,21 +69,9 @@ async def process_assignment_webhook(payload: HubSpotAssignmentPayload):
                 log_type="error"
             )
         else:
-            log_message(
-                f"Successfully sent assignment message to conversation {conversation_id}",
-                level=3,
-                prefix="SUCCESS"
-            )
-            
-            # --- LOGIC CHANGE ---
             # Disable the AI in this conversation REGARDLESS of assignment status.
             # This prevents the AI from re-engaging while the user is waiting for a human.
             await add_conversation_to_handed_off(conversation_id)
-            log_message(
-                f"AI disabled for conversation {conversation_id} after handoff notification.",
-                level=3,
-                prefix="HANDOFF"
-            )
             
     except Exception as e:
         log_message(
