@@ -17,14 +17,15 @@ class HubSpotAssignmentPayload(BaseModel):
     """Represents the payload for HubSpot assignment webhook events."""
     
     was_assigned: bool
-    owner_availability: str
-    hs_object_id: str
-    hubspot_owner_id: str
+    owner_availability: Optional[str] = None
+    hubspot_owner_id: Optional[int] = None  # Can be null if not assigned
     type_of_ticket: str
-    contact_owner: str
-    hs_pipeline_stage: str
-    hs_pipeline: str
-    hs_ticket_id: str
+    contact_owner: Optional[int] = None
+
+    hs_object_id: int
+    hs_pipeline_stage: int
+    hs_pipeline: int
+    hs_ticket_id: int
     hs_thread_id: int
     
     # Allow extra fields not explicitly defined
