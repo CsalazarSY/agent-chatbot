@@ -26,11 +26,7 @@ RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt
 # The 'playwright' library needs a special command to download its browsers.
 RUN playwright install --with-deps
 
-# --- STAGE 5: Copy Your Application Code ---
-# Now that all dependencies are installed, copy the rest of the project files (main_server.py, etc.) into the container.
-COPY . .
-
-# --- STAGE 6: Configure and Run ---
+# --- STAGE 5: Configure and Run ---
 # Tell Docker that your application will be listening for network traffic on port 8000.
 EXPOSE 8000
 

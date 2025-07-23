@@ -13,6 +13,24 @@ class HubSpotSubscriptionType(str, Enum):
     CONVERSATION_NEW_MESSAGE = "conversation.newMessage"
 
 
+class HubSpotAssignmentPayload(BaseModel):
+    """Represents the payload for HubSpot assignment webhook events."""
+    
+    was_assigned: bool
+    owner_availability: str
+    hs_object_id: str
+    hubspot_owner_id: str
+    type_of_ticket: str
+    contact_owner: str
+    hs_pipeline_stage: str
+    hs_pipeline: str
+    hs_ticket_id: str
+    hs_thread_id: int
+    
+    # Allow extra fields not explicitly defined
+    model_config = {"extra": "allow"}
+
+
 class HubSpotNotification(BaseModel):
     """Represents a single notification event within a HubSpot webhook payload."""
 

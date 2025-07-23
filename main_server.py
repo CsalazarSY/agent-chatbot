@@ -31,6 +31,7 @@ from src.models.chat_api import ChatRequest, ChatResponse  # /chat endpoint
 from src.models.hubspot_webhooks import (
     WebhookPayload,
     HubSpotSubscriptionType,
+    HubSpotAssignmentPayload,
 )  # /hubspot/webhooks endpoint
 
 
@@ -43,6 +44,9 @@ from src.agents.agent_names import PLANNER_AGENT_NAME
 from src.services.clean_agent_tags import clean_agent_output
 from src.services.hubspot.webhook_handlers import (
     process_incoming_hubspot_message,
+)
+from src.services.hubspot.webhook_assign_signal import (
+    process_assignment_webhook,
 )
 from src.services.hubspot.messages_filter import (
     is_conversation_handed_off,
@@ -365,6 +369,24 @@ async def hubspot_webhook_endpoint(
 
     # Return 200 OK immediately for HubSpot webhook best practice
     return {"statusCode": 200, "status": "Webhook received and processing initiated"}
+
+
+#  HubSpot Assignment Webhook Endpoint  #
+@app.post("/hubspot/webhooks/assignment")
+async def hubspot_assignment_webhook_endpoint(payload: HubSpotAssignmentPayload, background_tasks: BackgroundTasks):
+    """
+    Receives webhook events from HubSpot for conversation assignment changes.
+    Processes assignment status and sends appropriate messages to conversations.
+    """
+    
+    # Schedule background task to process the assignment
+    background_tasks.add_task(
+        process_assignment_webhook,
+        payload=payload,
+    )
+    
+    # Return 200 OK immediately for HubSpot webhook best practice
+    return {"statusCode": 200, "status": "Assignment webhook received and processing initiated"}
 
 
 #   Run the Server (for local development)   #
