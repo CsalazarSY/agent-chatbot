@@ -1,9 +1,9 @@
 """Types for hubspot webhooks"""
 
 # /src/models/hubspot_webhooks.py
-from typing import Optional, List
+from typing import Optional, List, Union
 from enum import Enum
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class HubSpotSubscriptionType(str, Enum):
@@ -17,8 +17,8 @@ class HubSpotAssignmentPayload(BaseModel):
     """Represents the payload for HubSpot assignment webhook events."""
     
     was_assigned: bool
-    owner_availability: Optional[str] = None
-    hubspot_owner_id: Optional[int] = None  # Can be null if not assigned
+    owner_availability: str
+    hubspot_owner_id: Union[int, str, None] = None  # Can be null, empty string, or int
     type_of_ticket: str
     contact_owner: Optional[int] = None
 
@@ -27,6 +27,14 @@ class HubSpotAssignmentPayload(BaseModel):
     hs_pipeline: int
     hs_ticket_id: int
     hs_thread_id: int
+    
+    @field_validator('hubspot_owner_id', mode='before')
+    @classmethod
+    def validate_hubspot_owner_id(cls, v):
+        """Convert empty string to None, keep int values as is"""
+        if v == "" or v is None:
+            return None
+        return v
     
     # Allow extra fields not explicitly defined
     model_config = {"extra": "allow"}

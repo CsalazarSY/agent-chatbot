@@ -8,13 +8,19 @@ from src.tools.hubspot.conversation.conversation_tools import send_message_to_th
 from src.tools.hubspot.conversation.dto_requests import CreateMessageRequest
 from src.services.hubspot.messages_filter import add_conversation_to_handed_off
 
-ASSIGN_SUCCESFUL_MESSAGE = "This conversation will now be attended by a human agent. If you need further assistance in the future, please feel free to initiate a new chat with me."
-ASSIGN_UNSUCCESFUL_MESSAGE = "I've notified our team to assist you. They will get back to you as soon as possible, I will disable AI assistance for this conversation, if you need further assistance feel free to open a new chat."
+# --- REFINED MESSAGES ---
+
+# Message for when a human agent was successfully assigned.
+ASSIGN_SUCCESSFUL_MESSAGE = "A team member has been assigned and will reply here shortly. I will now be disabled in this conversation. For any new topics, please feel free to start a new chat."
+
+# Message for when no agent was available, but the user is in the queue.
+ASSIGN_UNSUCCESSFUL_MESSAGE = "Our team will get in touch with you as soon as possible. I will be disabled in this chat while you wait. For new inquiries, you can always start a new chat."
 
 async def process_assignment_webhook(payload: HubSpotAssignmentPayload):
     """
     Processes HubSpot assignment webhook payload.
-    Sends appropriate messages to the conversation based on assignment status.
+    Sends appropriate messages to the conversation based on assignment status
+    and disables the AI for the conversation in all handoff scenarios.
     
     Args:
         payload: HubSpotAssignmentPayload containing assignment information
@@ -32,10 +38,10 @@ async def process_assignment_webhook(payload: HubSpotAssignmentPayload):
         # Determine message based on assignment status
         if was_assigned:
             # Human agent was assigned
-            message_text = ASSIGN_SUCCESFUL_MESSAGE
+            message_text = ASSIGN_SUCCESSFUL_MESSAGE
         else:
-            # No human agent available
-            message_text = ASSIGN_UNSUCCESFUL_MESSAGE
+            # No human agent available, user is queued
+            message_text = ASSIGN_UNSUCCESSFUL_MESSAGE
 
         # Create message request
         message_payload = CreateMessageRequest(
@@ -68,9 +74,15 @@ async def process_assignment_webhook(payload: HubSpotAssignmentPayload):
                 prefix="SUCCESS"
             )
             
-            # If a human agent was successfully assigned, mark conversation as handed off
-            if was_assigned:
-                await add_conversation_to_handed_off(conversation_id)
+            # --- LOGIC CHANGE ---
+            # Disable the AI in this conversation REGARDLESS of assignment status.
+            # This prevents the AI from re-engaging while the user is waiting for a human.
+            await add_conversation_to_handed_off(conversation_id)
+            log_message(
+                f"AI disabled for conversation {conversation_id} after handoff notification.",
+                level=3,
+                prefix="HANDOFF"
+            )
             
     except Exception as e:
         log_message(

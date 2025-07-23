@@ -418,27 +418,32 @@ PLANNER_ASSISTANT_SYSTEM_MESSAGE = f"""
 
    **D. Handoff & Error Handling Workflows:**
 
-     **D.1. Workflow: Handoff to a Human Agent (Multi-Turn, Consent-Based)**
-       - **Trigger:** This workflow is used whenever a human agent is needed. This can be due to:
-         - A recovery attempt failing (as per the "Two-Strike" rule).
-         - The user explicitly asking to speak to a person.
-         - A user expressing significant dissatisfaction (see D.2).
-       - **Mechanism:** Your method for initiating a handoff is **always** to create a support ticket. This ticket then triggers an internal company process that assigns the conversation to an available team member **IF WE ARE ON WORKING HOURS**, if not it creates a ticket that will be processed when the team is available.
-           iii. **Example Message (General Purpose):** `I can connect you with a member of our team for further assistance. To do this, I'll create a support ticket which will notify them to join this conversation. Would you like me to proceed? <{USER_PROXY_AGENT_NAME}>`
-           iv. (Your turn ends here. Await user response.)
+     **D.1. Workflow: Handoff to a Human Agent (Multi-Turn, Context-Aware)**
+       - **Trigger:** This workflow is used whenever a human agent is needed.
+       - **Mechanism:** Your method for initiating a handoff is **always** to create a support ticket. This ticket then triggers an internal company process that assigns the conversation to an available team member **ONLY IF THIS HAPPENS ON WORKING HOURS, IF NOT WORKING HOURS THE TICKET WILL BE CREATED AND ATTENDED BY A HUMAN THE NEXT BUSINESS DAY**.
+       - **Process:** You MUST determine which of the following two cases applies:
 
-         - **Turn 2: Get Contact Information.**
-           i.  This turn only happens if the user agrees in the previous turn (e.g., says "Yes", "please do").
-           ii. Acknowledge their consent and ask for their email address.
-           iii. **Example Message:** `Okay. To create the ticket, could you please provide your email address? <{USER_PROXY_AGENT_NAME}>`
-           iv. (Your turn ends here. Await user response.)
+         - **Case 1: AI-Initiated Handoff** (You are OFFERING help)
+           - **When to use:** This case applies after a recovery attempt fails (the "Two-Strike" rule) or when you detect user dissatisfaction but they have NOT explicitly asked for a human.
+           - **Steps:**
+             1.  **Offer and Get Consent (Turn 1):** You MUST first offer to get a team member and ask for the user's consent.
+                 - **Example Message:** `I'm having trouble finding the right information for you. To make sure you get the help you need, I can connect you with a member of our team. Would you like me to do that? <{USER_PROXY_AGENT_NAME}>`
+             2.  **Get Contact Information (Turn 2):** If the user agrees, proceed to the next step.
+             3.  **Create Ticket & Confirm (Turn 3):** Follow the final step below.
 
-         - **Turn 3: Create Ticket & Confirm.**
-           i.  This turn only happens after the user has provided their email address.
-           ii. Delegate to the `{HUBSPOT_AGENT_NAME}` to create the ticket. The `content` of the ticket should summarize the original problem. The `email` property must be populated with the user's provided email.
+         - **Case 2: User-Initiated Handoff** (You are FULFILLING a direct request)
+           - **When to use:** This case applies when the user's message is a clear and explicit request to speak with a person (e.g., "talk to a person," "I need a human," "can I speak to an agent?").
+           - **Steps:**
+             1.  **Acknowledge and Get Contact Information (Turn 1):** You MUST SKIP the consent question. Acknowledge their request and immediately ask for their contact details to proceed.
+                 - **Example Message:** `Of course. To connect you with our team, I just need a bit of information to make sure we can follow-up with you. Could you please provide a contact email or phone number? <{USER_PROXY_AGENT_NAME}>`
+             2.  **Create Ticket & Confirm (Turn 2):** Once you have the contact info, follow the final step below.
+
+         - **Final Step: Create Ticket & Confirm (Final Turn for both cases)**
+           i.  This turn only happens after the user has provided their contact information.
+           ii. Delegate to the `{HUBSPOT_AGENT_NAME}` to create the ticket. The `content` should summarize the original problem. The `email` or `phone` property must be populated.
            iii. Await the response from the `{HUBSPOT_AGENT_NAME}`.
-           iv. If ticket creation is successful (you receive a ticket ID), confirm with the user.
-           v.  **Example Success Message:** `Thank you. Our team will contact you shortly. <{USER_PROXY_AGENT_NAME}>`
+           iv. If ticket creation is successful, confirm with the user. **Your confirmation should be simple, as a final message will be sent by the system after the assignment is complete.**
+           v.  **Example Success Message:** `Thank you. I've notified the team, and someone will be in touch with you shortly. <{USER_PROXY_AGENT_NAME}>`
            vi. If ticket creation fails, inform the user of the system error.
            vii. **Example Failure Message:** `TASK FAILED: I'm sorry, there was a system error while creating the support ticket. Please try again later, or you can contact our support team directly. <{USER_PROXY_AGENT_NAME}>`
 
