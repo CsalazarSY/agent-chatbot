@@ -27,7 +27,7 @@ certifi==2025.1.31
 cffi==1.17.1
 chardet==5.2.0
 charset-normalizer==3.4.1
-chromadb==1.0.8
+chromadb==1.0.15
 click==8.1.8
 colorama==0.4.6
 coloredlogs==15.0.1
@@ -114,6 +114,7 @@ protobuf==5.29.4
 psutil==7.0.0
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
+pybase64==1.4.1
 pycparser==2.22
 pydantic==2.11.3
 pydantic-settings==2.8.1
@@ -143,7 +144,7 @@ rsa==4.9.1
 safetensors==0.5.3
 scikit-learn==1.6.1
 scipy==1.15.3
-sentence-transformers==4.1.0
+sentence-transformers==5.0.0
 setuptools==75.8.0
 shellingham==1.5.4
 simplejson==3.20.1
@@ -161,7 +162,7 @@ tiktoken==0.9.0
 tokenizers==0.21.1
 torch==2.7.0
 tqdm==4.67.1
-transformers==4.51.3
+transformers==4.53.3
 typer==0.15.3
 typing-inspection==0.4.0
 typing_extensions==4.13.2

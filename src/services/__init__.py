@@ -1,5 +1,6 @@
 """Services package for agent chatbot application."""
 
+from . import chromadb
 from . import clean_agent_tags
 from . import get_quick_replies
 from . import json_utils
@@ -10,6 +11,7 @@ from . import sy_refresh_token
 from . import websocket_manager
 
 __all__ = [
+    "chromadb",
     "clean_agent_tags",
     "get_quick_replies",
     "json_utils",
