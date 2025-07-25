@@ -53,7 +53,7 @@ def create_sticker_you_agent(
     chroma_config = PersistentChromaDBVectorMemoryConfig(
         collection_name=CHROMA_COLLECTION_NAME_CONFIG,
         persistence_path=str(db_path),
-        embedding_model_name=CHROMA_EMBEDDING_MODEL_NAME_CONFIG,
+        embedding_model_name="nomic-ai/modernbert-embed-base",
         k=3,
         score_threshold=0.35,
     )
