@@ -141,7 +141,7 @@ app.add_middleware(
     allow_headers=["*", "Content-Type"],  # Allow all headers
 )
 
-# --- WebSocket Endpoint ---
+# WebSocket Endpoint #
 @app.websocket("/ws/{conversation_id}")
 async def websocket_endpoint(websocket: WebSocket, conversation_id: str):
     await manager.connect(websocket, conversation_id)
@@ -155,148 +155,14 @@ async def websocket_endpoint(websocket: WebSocket, conversation_id: str):
 
 
 #   API Endpoint Definition   #
-
-
-#  Chat Endpoint  #
-@app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest):
+# Health Check Endpoint #
+@app.get("/")
+async def health_check():  
     """
-    Receives a user message and optional conversation_id, processes it via the
-    centralized AgentService, handles state, and returns the reply with the
-    conversation_id.
+    Health check endpoint to verify server status.
+    Returns a simple JSON response indicating server is running.
     """
-    # Pass message and conversation_id to the service
-    task_result, error_message, final_conversation_id = (
-        await agent_service.run_chat_session(
-            request.message, show_console=True, conversation_id=request.conversation_id
-        )
-    )
-
-    # Handle errors reported by the service or the invocation
-    if error_message:
-        # Consider logging the error_message server-side
-        log_message(f"Error reported: {error_message}", log_type="error", prefix="!!!")
-        # If ID was missing, final_conversation_id will be None from the service
-        status_code = 400 if "conversation_id is required" in error_message else 500
-        raise HTTPException(
-            status_code=status_code,
-            detail={"message": error_message, "conversation_id": final_conversation_id},
-        )
-
-    # Handle cases where the task didn't complete successfully but didn't raise an error
-    if not task_result:
-        err_detail = (
-            "Task finished without a result, but no specific error was reported."
-        )
-        log_message(err_detail, log_type="error", prefix="!!!")
-        # Return error but still include the conversation ID if available
-        raise HTTPException(
-            status_code=500,
-            detail={"message": err_detail, "conversation_id": final_conversation_id},
-        )
-
-    # Process successful result
-    final_reply_content = "No final message found in result."  # Default fallback
-    stop_reason = (
-        str(task_result.stop_reason)
-        if task_result.stop_reason
-        else "Paused/Awaiting Input"
-    )  # Adjust default
-
-    #######  Process Task Result  #######
-    log_message("<< Task Result >>")
-    if error_message:
-        log_message(
-            f"Task failed with error: {error_message}",
-            level=2,
-            prefix="-",
-            log_type="error",
-        )
-    elif task_result:
-        log_message(f"Stop Reason: {stop_reason}", level=2, prefix="-")
-        log_message(
-            f"Number of Messages: {len(task_result.messages)}", level=2, prefix="-"
-        )
-
-        #  Find the message BEFORE the final 'end_planner_turn' tool call  #
-        reply_message: Optional[BaseChatMessage] = None
-        messages = task_result.messages
-        end_turn_event_index = -1
-
-        # First, find the index of the end_planner_turn execution event
-        for i in range(len(messages) - 1, -1, -1):
-            current_msg = messages[i]
-            if isinstance(current_msg, ToolCallExecutionEvent):
-                if any(
-                    exec_result.name == "end_planner_turn"
-                    for exec_result in getattr(current_msg, "content", [])
-                    if hasattr(exec_result, "name")
-                ):
-                    end_turn_event_index = i
-                    break
-
-        # If found, search backwards from the event index for the Planner's message
-        if end_turn_event_index > 0:
-            for i in range(end_turn_event_index - 1, -1, -1):
-                potential_reply_msg = messages[i]
-                # Look for the last TextMessage or ThoughtEvent from the Planner
-                if potential_reply_msg.source == PLANNER_AGENT_NAME and isinstance(
-                    potential_reply_msg, (TextMessage, ThoughtEvent)
-                ):
-                    reply_message = potential_reply_msg
-                    break  # Found the most recent relevant message
-
-        # Fallback if the specific sequence wasn't found (should be rare)
-        if not reply_message and messages:
-            log_message(
-                "Could not reliably find Planner message before end_turn event. Falling back to last message.",
-                level=3,
-                prefix="-",
-                log_type="warning",
-            )
-            reply_message = messages[-1]
-        #  End of Finding Reply Message  #
-
-        # Extract the reply content from the identified message
-        if reply_message and hasattr(reply_message, "content"):
-            final_reply_content = (
-                reply_message.content
-                if isinstance(reply_message.content, str)
-                else json.dumps(reply_message.content)
-            )
-            # Clean up internal tags if they are not meant for the user
-            if isinstance(final_reply_content, str):
-                cleaned_reply = clean_agent_output(final_reply_content)
-                html_reply = await convert_message_to_html(cleaned_reply)
-
-                final_reply_content = html_reply
-        else:
-            final_reply_content = (
-                f"[{type(reply_message).__name__} type message found, but no content]"
-                if reply_message
-                else "No suitable reply message found in TaskResult."
-            )
-
-    else:
-        log_message(
-            "TaskResult was not obtained (task might have failed before completion or service error)",
-            prefix=">>>",
-            log_type="error",
-        )
-        final_reply_content = "An issue occurred, and no result was generated."
-        # Ensure final_conversation_id is handled even in this case
-        if not final_conversation_id:
-            final_conversation_id = request.conversation_id or "unknown"
-
-    #######  End of Task Result Analysis  #######
-
-    # Return the reply, the conversation ID (crucial for continuing), and stop reason
-    return ChatResponse(
-        reply=final_reply_content,
-        conversation_id=final_conversation_id,  # Return the ID used/generated
-        stop_reason=stop_reason,
-    )
-
+    return {"status": "ok", "message": "Server is running"}
 
 #  HubSpot Webhook Endpoint  #
 @app.post("/hubspot/webhooks")
