@@ -1,3 +1,18 @@
-.git*
-**/*.pyc
+# Git
+.git
+.gitignore
+
+# Python virtual environment
+venv/
 .venv/
+
+# IDE and cache files
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+
+# Docker-related local data (do not copy these into the image)
+chroma_data/
+excel_files/
+logs/
