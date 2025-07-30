@@ -2,7 +2,7 @@
 # This Dockerfile is for local development.
 # It uses the pre-built base image which contains all dependencies.
 
-FROM autogen-chatbot-base:dev
+FROM autogen-chatbot-base-dev
 
 # Set the working directory inside the container.
 WORKDIR /app
