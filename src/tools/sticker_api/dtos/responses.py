@@ -154,10 +154,14 @@ class ProductDetail(BaseModel):
     accessories: Optional[List[AccessoryOption]] = Field(
         default_factory=list,
         description="List of accessories available for this product. Maps to Swagger's Accessory model.",
-    )  # Uses imported AccessoryOption
+    )
     quick_reply_label: Optional[str] = Field(
         None,
         description="Pre-defined suggested label for quick replies, looked up by product ID.",
+    )
+    quick_reply_value: Optional[str] = Field(
+        None,
+        description="Pre-defined suggested value for quick replies, typically the same as the label.",
     )
 
 

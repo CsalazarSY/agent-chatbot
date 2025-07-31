@@ -123,7 +123,7 @@ async def _make_sy_api_request(
 
                     refresh_successful = await refresh_sy_token()
                     if refresh_successful:
-                        headers_base["Authorization"] = f"Bearer {config.get_sy_api_token()}"
+                        headers["Authorization"] = f"Bearer {config.get_sy_api_token()}"
                         log_message("Retrying request with new token.", level=3, log_type="warning")
                         continue  # Retry the request with the new token
                     else:

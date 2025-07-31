@@ -14,15 +14,13 @@ from src.agents.agent_names import LIVE_PRODUCT_AGENT_NAME
 from src.tools.sticker_api.sy_api import (
     sy_list_products,
     get_live_countries,
-    format_products_as_qr,
 )
 from src.services.logger_config import log_message
 
-# List of tools for the LiveProductAgent
-live_product_tools: List[Callable] = [
-    get_live_countries,
-    format_products_as_qr,
-]
+# Import the quick reply labels data
+from src.markdown_info.quick_replies.live_product_references import (
+    LPA_PRODUCT_QUICK_REPLIES_LABELS,
+)
 
 # --- Update Agent Creation Function ---
 async def create_live_product_agent(
@@ -37,10 +35,30 @@ async def create_live_product_agent(
     lpa_memory = ListMemory()
 
     if isinstance(product_data, list):
-        # 2. Populate memory with the raw JSON data
+        # Create a lookup map for quick and easy access to labels
+        product_label_map = {
+            item["productId"]: item["quick_reply_label"]
+            for item in LPA_PRODUCT_QUICK_REPLIES_LABELS
+        }
+
+        enriched_product_data = []
+        for product in product_data:
+            if isinstance(product, dict):
+                product_id = product.get("id")
+                label = product_label_map.get(product_id)
+                
+                if label:
+                    # Add the new fields to the product dictionary
+                    product["quick_reply_label"] = label
+                    # Set the value to be the same as the label for user clarity
+                    product["quick_reply_value"] = label
+                
+                enriched_product_data.append(product)
+
+        # 2. Populate memory with the enriched JSON data
         await lpa_memory.add(
             MemoryContent(
-                content={"product_data_list": product_data},
+                content={"product_data_list": enriched_product_data},
                 mime_type=MemoryMimeType.JSON,
                 metadata={"source": "stickeryou_API_live_product_list"},
             )
@@ -57,7 +75,7 @@ async def create_live_product_agent(
         system_message=LIVE_PRODUCT_AGENT_SYSTEM_MESSAGE,
         model_client=model_client,
         memory=[lpa_memory],
-        tools=live_product_tools,
+        tools=[get_live_countries],
         reflect_on_tool_use=True,
     )
     return live_product_assistant
