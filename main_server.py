@@ -2,32 +2,20 @@
 
 # main_server.py
 
-import asyncio
-import time
-from typing import Dict, List
-from fastapi import WebSocket, WebSocketDisconnect, Request
+from fastapi import WebSocket, WebSocketDisconnect
 
 # System imports
-import json
-from typing import Optional
 from contextlib import asynccontextmanager
 import uvicorn
 import config
 
 # FastAPI imports
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import specific message types for reply extraction
-from autogen_agentchat.messages import (
-    BaseChatMessage,
-    ToolCallExecutionEvent,
-    TextMessage,
-    ThoughtEvent,
-)
 
 # Types
-from src.models.chat_api import ChatRequest, ChatResponse  # /chat endpoint
 from src.models.hubspot_webhooks import (
     WebhookPayload,
     HubSpotSubscriptionType,
@@ -36,12 +24,9 @@ from src.models.hubspot_webhooks import (
 
 
 # Centralized Agent Service
-from src.agents.agents_services import agent_service
-from src.agents.agent_names import PLANNER_AGENT_NAME
 
 
 # Import the webhook processing function and its necessary globals
-from src.services.clean_agent_tags import clean_agent_output
 from src.services.hubspot.webhook_handlers import (
     process_incoming_hubspot_message,
 )
@@ -57,9 +42,9 @@ from src.services.hubspot.messages_filter import (
 # Import the refresh token service function
 from src.services.redis_client import close_redis_pool, initialize_redis_pool
 from src.services.sy_refresh_token import refresh_sy_token
+from src.services.chromadb.client_manager import initialize_chroma_client, close_chroma_client
 
 # Import the HTML formatting service
-from src.services.message_to_html import convert_message_to_html
 
 # Print debug function
 from src.services.logger_config import log_message
@@ -69,8 +54,6 @@ from src.services.websocket_manager import (
     manager,
     initialize_websocket_manager,
     close_websocket_manager,
-    WS_MSG_START_PROCESSING,
-    WS_MSG_STOP_PROCESSING,
 )
 
 #  FastAPI App Setup 
@@ -88,6 +71,9 @@ async def lifespan(_: FastAPI):
         await initialize_redis_pool()
         # Initialize WebSocket Manager
         await initialize_websocket_manager()
+        
+        # --- Initialize ChromaDB Client ---
+        initialize_chroma_client()
 
         # Trigger initial SY token refresh
         log_message("Server starting up: Triggering initial SY token refresh", level=2)
@@ -109,6 +95,7 @@ async def lifespan(_: FastAPI):
         log_message("Server shutting down... ")
         await close_websocket_manager()
         await close_redis_pool()
+        close_chroma_client()
 
 
 app = FastAPI(
