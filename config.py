@@ -29,6 +29,7 @@ API_VERSION = os.getenv("API_VERSION", "v1")  # Default to v1 if not set
 # --- SY API Credentials for Dynamic Token ---
 SY_API_USERNAME = get_required_env_variable("SY_API_USERNAME")
 SY_API_PASSWORD = get_required_env_variable("SY_API_PASSWORD")
+SY_API_ORDER_TOKEN = get_required_env_variable("SY_API_ORDER_TOKEN")
 
 # Internal variable for dynamic token
 _SY_API_AUTH_TOKEN: str | None = None
@@ -64,8 +65,7 @@ LLM_PRIMARY_MODEL_FAMILY = get_required_env_variable("LLM_PRIMARY_MODEL_FAMILY")
 LLM_SECONDARY_MODEL_NAME = get_required_env_variable("LLM_SECONDARY_MODEL_NAME")
 LLM_SECONDARY_MODEL_FAMILY = get_required_env_variable("LLM_SECONDARY_MODEL_FAMILY")
 
-# --- ChromaDB RAG Configuration (for ProductAgent) ---
-# Use the helper function for required variables
+# --- ChromaDB RAG Configuration (for Knowledge base agent) ---
 _CHROMA_DB_RELATIVE_PATH = get_required_env_variable("CHROMA_DB_PATH")
 CHROMA_COLLECTION_NAME_CONFIG = get_required_env_variable("CHROMA_COLLECTION_NAME")
 CHROMA_EMBEDDING_MODEL_NAME_CONFIG = get_required_env_variable("CHROMA_EMBEDDING_MODEL_NAME")

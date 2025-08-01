@@ -1,8 +1,7 @@
 """Defines Pydantic models for StickerYou API **responses** and common types."""
 
-# src/tools/sticker_api/responses.py
-
-from typing import List, Optional
+# src/tools/sticker_api/dtos/responses.py
+from typing import List, Optional, Literal
 from pydantic import BaseModel, Field, RootModel
 
 # Import common models
@@ -11,6 +10,33 @@ from src.tools.sticker_api.dtos.common import (
     ShipToAddress,
     OrderItemBase,
 )
+
+# --- Literal for allowed internal order statuses ---
+InternalOrderStatus = Literal[
+    "Approved",
+    "Deleted",
+    "Finalized",
+    "Printed",
+    "Declined",
+    "Placed",
+    "OnHold",
+    "Cancelled",
+    "Error",
+    "BeingFixed",
+]
+
+# --- Response model for the internal order status endpoint ---
+class SYOrderStatusResponse(BaseModel):
+    """
+    Represents the response from the internal /SyOrders/orderstatus/:orderID endpoint.
+    """
+    success: bool
+    status: InternalOrderStatus
+
+    model_config = {
+        "populate_by_name": True,
+        "extra": "ignore",
+    }
 
 
 # --- Response Models --- #

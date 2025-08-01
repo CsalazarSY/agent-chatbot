@@ -3,10 +3,11 @@
 # src/tools/sticker_api/sy_api.py
 import json
 import traceback
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 import re
 import httpx
 import config
+from pydantic import ValidationError
 from src.services.logger_config import log_message
 
 # Import specific DTOs using absolute paths from src
@@ -26,6 +27,7 @@ from src.tools.sticker_api.dtos.responses import (
     DesignPreviewResponse,
     OrderItemStatus,
     EnhancedProductListResponse,
+    SYOrderStatusResponse,
 )
 from src.markdown_info.quick_replies.quick_reply_markdown import (
     QUICK_REPLIES_START_TAG,
@@ -461,402 +463,78 @@ async def get_live_products(
 
 
 # --- Orders ---
-
-
-async def sy_list_orders_by_status_get(
-    status_id: int,  # Can now use OrderStatusId if desired, but int for direct API call
-) -> OrderListResponse | str:
+async def sy_get_internal_order_status(order_id: str) -> Union[SYOrderStatusResponse, Dict]:
     """
-    (GET /v{version}/Orders/status/list/{status})
-    Description: Retrieves a list of orders matching a specific status ID using a GET request.
-    Allowed Scopes: [Dev, Internal]
+    (GET /api/{version}/SyOrders/orderstatus/{orderID})
+    Description: Retrieves the internal status of an order from the StickerYou API.
+    This is a component of the unified order status tool.
 
     Parameters:
-        status_id (int): The status ID to filter orders by. See OrderStatusId enum in dto_common.
-
-    Request body example: None (GET request)
-
-    Response body template (on success, type: OrderListResponse - List[OrderDetailResponse]):
-        [
-            {
-                "orderIdentifier": str,
-                "orderDate": str,
-                "shipTo": Dict, # ShipToAddress structure
-                "orderTotal": float,
-                "notes": Optional[str],
-                "statusId": Optional[int],
-                "status": str,
-                "items": List[Dict] # List of OrderItemBase structure
-            }
-            # ... more orders ...
-        ]
-    """
-    api_url = (
-        f"{config.API_BASE_URL}/{config.API_VERSION}/Orders/status/list/{status_id}"
-    )
-    result = await _make_sy_api_request("GET", api_url)
-
-    if isinstance(result, list):
-        return result
-    elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
-        if "Not Found (404)" in result:
-            return f"{API_ERROR_PREFIX} Invalid Status ID {status_id} provided? (404)."
-        return result
-    elif isinstance(result, httpx.Response):  # Handle non-JSON 200 OK
-        return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for list orders by status."
-    else:
-        return (
-            f"{API_ERROR_PREFIX} Unexpected successful response type: "
-            f"{type(result)}. Expected List."
-        )
-
-
-async def sy_list_orders_by_status_post(
-    status_id: int,  # Can use OrderStatusId if desired, but int for direct API call
-    take: int = 100,
-    skip: int = 0,
-) -> OrderListResponse | str:
-    """
-    (POST /{version}/Orders/status/list)
-    Description: Retrieves a paginated list of orders matching a specific status ID using a POST request.
-    Allowed Scopes: [Dev, Internal]
-    Note: Raw results should generally not be presented directly to the user.
-
-    Parameters:
-        status_id (int): The status ID (from OrderStatusId enum in dto_common) to filter orders by. Required.
-        take (int): The maximum number of orders to retrieve (pagination limit). Default: 100.
-        skip (int): The number of orders to skip (pagination offset). Default: 0.
-
-    Request body example (type: ListOrdersByStatusRequest):
-        {
-            "take": 50,
-            "skip": 0,
-            "status": 20
-        }
-
-    Response body template (on success, type: OrderListResponse - List[OrderDetailResponse]):
-        [
-            {
-                "orderIdentifier": str,
-                "orderDate": str,
-                "shipTo": Dict, # ShipToAddress structure
-                "orderTotal": float,
-                "notes": Optional[str],
-                "statusId": Optional[int],
-                "status": str,
-                "items": List[Dict] # List of OrderItemBase structure
-            }
-            # ... more orders ...
-        ]
-    """
-    api_url = f"{config.API_BASE_URL}/{config.API_VERSION}/Orders/status/list"
-    payload = {"take": take, "skip": skip, "status": status_id}
-    result = await _make_sy_api_request("POST", api_url, json_payload=payload)
-
-    if isinstance(result, list):
-        return result
-    elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
-        return result
-    elif isinstance(result, httpx.Response):  # Handle non-JSON 200 OK
-        return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for list orders by status (POST)."
-    else:
-        return (
-            f"{API_ERROR_PREFIX} Unexpected successful response type: "
-            f"{type(result)}. Expected List."
-        )
-
-
-async def sy_create_order(
-    order_data: Dict,  # Expects data conforming to CreateOrderRequest
-) -> SuccessResponse | str:
-    """
-    (POST /{version}/Orders/new)
-    Description: Submits a new order containing items defined with product details (ID, dimensions, artwork URL).
-
-    Parameters:
-        order_data (Dict): A dictionary conforming to the CreateOrderRequest model structure.
-
-    Request body example (type: CreateOrderRequest):
-        {
-            "orderIdentifier": "client-order-xyz",
-            "orderDate": "2023-10-27T11:00:00Z",
-            "shipTo": { /* ... ShipToAddress fields ... */ },
-            "orderTotal": 99.99,
-            "notes": "Standard shipping.",
-            "items": [ { /* ... OrderItemCreate fields ... */ } ]
-        }
-        (Note: Pydantic model marks some root fields Optional, Swagger marks them Required. Use required fields for successful creation.)
-
-    Response body template (on success, type: SuccessResponse):
-        {
-            "success": bool,
-            "message": Optional[str]
-        }
-    """
-    api_url = f"{config.API_BASE_URL}/{config.API_VERSION}/Orders/new"
-    result = await _make_sy_api_request("POST", api_url, json_payload=order_data)
-
-    if isinstance(result, dict):
-        return result
-    elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
-        return result
-    elif isinstance(result, httpx.Response):  # Handle non-JSON 200 OK
-        return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for create order."
-    else:
-        return (
-            f"{API_ERROR_PREFIX} Unexpected successful response type: "
-            f"{type(result)}. Expected Dict."
-        )
-
-
-async def sy_create_order_from_designs(
-    order_data: Dict,  # Expects data conforming to CreateOrderFromDesignsRequest
-) -> SuccessResponse | str:
-    """
-    (POST /{version}/Orders/designs/new)
-    Description: Submits a new order containing items linked to pre-uploaded design IDs.
-
-    Parameters:
-        order_data (Dict): A dictionary conforming to the CreateOrderFromDesignsRequest model structure.
-
-    Request body example (type: CreateOrderFromDesignsRequest):
-        {
-            "orderIdentifier": "client-design-order-123",
-            "orderDate": "2023-10-27T12:00:00Z",
-            "shipTo": { /* ... ShipToAddress fields ... */ },
-            "orderTotal": 75.00,
-            "notes": "Use designs dz_abc and dz_def.",
-            "items": [ { /* ... OrderItemCreateDesign fields ... */ } ]
-        }
-        (Note: Pydantic model marks some root fields Optional, Swagger marks them Required. Use required fields for successful creation.)
-
-    Response body template (on success, type: SuccessResponse):
-        {
-            "success": bool,
-            "message": Optional[str]
-        }
-    """
-    api_url = f"{config.API_BASE_URL}/{config.API_VERSION}/Orders/designs/new"
-    # Validate order_data against Pydantic model before sending?
-    result = await _make_sy_api_request("POST", api_url, json_payload=order_data)
-
-    if isinstance(result, dict):
-        return result
-    elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
-        return result
-    elif isinstance(result, httpx.Response):  # Handle non-JSON 200 OK
-        return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for create order from designs."
-    else:
-        return (
-            f"{API_ERROR_PREFIX} Unexpected successful response type: "
-            f"{type(result)}. Expected Dict."
-        )
-
-
-async def sy_get_order_details(
-    order_id: str,
-) -> OrderDetailResponse | str:
-    """
-    (GET /{version}/Orders/{id})
-    Description: Retrieves the full details for a specific order using its unique identifier.
-    Allowed Scopes: [User, Dev, Internal]
-
-    Parameters:
-        order_id (str): The StickerYou identifier for the order (e.g., 'ORD-12345').
-
-    Request body example: None (GET request)
-
-    Response body template (on success, type: OrderDetailResponse):
-        {
-            "orderIdentifier": str,
-            "orderDate": str,
-            "shipTo": Dict, # ShipToAddress structure
-            "orderTotal": float,
-            "notes": Optional[str],
-            "statusId": Optional[int],
-            "status": str,
-            "items": List[Dict] # List of OrderItemBase structure
-        }
-    """
-    api_url = f"{config.API_BASE_URL}/{config.API_VERSION}/Orders/{order_id}"
-    result = await _make_sy_api_request("GET", api_url)
-
-    if isinstance(result, dict):
-        return result
-    elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
-        if "Not Found (404)" in result:
-            return f"{API_ERROR_PREFIX} Order not found (404)."  # More specific error
-        return result
-    elif isinstance(result, httpx.Response):  # Handle non-JSON 200 OK
-        return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for get order details."
-    else:
-        return (
-            f"{API_ERROR_PREFIX} Unexpected successful response type: "
-            f"{type(result)}. Expected Dict."
-        )
-
-
-async def sy_cancel_order(
-    order_id: str,
-) -> OrderDetailResponse | str:
-    """
-    (PUT /{version}/Orders/{id}/cancel)
-    Description: Attempts to cancel an existing order using its identifier. Cancellation may only be possible
-                 if the order has not progressed too far in the production process.
-    Allowed Scopes: [Dev Only] (User requests to cancel should be handled via handoff for now).
-
-    Parameters:
-        order_id (str): The StickerYou identifier for the order to cancel.
-
-    Request body example: None (PUT request)
-
-    Response body template (on success, type: OrderDetailResponse - often returns the updated order detail):
-        {
-            "orderIdentifier": str,
-            "orderDate": str,
-            "shipTo": Dict, # ShipToAddress structure
-            "orderTotal": float,
-            "notes": Optional[str],
-            "statusId": Optional[int], # Should be updated to 1 (Cancelled)
-            "status": str, # Should be updated to "Cancelled"
-            "items": List[Dict] # List of OrderItemBase structure
-        }
-        (Note: Success might also be indicated by a simple 200 OK with no body, or a different structure.)
-    """
-    api_url = f"{config.API_BASE_URL}/{config.API_VERSION}/Orders/{order_id}/cancel"
-    # Assuming PUT might not need a payload, adjust if needed
-    result = await _make_sy_api_request("PUT", api_url)
-
-    if isinstance(result, dict):
-        return result
-    # Handle non-JSON 200 OK for PUT (e.g., empty body)
-    elif isinstance(result, httpx.Response) and result.status_code == 200:
-        # Success, but no JSON body - return a generic success message or structure
-        return {
-            "success": True,
-            "message": f"Order {order_id} cancellation request processed (received 200 OK).",
-        }
-    elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
-        if "Not Found (404)" in result:
-            return f"{API_ERROR_PREFIX} Order not found (404)."
-        return result
-    else:
-        # Consider if a plain string might be a valid success confirmation
-        return (
-            f"{API_ERROR_PREFIX} Unexpected successful response type: "
-            f"{type(result)}. Expected Dict or 200 OK Response."
-        )
-
-
-async def sy_get_order_item_statuses(
-    order_id: str,
-) -> List[OrderItemStatus] | str:
-    """
-    (GET /{version}/Orders/{id}/items/status)
-    Description: Retrieves the status for each individual item within a specific order.
-    Allowed Scopes: [User, Dev, Internal]
-    Note: This information is usually included in `sy_get_order_details`. Use that tool preferably unless only item statuses are needed.
-
-    Parameters:
-        order_id (str): The StickerYou identifier for the parent order.
-
-    Request body example: None (GET request)
-
-    Response body template (on success, type: List[OrderItemStatus]):
-        [
-            {
-                # Inherited fields from OrderItemBase:
-                "itemIdentifier": Optional[str],
-                "orderItemIdentifier": str, # Overridden to be required in OrderItemStatus
-                "notes": Optional[str],
-                "price": Optional[float],
-                "quantity": Optional[int],
-                "productId": Optional[int],
-                "width": Optional[float],
-                "height": Optional[float],
-                "artworkUrl": Optional[str],
-                "accessoryOptions": Optional[List[Dict]], # List of AccessoryOption structure
-                "reason": Optional[str],
-                # OrderItemStatus specific fields:
-                "status": str,
-                "statusId": Optional[int]
-            }
-            # ... more items ...
-        ]
-    """
-    api_url = (
-        f"{config.API_BASE_URL}/{config.API_VERSION}/Orders/{order_id}/items/status"
-    )
-    result = await _make_sy_api_request("GET", api_url)
-
-    if isinstance(result, list):
-        return result
-    elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
-        if "Not Found (404)" in result:
-            return f"{API_ERROR_PREFIX} Order not found (404)."
-        return result
-    elif isinstance(result, httpx.Response):  # Handle non-JSON 200 OK
-        return f"{API_ERROR_PREFIX} Unexpected response format (non-JSON 200 OK) for get order item statuses."
-    else:
-        return (
-            f"{API_ERROR_PREFIX} Unexpected successful response type: "
-            f"{type(result)}. Expected List."
-        )
-
-
-async def sy_get_order_tracking(
-    order_id: str,
-) -> Dict | str:
-    """
-    (GET /{version}/Orders/{id}/trackingcode)
-    Description: Retrieves the shipping tracking information (code, URL, carrier) for a shipped order.
-    Allowed Scopes: [User, Dev, Internal]
-    Note: This endpoint returns a **raw string** response containing only the tracking code on success (200 OK).
-          The helper function `_make_sy_api_request` will return the `httpx.Response` object in this case.
-
-    Parameters:
-        order_id (str): The StickerYou identifier for the order.
+        order_id (str): The order ID to check.
 
     Returns:
-        Dict | str: A dictionary `{"tracking_code": str}` on success, or an error string.
+        Union[SYOrderStatusResponse, Dict]: A Pydantic model on success, or a dictionary with a 'status' of 'failed' on error.
     """
-    api_url = (
-        f"{config.API_BASE_URL}/{config.API_VERSION}/Orders/{order_id}/trackingcode"
-    )
-    result = await _make_sy_api_request("GET", api_url)
+    
+    # Check configuration
+    if not all([config.API_BASE_URL, config.SY_API_ORDER_TOKEN]):
+        return {
+            "status": "failed",
+            "message": f"{API_ERROR_PREFIX} Configuration Error - Missing API_BASE_URL or SY_API_ORDER_TOKEN."
+        }
 
-    # Check if the result is an httpx.Response object (indicating 200 OK, non-JSON)
-    if isinstance(result, httpx.Response):
-        if result.status_code == 200:
-            try:
-                tracking_code = result.text
-                if tracking_code:
-                    # Return structured dict on success
-                    return {"tracking_code": tracking_code}
+    api_url = f"{config.API_BASE_URL}/api/{config.API_VERSION}/SyOrders/orderstatus/{order_id}"
+    
+    headers = {
+        "Sy-Token": config.SY_API_ORDER_TOKEN,
+        "Accept": "application/json",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(api_url, headers=headers)
+
+            if response.status_code == 200:
+                try:
+                    response_json = response.json()
+                    
+                    # On success, return the validated Pydantic model
+                    status_response = SYOrderStatusResponse.model_validate(response_json)
+                    return status_response
+                except ValidationError as e:
+                    return {
+                        "status": "failed",
+                        "message": f"{API_ERROR_PREFIX} Invalid response format from internal order API."
+                    }
+                except Exception as json_error:
+                    return {
+                        "status": "failed",
+                        "message": f"{API_ERROR_PREFIX} Failed to parse JSON response from internal order API."
+                    }
+            else:
+                error_detail = f"Status: {response.status_code}"
+                try:
+                    error_body = response.json()
+                    error_detail += f", Body: {json.dumps(error_body)[:200]}"
+                except json.JSONDecodeError:
+                    error_detail += f", Body: {response.text[:200]}"
+
+                if response.status_code == 404:
+                    message = f"{API_ERROR_PREFIX} Order not found via internal API (404)."
                 else:
-                    # Handle empty string case
-                    return f"{API_ERROR_PREFIX} Tracking code retrieved successfully but was empty."
-            except Exception as e:
-                return f"{API_ERROR_PREFIX} Error reading tracking code text from response: {e}"
-        else:
-            # Should not happen if helper worked, but handle defensively
-            return f"{API_ERROR_PREFIX} Received unexpected status code {result.status_code} in response object for tracking code."
+                    message = f"{API_ERROR_PREFIX} Internal order API request failed: {error_detail}"
+                
+                return {"status": "failed", "message": message}
 
-    # Handle error strings from the helper
-    elif isinstance(result, str) and result.startswith(API_ERROR_PREFIX):
-        if "Not Found (404)" in result:
-            # Keep specific error for order not found / no tracking yet
-            return f"{API_ERROR_PREFIX} No tracking code available (404)."
-        return result  # Return other specific errors
-
-    # Handle unexpected dictionary or other types (shouldn't occur for this endpoint on success)
-    else:
-        return f"{API_ERROR_PREFIX} Unexpected result type ({type(result)}) for tracking code request."
-
+    except httpx.TimeoutException:
+        return {"status": "failed", "message": f"{API_ERROR_PREFIX} Internal order API request timed out."}
+    except httpx.RequestError as req_err:
+        return {"status": "failed", "message": f"{API_ERROR_PREFIX} Network error on internal order API call: {req_err}"}
+    except Exception as e:
+        log_message(f"Unexpected error in sy_get_internal_order_status: {e}", log_type="error")
+        return {"status": "failed", "message": f"{API_ERROR_PREFIX} Unexpected error checking internal order status: {e}"}
 
 # --- Pricing ---
-
-
 async def sy_list_products() -> ProductListResponse | str:
     """
     (GET /api/{version}/Pricing/list)
