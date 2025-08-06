@@ -25,7 +25,7 @@ def initialize_chroma_client():
     if not config.CHROMA_DB_PATH_CONFIG or not config.CHROMA_COLLECTION_NAME_CONFIG:
         raise ValueError("CHROMA_DB_PATH_CONFIG and CHROMA_COLLECTION_NAME_CONFIG must be set.")
 
-    log_message(f"Initializing ChromaDB client at path: {config.CHROMA_DB_PATH_CONFIG}", level=2, prefix=">")
+    log_message(f"Initializing ChromaDB client at path: {config.CHROMA_DB_PATH_CONFIG}", level=2)
     try:
         # Initialize the client once using the correct config variable
         chroma_client = chromadb.PersistentClient(path=config.CHROMA_DB_PATH_CONFIG)
@@ -38,7 +38,7 @@ def initialize_chroma_client():
             name=config.CHROMA_COLLECTION_NAME_CONFIG,
             embedding_function=embedding_function
         )
-        log_message(f"✅ ChromaDB client initialized. Collection '{collection.name}' has {collection.count()} items.", level=2)
+        log_message(f"ChromaDB client initialized. Collection '{collection.name}' has {collection.count()} items.", level=3)
 
     except Exception as e:
         log_message(f"CRITICAL: Failed to initialize ChromaDB client: {e}", log_type="error", level=1, prefix="!!!")

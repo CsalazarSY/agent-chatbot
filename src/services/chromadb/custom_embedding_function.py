@@ -14,7 +14,7 @@ class ModernBertEmbeddingFunction(chromadb.EmbeddingFunction):
         log_message(f"Initializing custom ModernBertEmbeddingFunction with model: {model_name}", level=2)
         try:
             self.model = SentenceTransformer(model_name)
-            log_message("✅ Custom embedding model loaded successfully.", level=2)
+            log_message("Custom embedding model loaded successfully.", level=3)
         except Exception as e:
             log_message(f"!!! FAILED to load SentenceTransformer model '{model_name}': {e}", log_type="error")
             raise

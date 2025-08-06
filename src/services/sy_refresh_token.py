@@ -20,7 +20,7 @@ async def refresh_sy_token() -> bool:
     Returns:
         bool: True if the token was successfully refreshed and updated, False otherwise.
     """
-    log_message("Attempting to refresh SY API token", level=3)
+    log_message("Attempting to refresh SY API token", level=2)
     if not SY_API_USERNAME or not SY_API_PASSWORD:
         log_message(
             "SY_API_USERNAME or SY_API_PASSWORD not set in environment variables.",

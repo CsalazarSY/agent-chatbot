@@ -65,7 +65,7 @@ async def lifespan(_: FastAPI):
     log_message("Application Startup", level=1, prefix="--- --- ---")
 
     # Log critical config values now that logger is ready
-    log_message(f"ChromaDB path: {config.CHROMA_DB_PATH_CONFIG}", prefix="!!!")
+    log_message(f"ChromaDB path: {config.CHROMA_DB_PATH_CONFIG}", level=2)
 
     try:
         # Initialize Redis Pool
@@ -77,12 +77,10 @@ async def lifespan(_: FastAPI):
         initialize_chroma_client()
 
         # Trigger initial SY token refresh
-        log_message("Server starting up: Triggering initial SY token refresh", level=2)
+        log_message("Requesting SY API Token", level=2)
         refresh_success = await refresh_sy_token()
 
-        if refresh_success:
-            log_message("Initial SY API token refresh successful", level=2)
-        else:
+        if not refresh_success:
             log_message(
                 "WARNING: Initial SY API token refresh failed. API calls will fail. !!!",
                 level=1,

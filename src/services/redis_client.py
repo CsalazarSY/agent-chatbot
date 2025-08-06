@@ -15,7 +15,7 @@ async def initialize_redis_pool():
     """Initializes the Redis connection pool."""
     global redis_pool
     if redis_pool is None:
-        log_message("Initializing Redis connection pool...", level=3)
+        log_message("Initializing Redis connection pool...", level=2)
         try:
             # Construct the redis URL with 'rediss://' for SSL connections
             redis_url = f"rediss://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}"
