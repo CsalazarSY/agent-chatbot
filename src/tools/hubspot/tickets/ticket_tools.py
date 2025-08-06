@@ -10,6 +10,7 @@ from typing import Union, List, Dict, Any  # Standard typing
 # HubSpot SDK imports
 from hubspot.crm.tickets import (
     SimplePublicObjectInputForCreate,
+    SimplePublicObjectInput,
     ApiException,
     PublicAssociationsForObject,
     PublicObjectId,
@@ -17,10 +18,14 @@ from hubspot.crm.tickets import (
 from hubspot.crm.associations.v4.models import AssociationSpec
 
 # Import the shared HubSpot API HUBSPOT_CLIENT instance from config
-from config import HUBSPOT_CLIENT
+from config import (
+    HUBSPOT_CLIENT,
+    HUBSPOT_PIPELINE_ID_AICHAT,
+    HUBSPOT_PIPELINE_STAGE_ID_AICHAT_ASSISTANCE,
+    HUBSPOT_PIPELINE_STAGE_ID_AICHAT_OPEN,
+)
 
 # Import the new pipeline logic helper
-from src.services.hubspot.determine_pipeline import determine_pipeline_and_stage
 from src.services.hubspot.messages_filter import add_conversation_to_handed_off
 from src.services import logger_config
 
@@ -36,7 +41,7 @@ from src.tools.hubspot.tickets.dto_requests import (
     AssociationToCreate,
     AssociationToObject,
     AssociationTypeSpec,
-    TicketCreationProperties,
+    TicketProperties,
 )
 from src.tools.hubspot.tickets.dto_responses import (
     TicketDetailResponse,
@@ -108,16 +113,8 @@ async def create_ticket(req: CreateTicketRequest) -> Union[TicketDetailResponse,
                         f"Skipping association due to missing 'to' or 'types' for DTO: {assoc_dto.model_dump_json()}",
                         level=3,
                         log_type="warning",
-                        prefix="Warning:",
+                        prefix="!!! ",
                     )
-
-        # Attempt to find and associate contact if email is provided
-        # This requires the contacts API scope and might be better as a separate step or more robust logic.
-        # For now, we'll keep it simple and assume if Planner wants this, it provides a contact ID directly via `associations`.
-        # If contact_email is provided and no direct contact association, one could add logic here:
-        # 1. Search contact by email (using HUBSPOT_CLIENT.crm.contacts.search_api.do_search)
-        # 2. If found, add to associations_payload with TICKET_TO_CONTACT type_id.
-        # This adds complexity and requires contacts.read scope.
 
         simple_public_object_input = SimplePublicObjectInputForCreate(
             properties=properties_payload,
@@ -140,7 +137,7 @@ async def create_ticket(req: CreateTicketRequest) -> Union[TicketDetailResponse,
 
 async def create_support_ticket_for_conversation(
     conversation_id: str,
-    properties: TicketCreationProperties,
+    properties: TicketProperties,
 ) -> TicketDetailResponse | str:
     """
     Creates and associates a HubSpot support ticket with an existing conversation.
@@ -161,17 +158,10 @@ async def create_support_ticket_for_conversation(
         # Make a mutable copy of the properties to potentially modify pipeline/stage
         updated_properties = properties.model_copy(deep=True)
 
-        # Determine the pipeline and stage for the ticket
-        try:
-            pipeline_id, stage_id = determine_pipeline_and_stage(properties)
-        except Exception as determination_exc:
-            # If determination fails, return an error instead of proceeding
-            return f"TOOL_LOGIC_ERROR: Failed to determine pipeline/stage. Details: {determination_exc}"
-
-        # Assign the determined pipeline and stage to the properties object
-        # This ensures they are included in the request to HubSpot
-        updated_properties.hs_pipeline = pipeline_id
-        updated_properties.hs_pipeline_stage = stage_id
+        # Assign the AI Chatbot pipeline and "Open" stage directly from config
+        # This ensures all new tickets from the AI are routed correctly.
+        updated_properties.hs_pipeline = HUBSPOT_PIPELINE_ID_AICHAT
+        updated_properties.hs_pipeline_stage = HUBSPOT_PIPELINE_STAGE_ID_AICHAT_OPEN
 
         # Ensure critical fields are present (Pydantic model validation already does this on instantiation)
         # but an explicit check before calling the generic tool adds a layer of safety.
@@ -222,3 +212,86 @@ async def create_support_ticket_for_conversation(
     except Exception as e:
         logger_config.log_message(traceback.format_exc(), log_type="error")
         return _format_error("create_support_ticket_for_conversation", e)
+
+# --- Update Tool ---
+async def update_ticket(
+    ticket_id: str, properties: TicketProperties
+) -> Union[TicketDetailResponse, str]:
+    """
+    Performs a partial update on a HubSpot ticket using a TicketProperties DTO.
+
+    Args:
+        ticket_id: The ID of the ticket to update.
+        properties: A TicketProperties object. Only the fields that are not None
+                    will be included in the update.
+
+    Returns:
+        A TicketDetailResponse object on success, or an error string on failure.
+    """
+    if not HUBSPOT_CLIENT:
+        return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} update_ticket - HUBSPOT_CLIENT not initialized."
+    if not ticket_id:
+        return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} update_ticket - ticket_id is required."
+
+    try:
+        # Convert the DTO to a dictionary, crucially excluding any unset (None) values.
+        properties_payload = properties.model_dump(exclude_none=True)
+
+        if not properties_payload:
+            return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} update_ticket - properties object cannot be empty."
+
+        simple_public_object_input = SimplePublicObjectInput(properties=properties_payload)
+
+        api_response = await asyncio.to_thread(
+            HUBSPOT_CLIENT.crm.tickets.basic_api.update,
+            ticket_id=ticket_id,
+            simple_public_object_input=simple_public_object_input,
+        )
+        return api_response
+
+    except ApiException as e:
+        return _format_error("update_ticket", e)
+    except Exception as e:
+        logger_config.log_message(traceback.format_exc(), log_type="error")
+        return _format_error("update_ticket", e)
+
+async def move_ticket_to_human_assistance_pipeline(
+    ticket_id: str, conversation_id: str
+) -> str:
+    """
+    Moves a ticket to the 'Assistance' stage in the AI Chatbot pipeline and disables AI for the associated conversation.
+
+    Args:
+        ticket_id: The ID of the ticket to move to human assistance.
+                  The HubSpot Agent should pass this from its memory (Associated_HubSpot_Ticket_ID).
+        conversation_id: The ID of the conversation to disable AI for.
+                        The HubSpot Agent should pass this from its memory (Current_HubSpot_Thread_ID).
+
+    Returns:
+        A success or failure message string.
+    """
+    if not ticket_id:
+        return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} ticket_id is required."
+    if not conversation_id:
+        return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} conversation_id is required."
+
+    # 1. Define the property update to change the pipeline stage
+    properties_to_update = TicketProperties(
+        hs_pipeline_stage=HUBSPOT_PIPELINE_STAGE_ID_AICHAT_ASSISTANCE
+    )
+
+    # 2. Call the generic update_ticket tool
+    update_result = await update_ticket(ticket_id, properties_to_update)
+
+    if isinstance(update_result, str) and update_result.startswith(HUBSPOT_TICKET_TOOL_ERROR_PREFIX):
+        # If the ticket update fails, return the error
+        return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} Failed to move ticket to assistance stage: {update_result}"
+
+    # 3. If the ticket update is successful, disable the AI for the conversation
+    await add_conversation_to_handed_off(conversation_id)
+    logger_config.log_message(
+        f"Successfully moved ticket {ticket_id} to human assistance pipeline and disabled AI for conversation {conversation_id}.",
+        level=2
+    )
+
+    return "SUCCESS: Ticket has been moved to human assistance pipeline and AI has been disabled for this conversation."

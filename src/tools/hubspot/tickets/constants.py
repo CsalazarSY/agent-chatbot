@@ -27,7 +27,6 @@ class PipelineStage(str, Enum):
 class AssociationTypeIdTicket(Enum):
     """
     Defines HubSpot-defined association type IDs for linking FROM a TICKET TO other objects.
-    Source: https://developers.hubspot.com/docs/guides/api/crm/associations/associations-v4#ticket-to-object
     """
 
     # Ticket to X

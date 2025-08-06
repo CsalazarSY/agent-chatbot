@@ -3,6 +3,7 @@
 # /src/tools/hubspot/conversation/conversation_tools.py
 import asyncio
 from typing import Optional, List, Union, Dict, Any
+from urllib.parse import urlencode
 
 # Import config for client and defaults
 import config
@@ -62,12 +63,23 @@ async def _make_hubspot_api_request(
     if not client:
         return f"{ERROR_PREFIX} HubSpot client not initialized in config."
 
+    # Build the complete URL with query parameters
+    # The HubSpot client expects the full URL path including query parameters
+    full_path = api_path
+    if query_params:
+        # Convert query params to URL-encoded string
+        query_string = urlencode(query_params, doseq=True)  # doseq=True handles arrays
+        full_path = f"{api_path}?{query_string}"
+
+    # Build request data according to HubSpot client documentation
     request_data = {
         "method": method.upper(),
-        "path": api_path,
-        "query_params": query_params or {},
-        "body": json_payload,
+        "path": full_path,
     }
+    
+    # Only include body for methods that support request bodies
+    if method.upper() in ["POST", "PATCH", "PUT"] and json_payload is not None:
+        request_data["body"] = json_payload
 
     try:
         response = await asyncio.to_thread(client.api_request, request_data)
@@ -455,7 +467,7 @@ async def archive_thread(thread_id: str) -> str:
 
 
 async def get_thread_details(
-    thread_id: str, association: Optional[str] = None
+    thread_id: str, association: Optional[str] = 'TICKET'
 ) -> Union[ThreadDetail, str]:
     """Retrieves details for a single conversation thread.
     Allowed Scopes: [Dev, Internal]

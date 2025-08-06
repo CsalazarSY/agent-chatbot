@@ -76,14 +76,14 @@ class AssociationToCreate(BaseModel):
     )
 
 
-# --- Ticker properties --- #
-class TicketCreationProperties(BaseModel):
+# --- Ticket properties --- #
+class TicketProperties(BaseModel):
     """Properties for creating a HubSpot ticket. This will be used by both general ticket creation and conversation-specific ticket creation."""
 
     # --- Required Base Fields ---
-    subject: str = Field(..., description="The subject or title of the ticket.")
-    content: str = Field(
-        ...,
+    subject: Optional[str] = Field(None, description="The subject or title of the ticket.")
+    content: Optional[str] = Field(
+        None,
         description="The main description or content of the ticket (e.g., summary of the issue for handoff).",
     )
     hs_pipeline: Optional[str] = Field(
@@ -94,8 +94,8 @@ class TicketCreationProperties(BaseModel):
         None,
         description="Optional: The ID of the pipeline stage (status) of the ticket. Overrides default if provided by logic.",
     )
-    hs_ticket_priority: str = Field(
-        ...,
+    hs_ticket_priority: Optional[str] = Field(
+        None,
         description="The priority of the ticket (e.g., 'HIGH', 'MEDIUM', 'LOW').",
     )
 
@@ -106,7 +106,7 @@ class TicketCreationProperties(BaseModel):
     phone: Optional[str] = Field(None, description="Phone number of the contact.")
 
     # --- Base Ticket Information Properties ---
-    type_of_ticket: TypeOfTicketEnum = Field(
+    type_of_ticket: Optional[TypeOfTicketEnum] = Field(
         TypeOfTicketEnum.INQUIRY,
         description="The type of ticket (e.g., 'Quote', 'Request', 'Inquiry', 'Issue', 'Other').",
     )
@@ -166,7 +166,7 @@ class TicketCreationProperties(BaseModel):
 class CreateTicketRequest(BaseModel):
     """Request model for the create_ticket tool."""
 
-    properties: TicketCreationProperties = Field(
+    properties: TicketProperties = Field(
         ..., description="The properties of the ticket to create."
     )
     associations: Optional[List[AssociationToCreate]] = Field(

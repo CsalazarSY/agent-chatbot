@@ -47,16 +47,6 @@ from src.agents.agent_names import (
 
 # Config imports
 from config import (
-    HUBSPOT_AS_STAGE_ID,
-    HUBSPOT_CS_STAGE_ID,
-    HUBSPOT_DEFAULT_CHANNEL,
-    HUBSPOT_DEFAULT_CHANNEL_ACCOUNT,
-    HUBSPOT_DEFAULT_INBOX,
-    HUBSPOT_DEFAULT_SENDER_ACTOR_ID,
-    HUBSPOT_PIPELINE_ID_ASSISTED_SALES,
-    HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS,
-    HUBSPOT_PIPELINE_ID_PROMO_RESELLER,
-    HUBSPOT_PR_STAGE_ID,
     LLM_BASE_URL,
     LLM_API_KEY,
     LLM_PRIMARY_MODEL_NAME,
@@ -289,141 +279,9 @@ class AgentService:
                         )
                         saved_state_dict = None
 
-            # Create memory for this request, containing the conversation ID
-            planner_memory = ListMemory()
-            await planner_memory.add(
-                MemoryContent(
-                    content=f"Current_HubSpot_Thread_ID: {current_conversation_id}",
-                    mime_type=MemoryMimeType.TEXT,
-                    metadata={"priority": "critical", "source": "hubspot"},
-                )
-            )
-
-            hubspot_agent_memory = ListMemory()
-            await hubspot_agent_memory.add(
-                MemoryContent(
-                    content=f"Current_HubSpot_Thread_ID: {current_conversation_id}",
-                    mime_type=MemoryMimeType.TEXT,
-                    metadata={"priority": "critical", "source": "hubspot"},
-                )
-            )
-
-            if HUBSPOT_DEFAULT_SENDER_ACTOR_ID:
-                await hubspot_agent_memory.add(
-                    MemoryContent(
-                        content=f"Default_HubSpot_Sender_Actor_ID: {HUBSPOT_DEFAULT_SENDER_ACTOR_ID}",
-                        mime_type=MemoryMimeType.TEXT,
-                        metadata={
-                            "priority": "normal",
-                            "source": "system_config_hubspot_defaults",
-                        },
-                    )
-                )
-            if HUBSPOT_DEFAULT_CHANNEL:
-                await hubspot_agent_memory.add(
-                    MemoryContent(
-                        content=f"Default_HubSpot_Channel_ID: {HUBSPOT_DEFAULT_CHANNEL}",
-                        mime_type=MemoryMimeType.TEXT,
-                        metadata={
-                            "priority": "normal",
-                            "source": "system_config_hubspot_defaults",
-                        },
-                    )
-                )
-            if HUBSPOT_DEFAULT_CHANNEL_ACCOUNT:
-                await hubspot_agent_memory.add(
-                    MemoryContent(
-                        content=f"Default_HubSpot_Channel_Account_ID: {HUBSPOT_DEFAULT_CHANNEL_ACCOUNT}",
-                        mime_type=MemoryMimeType.TEXT,
-                        metadata={
-                            "priority": "normal",
-                            "source": "system_config_hubspot_defaults",
-                        },
-                    )
-                )
-            if HUBSPOT_DEFAULT_INBOX:
-                await hubspot_agent_memory.add(
-                    MemoryContent(
-                        content=f"Default_HubSpot_Inbox_ID: {HUBSPOT_DEFAULT_INBOX}",
-                        mime_type=MemoryMimeType.TEXT,
-                        metadata={
-                            "priority": "normal",
-                            "source": "system_config_hubspot_defaults",
-                        },
-                    )
-                )
-
-            # Add Pipeline and Stage IDs to HubSpot agent's memory
-            if HUBSPOT_PIPELINE_ID_ASSISTED_SALES:
-                await hubspot_agent_memory.add(
-                    MemoryContent(
-                        content=f"HubSpot_Pipeline_ID_Assisted_Sales: {HUBSPOT_PIPELINE_ID_ASSISTED_SALES}",
-                        mime_type=MemoryMimeType.TEXT,
-                        metadata={
-                            "priority": "normal",
-                            "source": "system_config_hubspot_pipelines",
-                        },
-                    )
-                )
-            if HUBSPOT_AS_STAGE_ID:  # Assisted Sales Stage ID
-                await hubspot_agent_memory.add(
-                    MemoryContent(
-                        content=f"HubSpot_Assisted_Sales_Stage_ID: {HUBSPOT_AS_STAGE_ID}",
-                        mime_type=MemoryMimeType.TEXT,
-                        metadata={
-                            "priority": "normal",
-                            "source": "system_config_hubspot_pipelines",
-                        },
-                    )
-                )
-            if HUBSPOT_PIPELINE_ID_PROMO_RESELLER:
-                await hubspot_agent_memory.add(
-                    MemoryContent(
-                        content=f"HubSpot_Pipeline_ID_Promo_Reseller: {HUBSPOT_PIPELINE_ID_PROMO_RESELLER}",
-                        mime_type=MemoryMimeType.TEXT,
-                        metadata={
-                            "priority": "normal",
-                            "source": "system_config_hubspot_pipelines",
-                        },
-                    )
-                )
-            if HUBSPOT_PR_STAGE_ID:  # Promo Reseller Stage ID
-                await hubspot_agent_memory.add(
-                    MemoryContent(
-                        content=f"HubSpot_Promo_Reseller_Stage_ID: {HUBSPOT_PR_STAGE_ID}",
-                        mime_type=MemoryMimeType.TEXT,
-                        metadata={
-                            "priority": "normal",
-                            "source": "system_config_hubspot_pipelines",
-                        },
-                    )
-                )
-            if HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS:
-                await hubspot_agent_memory.add(
-                    MemoryContent(
-                        content=f"HubSpot_Pipeline_ID_Customer_Success: {HUBSPOT_PIPELINE_ID_CUSTOMER_SUCCESS}",
-                        mime_type=MemoryMimeType.TEXT,
-                        metadata={
-                            "priority": "normal",
-                            "source": "system_config_hubspot_pipelines",
-                        },
-                    )
-                )
-            if HUBSPOT_CS_STAGE_ID:  # Customer Success Stage ID
-                await hubspot_agent_memory.add(
-                    MemoryContent(
-                        content=f"HubSpot_Customer_Success_Stage_ID: {HUBSPOT_CS_STAGE_ID}",
-                        mime_type=MemoryMimeType.TEXT,
-                        metadata={
-                            "priority": "normal",
-                            "source": "system_config_hubspot_pipelines",
-                        },
-                    )
-                )
-
             # Initialize all agents
-            planner_agent = create_planner_agent(
-                AgentService.primary_model_client, planner_memory
+            planner_agent = await create_planner_agent(
+                AgentService.primary_model_client, current_conversation_id
             )
             sticker_you_agent = create_sticker_you_agent(
                 AgentService.secondary_model_client
@@ -434,8 +292,8 @@ class AgentService:
             price_quote_agent = create_price_quote_agent(
                 AgentService.primary_model_client
             )
-            hubspot_agent = create_hubspot_agent(
-                AgentService.secondary_model_client, hubspot_agent_memory
+            hubspot_agent = await create_hubspot_agent(
+                AgentService.secondary_model_client, current_conversation_id
             )
             order_agent = create_order_agent(AgentService.secondary_model_client)
 

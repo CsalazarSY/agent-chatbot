@@ -6,11 +6,12 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 # System imports
 from contextlib import asynccontextmanager
+from src.tools.hubspot.conversation.conversation_tools import get_thread_details
 import uvicorn
 import config
 
 # FastAPI imports
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 # Import specific message types for reply extraction
@@ -149,7 +150,25 @@ async def health_check():
     Health check endpoint to verify server status.
     Returns a simple JSON response indicating server is running.
     """
-    return {"status": "ok", "message": "Server is running"}
+    return {"status": "ok", "statusCode": 200,"message": "Server is running"}
+
+
+@app.post("/log-payload")
+async def log_payload(request: Request):
+    """
+    Logs the raw request body and returns a confirmation.
+    This is for debugging purposes.
+    """
+    try:
+        payload = await request.json()
+        log_message(f"Received payload: {payload}", level=1, prefix="--- PAYLOAD ---")
+        return {"status": "payload logged", "statusCode": 200}
+    except Exception as e:
+        log_message(f"Error processing payload: {e}", level=1, prefix="!!! ERROR !!!", log_type="error")
+        body = await request.body()
+        log_message(f"Raw body: {body.decode()}", level=2, prefix="--- RAW BODY ---")
+        return {"status": "error logging payload", "statusCode": 500, "detail": str(e)}
+
 
 #  HubSpot Webhook Endpoint  #
 @app.post("/hubspot/webhooks")
@@ -161,7 +180,6 @@ async def hubspot_webhook_endpoint(
     Specifically handles 'newMessage' events for INCOMING visitor messages.
     Validates, deduplicates, and triggers background processing.
     """
-
     # Process individual events (assuming HubSpot might send multiple)
     # The payload *is* the list of events
     for event in payload:

@@ -2,34 +2,10 @@
 
 # /src/agents/hubspot/hubspot_agent.py
 from typing import Optional, List, Callable
-from autogen_core.memory import Memory
+from autogen_core.memory import Memory, ListMemory, MemoryContent, MemoryMimeType
 
 from autogen_agentchat.agents import AssistantAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
-
-# Import ALL tool functions
-from src.tools.hubspot.conversation import (
-    get_actor_details,
-    get_actors_batch,
-    get_channel_account_details,
-    get_channel_details,
-    list_channel_accounts,
-    list_channels,
-    get_inbox_details,
-    list_inboxes,
-    get_message_details,
-    get_original_message_content,
-    archive_thread,
-    get_thread_details,
-    get_thread_messages,
-    list_threads,
-    update_thread,
-)
-
-# Import Ticket tools
-from src.tools.hubspot.tickets import (
-    create_support_ticket_for_conversation,
-)
 
 # Import system message
 from src.agents.hubspot.system_message import HUBSPOT_AGENT_SYSTEM_MESSAGE
@@ -37,57 +13,134 @@ from src.agents.hubspot.system_message import HUBSPOT_AGENT_SYSTEM_MESSAGE
 # Import Agent Name
 from src.agents.agent_names import HUBSPOT_AGENT_NAME
 
+# Conversation and Ticket Tools
+from src.tools.hubspot.conversation.conversation_tools import send_message_to_thread, get_thread_details
+from src.tools.hubspot.tickets.ticket_tools import (
+    update_ticket,
+    move_ticket_to_human_assistance_pipeline,
+)
+from src.tools.hubspot.tickets.dto_responses import TicketDetailResponse
+
+# Config imports for default values
+from config import (
+    HUBSPOT_DEFAULT_SENDER_ACTOR_ID,
+    HUBSPOT_DEFAULT_CHANNEL,
+    HUBSPOT_DEFAULT_CHANNEL_ACCOUNT,
+    HUBSPOT_DEFAULT_INBOX,
+    HUBSPOT_PIPELINE_ID_AICHAT,
+    HUBSPOT_PIPELINE_STAGE_ID_AICHAT_OPEN,
+    HUBSPOT_PIPELINE_STAGE_ID_AICHAT_ASSISTANCE,
+    HUBSPOT_PIPELINE_STAGE_ID_AICHAT_CLOSED,
+)
+
+
 # --- Collect all tool functions ---
 # Conversation Tools
 conversation_tools: List[Callable] = [
-    get_thread_details,
-    get_thread_messages,
-    list_threads,
-    update_thread,
-    archive_thread,
-    get_actor_details,
-    get_actors_batch,
-    list_inboxes,
-    get_inbox_details,
-    list_channels,
-    get_channel_details,
-    list_channel_accounts,
-    get_channel_account_details,
-    get_message_details,
-    get_original_message_content,
+    send_message_to_thread,
 ]
 
 # Ticket Tools
 ticket_tools: List[Callable] = [
-    create_support_ticket_for_conversation,
+    update_ticket,
+    move_ticket_to_human_assistance_pipeline,
 ]
-
-# Combined list of all tools for the agent
-all_hubspot_tools: List[Callable] = conversation_tools + ticket_tools
 
 
 # --- Agent Creation Function ---
-def create_hubspot_agent(
-    model_client: OpenAIChatCompletionClient, memory: Optional[List[Memory]] = None
+async def create_hubspot_agent(
+    model_client: OpenAIChatCompletionClient, conversation_id: str
 ) -> AssistantAgent:
     """
-    Creates and configures the HubSpot Agent with an expanded toolkit
-    for managing conversations and tickets.
+    Creates and configures the HubSpot Agent, initializing its memory with
+    conversation-specific details and system configurations.
 
     Args:
         model_client: An initialized OpenAIChatCompletionClient instance.
-        memory: Optional list of memory objects to attach to the agent.
+        conversation_id: The current HubSpot conversation/thread ID.
 
     Returns:
-        An configured AssistantAgent instance.
+        A configured AssistantAgent instance.
     """
+    memory = ListMemory()
+
+    # Add critical conversation ID to memory
+    await memory.add(
+        MemoryContent(
+            content=f"Current_HubSpot_Thread_ID: {conversation_id}",
+            mime_type=MemoryMimeType.TEXT,
+            metadata={"priority": "critical", "source": "hubspot_thread"},
+        )
+    )
+
+    # Look up and add associated ticket ID to memory
+    try:
+        thread_details = await get_thread_details(thread_id=conversation_id)
+        if not isinstance(thread_details, str):
+            if (hasattr(thread_details, 'threadAssociations') and 
+                thread_details.threadAssociations and 
+                thread_details.threadAssociations.associatedTicketId):
+                
+                ticket_id = thread_details.threadAssociations.associatedTicketId
+                await memory.add(
+                    MemoryContent(
+                        content=f"Associated_HubSpot_Ticket_ID: {ticket_id}",
+                        mime_type=MemoryMimeType.TEXT,
+                        metadata={"priority": "critical", "source": "hubspot_ticket"},
+                    )
+                )
+    except Exception as e:
+        # If we can't get the ticket ID, continue without it
+        # The agent can still function for other operations
+        pass
+
+    # Add default system configurations to memory
+    defaults_to_add = {
+        "Default_HubSpot_Sender_Actor_ID": HUBSPOT_DEFAULT_SENDER_ACTOR_ID,
+        "Default_HubSpot_Channel_ID": HUBSPOT_DEFAULT_CHANNEL,
+        "Default_HubSpot_Channel_Account_ID": HUBSPOT_DEFAULT_CHANNEL_ACCOUNT,
+        "Default_HubSpot_Inbox_ID": HUBSPOT_DEFAULT_INBOX,
+    }
+    for key, value in defaults_to_add.items():
+        if value:
+            await memory.add(
+                MemoryContent(
+                    content=f"{key}: {value}",
+                    mime_type=MemoryMimeType.TEXT,
+                    metadata={
+                        "priority": "normal",
+                        "source": "system_config_hubspot_defaults",
+                    },
+                )
+            )
+
+    # Add the single pipeline and its stages to memory
+    pipeline_info = {
+        "HubSpot_Pipeline_ID_AI_Chat": HUBSPOT_PIPELINE_ID_AICHAT,
+        "HubSpot_Stage_ID_AI_Chat_Open": HUBSPOT_PIPELINE_STAGE_ID_AICHAT_OPEN,
+        "HubSpot_Stage_ID_AI_Chat_Assistance": HUBSPOT_PIPELINE_STAGE_ID_AICHAT_ASSISTANCE,
+        "HubSpot_Stage_ID_AI_Chat_Closed": HUBSPOT_PIPELINE_STAGE_ID_AICHAT_CLOSED,
+    }
+    for key, value in pipeline_info.items():
+        if value:
+            await memory.add(
+                MemoryContent(
+                    content=f"{key}: {value}",
+                    mime_type=MemoryMimeType.TEXT,
+                    metadata={
+                        "priority": "normal",
+                        "source": "system_config_hubspot_pipelines",
+                    },
+                )
+            )
+
     hubspot_assistant = AssistantAgent(
         name=HUBSPOT_AGENT_NAME,
-        description="Interacts with HubSpot APIs. Manages conversation threads (get, list, update/archive [DevOnly]), messages (get, send COMMENT/MESSAGE), actors, channels, and inboxes. Its primary ticket-related function is to create specialized support tickets linked to conversations for handoffs. Returns raw dicts/lists or confirmation strings.",
+        description="Interacts with HubSpot APIs. Manages conversation threads and updates existing tickets. Has access to all necessary context (conversation IDs, pipeline IDs, etc.) and can look up ticket associations as needed. Returns raw dicts/lists or confirmation strings.",
         system_message=HUBSPOT_AGENT_SYSTEM_MESSAGE,
         model_client=model_client,
-        memory=[memory] if memory else None,
-        tools=all_hubspot_tools,
+        memory=[memory],
+        tools=conversation_tools + ticket_tools,
         reflect_on_tool_use=False,
     )
     return hubspot_assistant
