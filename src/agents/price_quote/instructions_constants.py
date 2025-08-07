@@ -10,7 +10,7 @@ PLANNER_ASK_USER = "PLANNER_ASK_USER"
 # Instruction for Planner to ask the user to confirm the summarized data (PQA provides the summary text)
 PLANNER_ASK_USER_FOR_CONFIRMATION = "PLANNER_ASK_USER_FOR_CONFIRMATION"
 
-# Instruction for Planner that custom quote data validation was successful and to proceed with ticket creation
+# Instruction for Planner that custom quote data validation was successful and to proceed with ticket update
 # PQA will also provide the final form_data object with this instruction.
 PLANNER_VALIDATION_SUCCESSFUL_PROCEED_TO_TICKET = (
     "PLANNER_VALIDATION_SUCCESSFUL_PROCEED_TO_TICKET"

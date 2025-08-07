@@ -1,7 +1,7 @@
 """HubSpot Ticket Tools"""
 
 # From ticket_tools.py
-from .ticket_tools import create_ticket, create_support_ticket_for_conversation
+from .ticket_tools import create_ticket, create_support_ticket_for_conversation, update_ticket
 
 # From constants.py
 from .constants import (
@@ -38,6 +38,7 @@ __all__ = [
     # ticket_tools
     "create_ticket",
     "create_support_ticket_for_conversation",
+    "update_ticket",
     # constants
     "AssociationCategory",
     "PipelineStage",

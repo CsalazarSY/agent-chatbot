@@ -78,7 +78,7 @@ class AssociationToCreate(BaseModel):
 
 # --- Ticket properties --- #
 class TicketProperties(BaseModel):
-    """Properties for creating a HubSpot ticket. This will be used by both general ticket creation and conversation-specific ticket creation."""
+    """Properties for updating a HubSpot ticket. This will be used by both general ticket updates and conversation-specific ticket updates."""
 
     # --- Required Base Fields ---
     subject: Optional[str] = Field(None, description="The subject or title of the ticket.")
