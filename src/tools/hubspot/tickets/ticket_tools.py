@@ -289,9 +289,5 @@ async def move_ticket_to_human_assistance_pipeline(
 
     # 3. If the ticket update is successful, disable the AI for the conversation
     await add_conversation_to_handed_off(conversation_id)
-    logger_config.log_message(
-        f"Successfully moved ticket {ticket_id} to human assistance pipeline and disabled AI for conversation {conversation_id}.",
-        level=2
-    )
 
     return "SUCCESS: Ticket has been moved to human assistance pipeline and AI has been disabled for this conversation."

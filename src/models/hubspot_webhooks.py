@@ -11,31 +11,25 @@ class HubSpotSubscriptionType(str, Enum):
 
     CONVERSATION_CREATION = "conversation.creation"
     CONVERSATION_NEW_MESSAGE = "conversation.newMessage"
+    OBJECT_PROPERTY_CHANGE = "object.propertyChange"
 
-
-class HubSpotAssignmentPayload(BaseModel):
-    """Represents the payload for HubSpot assignment webhook events."""
+class TicketPropertyChangePayload(BaseModel):
+    """Represents the payload for HubSpot ticket property change webhook events."""
     
-    was_assigned: bool
-    owner_availability: str
-    hubspot_owner_id: Union[int, str, None] = None  # Can be null, empty string, or int
-    type_of_ticket: str
-    contact_owner: Optional[int] = None
-    msg: str  # Message indicating the assignment scenario
-
-    hs_object_id: int
-    hs_pipeline_stage: int
-    hs_pipeline: int
-    hs_ticket_id: int
-    hs_thread_id: int
-    
-    @field_validator('hubspot_owner_id', mode='before')
-    @classmethod
-    def validate_hubspot_owner_id(cls, v):
-        """Convert empty string to None, keep int values as is"""
-        if v == "" or v is None:
-            return None
-        return v
+    eventId: int
+    subscriptionId: int
+    portalId: int
+    appId: int
+    occurredAt: int
+    subscriptionType: str  # Will be "object.propertyChange"
+    attemptNumber: int
+    objectId: int # The ticket ID
+    objectTypeId: str  # e.g., "0-5" for tickets
+    propertyName: str
+    propertyValue: str
+    changeSource: str
+    sourceId: Optional[str] = None
+    isSensitive: bool
     
     # Allow extra fields not explicitly defined
     model_config = {"extra": "allow"}
@@ -68,4 +62,7 @@ class HubSpotNotification(BaseModel):
 
 
 # The webhook payload is a list of these notifications
-WebhookPayload = List[HubSpotNotification]
+ChatWebhookPayload = List[HubSpotNotification]
+
+# The ticket property change webhook payload is a list of ticket property change events
+TicketPropertyChangeWebhookPayload = List[TicketPropertyChangePayload]

@@ -6,7 +6,6 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 # System imports
 from contextlib import asynccontextmanager
-from src.tools.hubspot.conversation.conversation_tools import get_thread_details
 import uvicorn
 import config
 
@@ -18,9 +17,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Types
 from src.models.hubspot_webhooks import (
-    WebhookPayload,
+    ChatWebhookPayload,
     HubSpotSubscriptionType,
-    HubSpotAssignmentPayload,
+    TicketPropertyChangeWebhookPayload,
 )  # /hubspot/webhooks endpoint
 
 
@@ -169,9 +168,9 @@ async def log_payload(request: Request):
 
 
 #  HubSpot Webhook Endpoint  #
-@app.post("/hubspot/webhooks")
+@app.post("/webhooks/hubspot/chat")
 async def hubspot_webhook_endpoint(
-    payload: WebhookPayload, background_tasks: BackgroundTasks
+    payload: ChatWebhookPayload, background_tasks: BackgroundTasks
 ):
     """
     Receives webhook events from HubSpot.
@@ -241,13 +240,13 @@ async def hubspot_webhook_endpoint(
 
 
 #  HubSpot Assignment Webhook Endpoint  #
-@app.post("/hubspot/webhooks/assignment")
-async def hubspot_assignment_webhook_endpoint(payload: HubSpotAssignmentPayload, background_tasks: BackgroundTasks):
+@app.post("/webhooks/hubspot/assignment")
+async def hubspot_assignment_webhook_endpoint(payload: TicketPropertyChangeWebhookPayload, background_tasks: BackgroundTasks):
     """
     Receives webhook events from HubSpot for conversation assignment changes.
     Processes assignment status and sends appropriate messages to conversations.
     """
-    
+
     # Schedule background task to process the assignment
     background_tasks.add_task(
         process_assignment_webhook,
