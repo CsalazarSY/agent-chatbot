@@ -1,17 +1,15 @@
 # /src/services/hubspot/webhook_assign_signal.py
 
-import config
 import asyncio
-from src.services.logger_config import log_message
-from src.models.hubspot_webhooks import HubSpotPropertyChangePayload
-from src.tools.hubspot.conversation.conversation_tools import send_message_to_thread
+import config
+from src.models.hubspot_webhooks import TicketPropertyChangePayload as HubSpotPropertyChangePayload
+from hubspot.crm.tickets.exceptions import ApiException as TicketsApiException
+from hubspot.crm.owners.exceptions import ApiException as OwnersApiException
 from src.tools.hubspot.conversation.dto_requests import CreateMessageRequest
-from src.services.hubspot.messages_filter import add_conversation_to_handed_off
 from src.services.time_service import is_business_hours
-
-# Import ApiException from both tickets and owners for specific error handling
-from hubspot.crm.tickets import ApiException as TicketsApiException
-from hubspot.crm.owners import ApiException as OwnersApiException
+from src.services.logger_config import log_message
+from src.tools.hubspot.conversation.conversation_tools import send_message_to_thread
+from src.services.hubspot.messages_filter import add_conversation_to_handed_off
 
 # --- Improved, Context-Aware Messages ---
 def get_handoff_messages(owner_name: str = None):
