@@ -5,9 +5,10 @@ Tools for interacting with HubSpot Tickets API using the SDK.
 # /src/tools/hubspot/tickets/ticket_tools.py
 import asyncio  # For async operations
 import traceback  # For logging exceptions
-from typing import Union, List, Dict, Any  # Standard typing
+from typing import Optional, Union, List, Dict, Any  # Standard typing
 
 # HubSpot SDK imports
+import config
 from hubspot.crm.tickets import (
     SimplePublicObjectInputForCreate,
     SimplePublicObjectInput,
@@ -21,14 +22,15 @@ from hubspot.crm.associations.v4.models import AssociationSpec
 from config import (
     HUBSPOT_CLIENT,
     HUBSPOT_PIPELINE_ID_AICHAT,
-    HUBSPOT_PIPELINE_STAGE_ID_AICHAT_ASSISTANCE,
     HUBSPOT_PIPELINE_STAGE_ID_AICHAT_OPEN,
 )
 
 # Import the new pipeline logic helper
+from src.markdown_info.custom_quote.constants import YesNoEnum
 from src.services.hubspot.messages_filter import add_conversation_to_handed_off
 from src.services import logger_config
 
+from src.services.time_service import is_business_hours
 from src.tools.hubspot.tickets.constants import (
     AssociationCategory,
     TypeOfTicketEnum,
@@ -256,16 +258,23 @@ async def update_ticket(
         return _format_error("update_ticket", e)
 
 async def move_ticket_to_human_assistance_pipeline(
-    ticket_id: str, conversation_id: str
+    ticket_id: str,
+    conversation_id: str,
+    properties: Optional[TicketProperties] = None,
 ) -> str:
     """
-    Moves a ticket to the 'Assistance' stage in the AI Chatbot pipeline and disables AI for the associated conversation.
+    Requests human assistance. This tool intelligently handles the handoff by:
+    1. Checking if it's currently business hours.
+    2. Moving the ticket to the appropriate 'On Hours' or 'Off Hours' assistance stage.
+    3. Updating the 'created_on_business_hours' property for metrics.
+    4. Applying any additional property updates provided by the Planner (e.g., a final summary).
+    5. Disabling the AI for the conversation to allow a human to take over.
 
     Args:
-        ticket_id: The ID of the ticket to move to human assistance.
-                  The HubSpot Agent should pass this from its memory (Associated_HubSpot_Ticket_ID).
-        conversation_id: The ID of the conversation to disable AI for.
-                        The HubSpot Agent should pass this from its memory (Current_HubSpot_Thread_ID).
+        ticket_id: The ID of the ticket requiring assistance.
+        conversation_id: The ID of the conversation to disable the AI for.
+        properties: An optional TicketProperties object containing any final
+                    details to update on the ticket at the time of handoff.
 
     Returns:
         A success or failure message string.
@@ -275,19 +284,31 @@ async def move_ticket_to_human_assistance_pipeline(
     if not conversation_id:
         return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} conversation_id is required."
 
-    # 1. Define the property update to change the pipeline stage
-    properties_to_update = TicketProperties(
-        hs_pipeline_stage=HUBSPOT_PIPELINE_STAGE_ID_AICHAT_ASSISTANCE
+    # 1. Determine business hours and select the correct stage
+    on_business_hours = is_business_hours()
+    target_stage = (
+        config.HUBSPOT_PIPELINE_STAGE_ID_AICHAT_ASSISTANCE_ON_HOURS
+        if on_business_hours
+        else config.HUBSPOT_PIPELINE_STAGE_ID_AICHAT_ASSISTANCE_OFF_HOURS
     )
+    
+    # 2. Prepare the final properties payload for the update
+    # Start with the properties provided by the Planner, or an empty DTO if none.
+    final_properties_to_update = properties if properties is not None else TicketProperties()
 
-    # 2. Call the generic update_ticket tool
-    update_result = await update_ticket(ticket_id, properties_to_update)
+    # 3. Add the mandatory handoff properties. This will overwrite if the Planner
+    #    somehow provided them, ensuring the correct stage is always set.
+    final_properties_to_update.hs_pipeline_stage = target_stage
+    final_properties_to_update.created_on_business_hours = YesNoEnum.YES if on_business_hours else YesNoEnum.NO
+    
+    # 4. Call the generic update_ticket tool with the combined properties
+    update_result = await update_ticket(ticket_id, final_properties_to_update)
 
     if isinstance(update_result, str) and update_result.startswith(HUBSPOT_TICKET_TOOL_ERROR_PREFIX):
-        # If the ticket update fails, return the error
         return f"{HUBSPOT_TICKET_TOOL_ERROR_PREFIX} Failed to move ticket to assistance stage: {update_result}"
 
-    # 3. If the ticket update is successful, disable the AI for the conversation
+    # 5. If successful, disable the AI for the conversation
     await add_conversation_to_handed_off(conversation_id)
 
-    return "SUCCESS: Ticket has been moved to human assistance pipeline and AI has been disabled for this conversation."
+    return "SUCCESS: Human assistance has been requested. The ticket was moved and the AI is now disabled for this conversation."
+

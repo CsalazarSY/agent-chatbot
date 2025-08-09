@@ -9,6 +9,7 @@ from . import message_to_html
 from . import redis_client
 from . import sy_refresh_token
 from . import websocket_manager
+from . import time_service
 
 __all__ = [
     "chromadb",
@@ -19,5 +20,6 @@ __all__ = [
     "message_to_html",
     "redis_client",
     "sy_refresh_token",
+    "time_service",
     "websocket_manager",
 ]

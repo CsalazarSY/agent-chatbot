@@ -15,6 +15,7 @@ from src.agents.planner.system_message import PLANNER_ASSISTANT_SYSTEM_MESSAGE
 
 # Import Agent Name
 from src.agents.agent_names import PLANNER_AGENT_NAME
+from src.services.time_service import is_business_hours
 
 
 # --- Agent Creation Function ---
@@ -39,6 +40,15 @@ async def create_planner_agent(
             content=f"Current_HubSpot_Thread_ID: {conversation_id}",
             mime_type=MemoryMimeType.TEXT,
             metadata={"priority": "critical", "source": "hubspot_thread"},
+        )
+    )
+
+    on_business_hours = is_business_hours()
+    await memory.add(
+        MemoryContent(
+            content=f"Is_Currently_Business_Hours: {on_business_hours}",
+            mime_type=MemoryMimeType.TEXT,
+            metadata={"priority": "critical", "source": "system_time"},
         )
     )
 
