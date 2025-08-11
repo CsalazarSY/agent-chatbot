@@ -16,8 +16,6 @@ def is_business_hours() -> bool:
     # Get the current time in that timezone
     now = datetime.now(timezone)
 
-    log_message(f"Current time is {now}", level=1)
-
     # Check if it's a weekday (Monday=0, Sunday=6)
     is_weekday = now.weekday() < 5
     
