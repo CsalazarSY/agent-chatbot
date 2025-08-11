@@ -52,6 +52,7 @@ def set_sy_api_token(new_token: str | None):
 
 DEFAULT_COUNTRY_CODE = os.getenv("DEFAULT_COUNTRY_CODE", "US")
 DEFAULT_CURRENCY_CODE = os.getenv("DEFAULT_CURRENCY_CODE", "USD")
+DEFAULT_TIMEZONE_CODE = os.getenv("DEFAULT_TIMEZONE_CODE", "America/Toronto")
 
 # --- LLM Configuration ---
 LLM_BASE_URL = get_required_env_variable("LLM_BASE_URL")
