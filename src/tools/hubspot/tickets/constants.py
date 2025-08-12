@@ -14,16 +14,6 @@ class AssociationCategory(str, Enum):
     USER_DEFINED = "USER_DEFINED"
     INTEGRATOR_DEFINED = "INTEGRATOR_DEFINED"
 
-
-class PipelineStage(str, Enum):
-    """Defines common HubSpot ticket pipeline stage IDs."""
-
-    NEW = "1"  # Default for many "Support Pipeline" setups
-    WAITING_ON_CONTACT = "2"
-    WAITING_ON_US = "3"
-    CLOSED = "4"
-
-
 class AssociationTypeIdTicket(Enum):
     """
     Defines HubSpot-defined association type IDs for linking FROM a TICKET TO other objects.

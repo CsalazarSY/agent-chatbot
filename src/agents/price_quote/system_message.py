@@ -22,7 +22,11 @@ from src.agents.price_quote.instructions_constants import (
 from src.markdown_info.quick_replies.quick_reply_markdown import (
     QUICK_REPLY_STRUCTURE_DEFINITION,
 )
-from src.markdown_info.custom_quote.constants import HubSpotPropertyName, ProductCategoryEnum, StickerFormatEnum
+from src.constants import (
+    HubSpotPropertyName,
+    ProductCategoryEnum,
+    StickerFormatEnum,
+)
 
 
 # Load environment variables

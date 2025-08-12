@@ -6,7 +6,6 @@ from .ticket_tools import create_ticket, create_support_ticket_for_conversation,
 # From constants.py
 from .constants import (
     AssociationCategory,
-    PipelineStage,
     AssociationTypeIdTicket,
     AssociationTypeIdContact,
     AssociationTypeIdNote,
@@ -41,7 +40,6 @@ __all__ = [
     "update_ticket",
     # constants
     "AssociationCategory",
-    "PipelineStage",
     "AssociationTypeIdTicket",
     "AssociationTypeIdContact",
     "AssociationTypeIdNote",

@@ -26,7 +26,7 @@ from config import (
 )
 
 # Import the new pipeline logic helper
-from src.markdown_info.custom_quote.constants import YesNoEnum
+from src.constants import YesNoEnum
 from src.services.hubspot.messages_filter import add_conversation_to_handed_off
 from src.services import logger_config
 

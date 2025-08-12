@@ -2,7 +2,7 @@
 
 import asyncio
 import config
-from src.models.hubspot_webhooks import TicketPropertyChangePayload as HubSpotPropertyChangePayload
+from src.models.hubspot_webhooks import TicketPropertyChangeWebhookPayload
 from hubspot.crm.tickets.exceptions import ApiException as TicketsApiException
 from hubspot.crm.owners.exceptions import ApiException as OwnersApiException
 from src.tools.hubspot.conversation.dto_requests import CreateMessageRequest
@@ -26,79 +26,87 @@ def get_handoff_messages(owner_name: str = None):
             "unassigned_off_hours": "Our team is currently offline, but I've left them a notification. They will get back to you as soon as they are available. For any new topics, please feel free to start a new chat with me."
         }
 
-async def process_assignment_webhook(payload: HubSpotPropertyChangePayload):
+async def process_assignment_webhook(payload: TicketPropertyChangeWebhookPayload):
     """
     Processes a 'was_handed_off' property change. Sends a context-aware message
     based on business hours and owner assignment, then disables the AI.
     """
-    if payload.propertyValue.lower() != "yes":
-        return  # Ignore if not a handoff activation
-
-    try:
-        ticket_id = str(payload.objectId)
-
-        # --- 1. Get Ticket Details (including owner and conversation) ---
-        conversation_id = None
-        hubspot_owner_id = None
+    for event in payload:
         try:
-            ticket_response = await asyncio.to_thread(
-                config.HUBSPOT_CLIENT.crm.tickets.basic_api.get_by_id,
-                ticket_id,
-                properties=["hubspot_owner_id"],
-                associations=["conversations"]
-            )
-            if ticket_response.associations and "conversations" in ticket_response.associations:
-                conversation_id = ticket_response.associations["conversations"].results[0].id
-            if ticket_response.properties:
-                hubspot_owner_id = ticket_response.properties.get("hubspot_owner_id")
-        except (TicketsApiException, IndexError, KeyError, AttributeError) as e:
-            return
+            # Check the propertyName for each event to ensure we're acting on the right one. (Rare case since this endpoint handles assignment only)
+            if event.propertyName != "was_handed_off" or event.propertyValue.lower() != "yes":
+                # Ignore if not a handoff activation or not the right property
+                continue 
 
-        if not conversation_id:
-            log_message(f"Ticket {ticket_id} has no associated conversation.", log_type="warning")
-            return
+            ticket_id = str(event.objectId)
 
-        # --- 2. Get Owner Name if an owner is assigned ---
-        owner_name = None
-        if hubspot_owner_id:
+            # --- 1. Get Ticket Details (including owner and conversation) ---
+            conversation_id = None
+            hubspot_owner_id = None
             try:
-                owner_response = await asyncio.to_thread(
-                    config.HUBSPOT_CLIENT.crm.owners.owners_api.get_by_id,
-                    owner_id=int(hubspot_owner_id)
+                ticket_response = await asyncio.to_thread(
+                    config.HUBSPOT_CLIENT.crm.tickets.basic_api.get_by_id,
+                    ticket_id,
+                    properties=["hubspot_owner_id"],
+                    associations=["conversations"]
                 )
-                owner_name = owner_response.first_name
-            except OwnersApiException as e:
-                log_message(f"API error fetching owner {hubspot_owner_id}: {e}", log_type="error")
-                # Proceed without the name, the logic will handle it gracefully
-            except Exception as e:
-                log_message(f"Unexpected error fetching owner {hubspot_owner_id}: {e}", log_type="error")
 
-        # --- 3. Determine the Scenario and Message ---
-        messages = get_handoff_messages(owner_name)
-        message_text = ""
+                if ticket_response.associations and "conversations" in ticket_response.associations:
+                    conversation_id = ticket_response.associations["conversations"].results[0].id
 
-        if is_business_hours():
-            message_text = messages.get("assigned") if owner_name else messages.get("unassigned_on_hours")
-        else:
-            message_text = messages.get("unassigned_off_hours")
+                if ticket_response.properties:
+                    hubspot_owner_id = ticket_response.properties.get("hubspot_owner_id")
 
-        # --- 4. Send the Message and Disable AI ---
-        message_payload = CreateMessageRequest(
-            type="MESSAGE",
-            text=message_text,
-            richText=f"<p>{message_text}</p>",
-            senderActorId=config.HUBSPOT_DEFAULT_SENDER_ACTOR_ID,
-            channelId=config.HUBSPOT_DEFAULT_CHANNEL,
-            channelAccountId=config.HUBSPOT_DEFAULT_CHANNEL_ACCOUNT,
-        )
-        
-        send_result = await send_message_to_thread(
-            thread_id=conversation_id,
-            message_request_payload=message_payload
-        )
-        
-        if send_result:
-            await add_conversation_to_handed_off(conversation_id)
+            except (TicketsApiException, IndexError, KeyError, AttributeError) as e:
+                log_message(f"Could not retrieve details for ticket {ticket_id}: {e}", log_type="warning")
+                continue # Move to the next event in the list
+
+            if not conversation_id:
+                log_message(f"Ticket {ticket_id} has no associated conversation.", log_type="warning")
+                continue # Move to the next event
+
+            # --- 2. Get Owner Name if an owner is assigned ---
+            owner_name = None
+            if hubspot_owner_id:
+                try:
+                    owner_response = await asyncio.to_thread(
+                        config.HUBSPOT_CLIENT.crm.owners.owners_api.get_by_id,
+                        owner_id=int(hubspot_owner_id)
+                    )
+                    owner_name = owner_response.first_name
+                except OwnersApiException as e:
+                    log_message(f"API error fetching owner {hubspot_owner_id}: {e}", log_type="error")
+                    # Proceed without the name, the logic will handle it gracefully
+                except Exception as e:
+                    log_message(f"Unexpected error fetching owner {hubspot_owner_id}: {e}", log_type="error")
+
+            # --- 3. Determine the Scenario and Message ---
+            messages = get_handoff_messages(owner_name)
+            message_text = ""
+
+            if is_business_hours():
+                message_text = messages.get("assigned") if owner_name else messages.get("unassigned_on_hours")
+            else:
+                message_text = messages.get("unassigned_off_hours")
+
+            # --- 4. Send the Message and Disable AI ---
+            message_payload = CreateMessageRequest(
+                type="MESSAGE",
+                text=message_text,
+                richText=f"<p>{message_text}</p>",
+                senderActorId=config.HUBSPOT_DEFAULT_SENDER_ACTOR_ID,
+                channelId=config.HUBSPOT_DEFAULT_CHANNEL,
+                channelAccountId=config.HUBSPOT_DEFAULT_CHANNEL_ACCOUNT,
+            )
             
-    except Exception as e:
-        log_message(f"Exception in process_assignment_webhook: {e}", log_type="error")
+            send_result = await send_message_to_thread(
+                thread_id=conversation_id,
+                message_request_payload=message_payload
+            )
+            
+            if send_result:
+                await add_conversation_to_handed_off(conversation_id)
+
+        except Exception as e:
+            # Log the exception but continue the loop in case other events are valid
+            log_message(f"Exception processing event in assignment webhook: {e}", log_type="error")

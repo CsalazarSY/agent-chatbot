@@ -20,7 +20,7 @@ from src.markdown_info.quick_replies.quick_reply_markdown import (
     QUICK_REPLIES_START_TAG,
     QUICK_REPLIES_END_TAG,
 )
-from src.markdown_info.custom_quote.constants import HubSpotPropertyName
+from src.constants import HubSpotPropertyName
 
 # Import PQA Planner Instruction Constants
 from src.agents.price_quote.instructions_constants import (

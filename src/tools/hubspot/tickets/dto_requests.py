@@ -6,8 +6,8 @@ Request DTOs for HubSpot Ticket tools.
 from typing import Optional, List
 from pydantic import BaseModel, Field
 
-# Import Enums from custom_quote constants
-from src.markdown_info.custom_quote.constants import (
+# Import Enums from organized constants
+from src.constants import (
     StickerFormatEnum,
     StickerPageSingleDesignFinishEnum,
     StickerDieCutFinishEnum,
@@ -36,9 +36,9 @@ from src.markdown_info.custom_quote.constants import (
     IronOnsTransfersFinishEnum,
     MagnetsFinishEnum,
     ClingsFinishEnum,
-    PouchesPouchColorFinishEnum,
-    PouchesPouchSizeFinishEnum,
-    PouchesLabelMaterialFinishEnum,
+    PouchesColor,
+    PouchesSizeEnum,
+    PouchesLabelMaterialEnum,
     ProductCategoryEnum,
     BusinessCategoryEnum,
     HowDidYouFindUsEnum,
@@ -173,9 +173,9 @@ class TicketProperties(BaseModel):
     magnets_finish: Optional[MagnetsFinishEnum] = Field(None, description="Finish for Magnets")
     
     # Pouches
-    pouches_label_material_finish: Optional[PouchesLabelMaterialFinishEnum] = Field(None, description="Label Material")
-    pouches_pouch_color_finish: Optional[PouchesPouchColorFinishEnum] = Field(None, description="Pouch Color")
-    pouches_pouch_size_finish: Optional[PouchesPouchSizeFinishEnum] = Field(None, description="Pouch Size")
+    pouches_label_material_finish: Optional[PouchesLabelMaterialEnum] = Field(None, description="Label Material")
+    pouches_pouch_color_finish: Optional[PouchesColor] = Field(None, description="Pouch Color")
+    pouches_pouch_size_finish: Optional[PouchesSizeEnum] = Field(None, description="Pouch Size")
     
     # Stickers
     sticker_die_cut_finish: Optional[StickerDieCutFinishEnum] = Field(None, description="Finish for Sticker Die-Cut")
@@ -193,9 +193,9 @@ class TicketProperties(BaseModel):
     temp_tattoos_page_single_design_finish: Optional[TempTattoosPageSingleDesignFinishEnum] = Field(None, description="Finish for Temp Tattoos Page (Single Design)")
 
     # These are alternative property names for the quick quote form
-    pouches_label_material: Optional[PouchesLabelMaterialFinishEnum] = Field(None, description="Pouch Label Material (alternative field)")
-    pouches_pouch_color: Optional[PouchesPouchColorFinishEnum] = Field(None, description="Pouch Color (alternative field)")
-    pouches_pouch_size: Optional[PouchesPouchSizeFinishEnum] = Field(None, description="Pouch Size (alternative field)")
+    pouches_label_material: Optional[PouchesLabelMaterialEnum] = Field(None, description="Pouch Label Material (alternative field)")
+    pouches_pouch_color: Optional[PouchesColor] = Field(None, description="Pouch Color (alternative field)")
+    pouches_pouch_size: Optional[PouchesSizeEnum] = Field(None, description="Pouch Size (alternative field)")
 
     # --- Additional Custom Quote Properties ---
     order_number: Optional[str] = Field(None, description="Order Number")
@@ -204,7 +204,7 @@ class TicketProperties(BaseModel):
     # These properties are from the custom_quote_properties group in HubSpot
     # They represent alternative field names that may be used in different forms
     
-    # Basic Info Properties (moved and new)
+    # Basic Info Properties
     additional_instructions_: Optional[str] = Field(None, description="Additional Instructions")
     application_use_: Optional[str] = Field(None, description="Application Use")
     business_category: Optional[BusinessCategoryEnum] = Field(None, description="Business Category")
@@ -242,8 +242,8 @@ class TicketProperties(BaseModel):
     type_of_tattoo_: Optional[TypeOfTattooEnum] = Field(None, description="Type of Tattoo")
     
     # Pouch Properties (alternative naming)
-    pouch_label_material_: Optional[PouchesLabelMaterialFinishEnum] = Field(None, description="Pouch Label Material")
-    pouch_size_: Optional[PouchesPouchSizeFinishEnum] = Field(None, description="Pouch Size")
+    pouch_label_material_: Optional[PouchesLabelMaterialEnum] = Field(None, description="Pouch Label Material")
+    pouch_size_: Optional[PouchesSizeEnum] = Field(None, description="Pouch Size")
 
     # --- Ticket Information - Custom Properties ---
     # These properties are from the ticket_information_-_custom group in HubSpot
@@ -252,10 +252,12 @@ class TicketProperties(BaseModel):
 
     # --- HubSpot-Defined Ticket Properties ---
     created_by: Optional[float] = Field(None, description="VID of contact that created the ticket")
+    hs_custom_inbox: Optional[str] = Field(None, description="Custom inbox property for ticket routing and organization")
     hs_file_upload: Optional[str] = Field(None, description="Files attached to a support form by a contact")
     hs_in_helpdesk: Optional[bool] = Field(None, description="Is this Ticket rendered in the Help Desk")
     hs_inbox_id: Optional[float] = Field(None, description="Inbox the ticket is in")
     hs_object_id: Optional[float] = Field(None, description="The unique ID for this record. This value is set automatically by HubSpot")
+    hs_object_source: Optional[str] = Field(None, description="The source system or method through which this object was created")
     hs_pipeline_stage: Optional[str] = Field(None, description="The ID of the pipeline stage (status) of the ticket")
     hs_ticket_category: Optional[HubSpotTicketCategoryEnum] = Field(None, description="Main reason customer reached out for help")
     hs_ticket_id: Optional[float] = Field(None, description="The unique id for this ticket. This unique id is automatically populated by HubSpot")

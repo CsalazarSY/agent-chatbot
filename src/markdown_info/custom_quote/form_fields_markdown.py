@@ -2,7 +2,7 @@
 This file contains the markdown definition of the custom quote form.
 """
 
-from .constants import (
+from src.constants import (
     HubSpotFieldType,
     HubSpotPropertyType,
     HubSpotPropertyName,
@@ -35,9 +35,9 @@ from .constants import (
     IronOnsTransfersFinishEnum,
     MagnetsFinishEnum,
     ClingsFinishEnum,
-    PouchesPouchColorFinishEnum,
-    PouchesPouchSizeFinishEnum,
-    PouchesLabelMaterialFinishEnum,
+    PouchesColor,
+    PouchesSizeEnum,
+    PouchesLabelMaterialEnum,
 )
 
 CUSTOM_QUOTE_FORM_MARKDOWN_DEFINITION = f"""
@@ -283,27 +283,27 @@ The following defines the fields, requirements, and conditional logic for collec
 ---
 ### Pouches
 30. **Display Label:** Pouch Color
-    - **HubSpot Internal Name:** `{HubSpotPropertyName.POUCHES_POUCH_COLOR_FINISH.value}`
+    - **HubSpot Internal Name:** `{HubSpotPropertyName.POUCHES_POUCH_COLOR.value}`
     - **Property Type:** {HubSpotPropertyType.TICKET_PROPERTY.value}
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` is '{ProductCategoryEnum.POUCHES.value}')
-    - **List values:** {', '.join(f"'{e}'" for e in PouchesPouchColorFinishEnum.get_all_values())}
+    - **List values:** {', '.join(f"'{e}'" for e in PouchesColor.get_all_values())}
     - **PQA Guidance Note:** If Product Category is Pouches, ask for the pouch color.
 
 31. **Display Label:** Pouch Size
-    - **HubSpot Internal Name:** `{HubSpotPropertyName.POUCHES_POUCH_SIZE_FINISH.value}`
+    - **HubSpot Internal Name:** `{HubSpotPropertyName.POUCHES_POUCH_SIZE.value}`
     - **Property Type:** {HubSpotPropertyType.TICKET_PROPERTY.value}
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` is '{ProductCategoryEnum.POUCHES.value}')
-    - **List values:** {', '.join(f"'{e}'" for e in PouchesPouchSizeFinishEnum.get_all_values())}
+    - **List values:** {', '.join(f"'{e}'" for e in PouchesSizeEnum.get_all_values())}
     - **PQA Guidance Note:** If Product Category is Pouches, ask for the pouch size.
 
 32. **Display Label:** Label Material
-    - **HubSpot Internal Name:** `{HubSpotPropertyName.POUCHES_LABEL_MATERIAL_FINISH.value}`
+    - **HubSpot Internal Name:** `{HubSpotPropertyName.POUCHES_LABEL_MATERIAL.value}`
     - **Property Type:** {HubSpotPropertyType.TICKET_PROPERTY.value}
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` is '{ProductCategoryEnum.POUCHES.value}')
-    - **List values:** {', '.join(f"'{e}'" for e in PouchesLabelMaterialFinishEnum.get_all_values())}
+    - **List values:** {', '.join(f"'{e}'" for e in PouchesLabelMaterialEnum.get_all_values())}
     - **PQA Guidance Note:** If Product Category is Pouches, ask for the label material.
 
 ---
