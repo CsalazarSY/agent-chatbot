@@ -10,7 +10,7 @@ that were previously scattered across multiple files.
 """
 
 from .property_names import QuickQuotePropertyName
-from .form_properties import (
+from .product_values import (
     # Product Categories
     ProductCategoryEnum,
     

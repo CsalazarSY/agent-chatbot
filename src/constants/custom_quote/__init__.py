@@ -9,7 +9,7 @@ organized based on actual HubSpot API data.
 from .property_names import CustomQuotePropertyName
 
 # Form Value Options
-from .form_properties import (
+from .form_values import (
     # Business Information
     BusinessCategoryEnum,
     HowDidYouFindUsEnum,
