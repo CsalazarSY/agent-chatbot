@@ -23,9 +23,6 @@ COPY constraints.txt .
 # Now, run pip install using the requirements file.
 RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
-# The 'playwright' library needs a special command to download its browsers.
-RUN playwright install --with-deps
-
 # --- STAGE 5: Copy Application Code ---
 COPY . .
 
