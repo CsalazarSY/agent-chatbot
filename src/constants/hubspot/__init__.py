@@ -18,7 +18,7 @@ from .property_names import (
     HubSpotPropertyName,
 )
 
-from .custom_properties import (
+from .custom_properties_values import (
     TicketCustomPropertyName,
     TicketTypeEnum,
     OwnerAvailabilityEnum,

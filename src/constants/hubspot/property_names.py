@@ -10,7 +10,7 @@ maintaining the organized structure.
 from enum import Enum
 from ..quick_quote.property_names import QuickQuotePropertyName
 from ..custom_quote.property_names import CustomQuotePropertyName
-from .custom_properties import TicketCustomPropertyName
+from .custom_properties_values import TicketCustomPropertyName
 
 
 class HubSpotPropertyName(str, Enum):
