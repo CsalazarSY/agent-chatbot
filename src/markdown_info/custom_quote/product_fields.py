@@ -12,7 +12,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes
     - **List values:** {', '.join(f"'{e}'" for e in ProductCategoryEnum.get_all_values())}
-    - **PQA Guidance Note:** Ask "What type of product are you looking for?".
+    - **PQA Guidance Note:** Ask "What type of product are you looking for?" You MUST present ALL options from the 'List values' as Quick Replies.
 
 ---
 ### Stickers
@@ -22,7 +22,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` is '{ProductCategoryEnum.STICKERS.value}')
     - **List values:** {', '.join(f"'{e}'" for e in StickerFormatEnum.get_all_values())}
-    - **PQA Guidance Note:** If Product Category is Stickers, ask for the format.
+    - **PQA Guidance Note:** If Product Category is Stickers, ask for the format. You MUST present ALL options from the 'List values' as Quick Replies
 
 3.  **Display Label:** Finish (for Sticker Page - Single Design)
     - **HubSpot Internal Name:** `{HubSpotPropertyName.STICKER_PAGE_SINGLE_DESIGN_FINISH.value}`
@@ -30,7 +30,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.STICKER_FORMAT.value}` is '{StickerFormatEnum.PAGE_SINGLE_DESIGN.value}')
     - **List values:** {', '.join(f"'{e}'" for e in StickerPageSingleDesignFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** Ask for the finish.
+    - **PQA Guidance Note:** Ask for the finish. You MUST present ALL options from the 'List values' as Quick Replies
 
 4.  **Display Label:** Finish (for Sticker Die-Cut)
     - **HubSpot Internal Name:** `{HubSpotPropertyName.STICKER_DIE_CUT_FINISH.value}`
@@ -38,7 +38,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.STICKER_FORMAT.value}` is '{StickerFormatEnum.DIE_CUT.value}')
     - **List values:** {', '.join(f"'{e}'" for e in StickerDieCutFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** Ask for the finish.
+    - **PQA Guidance Note:** Ask for the finish. You MUST present ALL options from the 'List values' as Quick Replies
 
 5.  **Display Label:** Finish (for Sticker Kiss-Cut)
     - **HubSpot Internal Name:** `{HubSpotPropertyName.STICKER_KISS_CUT_FINISH.value}`
@@ -46,7 +46,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.STICKER_FORMAT.value}` is '{StickerFormatEnum.KISS_CUT.value}')
     - **List values:** {', '.join(f"'{e}'" for e in StickerKissCutFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** Ask for the finish.
+    - **PQA Guidance Note:** Ask for the finish. You MUST present ALL options from the 'List values' as Quick Replies
 
 6.  **Display Label:** Finish (for Sticker Rolls)
     - **HubSpot Internal Name:** `{HubSpotPropertyName.STICKER_ROLLS_FINISH.value}`
@@ -54,7 +54,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.STICKER_FORMAT.value}` is '{StickerFormatEnum.ROLLS.value}')
     - **List values:** {', '.join(f"'{e}'" for e in StickerRollsFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** Ask for the finish.
+    - **PQA Guidance Note:** Ask for the finish. You MUST present ALL options from the 'List values' as Quick Replies
 
 7.  **Display Label:** Finish (for Sticker Page - Multiple Designs)
     - **HubSpot Internal Name:** `{HubSpotPropertyName.STICKER_PAGE_MULTIPLE_DESIGNS_FINISH.value}`
@@ -62,7 +62,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.STICKER_FORMAT.value}` is '{StickerFormatEnum.PAGE_MULTIPLE_DESIGNS.value}')
     - **List values:** {', '.join(f"'{e}'" for e in StickerPageMultipleDesignsFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** Ask for the finish.
+    - **PQA Guidance Note:** Ask for the finish. You MUST present ALL options from the 'List values' as Quick Replies
 
 8.  **Display Label:** Finish (for Sticker Transfers)
     - **HubSpot Internal Name:** `{HubSpotPropertyName.STICKER_TRANSFERS_FINISH.value}`
@@ -70,7 +70,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.STICKER_FORMAT.value}` is '{StickerFormatEnum.TRANSFERS.value}')
     - **List values:** {', '.join(f"'{e}'" for e in StickerTransfersFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** Ask for the finish.
+    - **PQA Guidance Note:** Ask for the finish. You MUST present ALL options from the 'List values' as Quick Replies
 
 ---
 ### Labels
@@ -80,7 +80,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` is '{ProductCategoryEnum.LABELS.value}')
     - **List values:** {', '.join(f"'{e}'" for e in LabelsFormatEnum.get_all_values())}
-    - **PQA Guidance Note:** If Product Category is Labels, ask for the format. The finish is determined by this selection.
+    - **PQA Guidance Note:** If Product Category is Labels, ask for the format. The finish is determined by this selection. You MUST present ALL options from the 'List values' as Quick Replies.
 
 10. **Display Label:** Finish (for Labels Page - Single Design)
     - **HubSpot Internal Name:** `{HubSpotPropertyName.LABELS_PAGE_SINGLE_DESIGN_FINISH.value}`
@@ -88,7 +88,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.LABELS_FORMAT.value}` is '{LabelsFormatEnum.PAGE_SINGLE_DESIGN.value}')
     - **List values:** {', '.join(f"'{e}'" for e in LabelsPageSingleDesignFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** Ask for the finish.
+    - **PQA Guidance Note:** Ask for the finish. You MUST present ALL options from the 'List values' as Quick Replies.
 
 11. **Display Label:** Finish (for Labels Kiss-Cut)
     - **HubSpot Internal Name:** `{HubSpotPropertyName.LABELS_KISS_CUT_FINISH.value}`
@@ -96,7 +96,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.LABELS_FORMAT.value}` is '{LabelsFormatEnum.KISS_CUT.value}')
     - **List values:** {', '.join(f"'{e}'" for e in LabelsKissCutFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** Ask for the finish.
+    - **PQA Guidance Note:** Ask for the finish. You MUST present ALL options from the 'List values' as Quick Replies.
 
 12. **Display Label:** Finish (for Labels Rolls)
     - **HubSpot Internal Name:** `{HubSpotPropertyName.LABELS_ROLLS_FINISH.value}`
@@ -104,7 +104,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.LABELS_FORMAT.value}` is '{LabelsFormatEnum.ROLLS.value}')
     - **List values:** {', '.join(f"'{e}'" for e in LabelsRollsFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** Ask for the finish.
+    - **PQA Guidance Note:** Ask for the finish. You MUST present ALL options from the 'List values' as Quick Replies.
 
 13. **Display Label:** Finish (for Labels Page - Multiple Designs)
     - **HubSpot Internal Name:** `{HubSpotPropertyName.LABELS_PAGE_MULTIPLE_DESIGNS_FINISH.value}`
@@ -112,7 +112,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.LABELS_FORMAT.value}` is '{LabelsFormatEnum.PAGE_MULTIPLE_DESIGNS.value}')
     - **List values:** {', '.join(f"'{e}'" for e in LabelsPageMultipleDesignsFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** Ask for the finish.
+    - **PQA Guidance Note:** Ask for the finish. You MUST present ALL options from the 'List values' as Quick Replies.
 
 14. **INTERNAL FIELD - DO NOT ASK USER**
     - **HubSpot Internal Name:** `{HubSpotPropertyName.LABELS_IMAGE_TRANSFERS_FINISH.value}`
@@ -127,7 +127,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` is '{ProductCategoryEnum.IMAGE_TRANSFERS.value}')
     - **List values:** {', '.join(f"'{e}'" for e in ImageTransfersFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** For Image Transfers, ask for the finish. No format selection is needed.
+    - **PQA Guidance Note:** For Image Transfers, ask for the finish. No format selection is needed. Present all the options in list values.
 
 ---
 ### Decals
@@ -137,7 +137,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` is '{ProductCategoryEnum.DECALS.value}')
     - **List values:** {', '.join(f"'{e}'" for e in DecalsFormatEnum.get_all_values())}
-    - **PQA Guidance Note:** If Product Category is Decals, ask for the format. The finish is determined by this selection.
+    - **PQA Guidance Note:** If Product Category is Decals, ask for the format. The finish is determined by this selection. You MUST present ALL options from the 'List values' as Quick Replies
 
 17. **Display Label:** Finish (for Decals Wall & Window)
     - **HubSpot Internal Name:** `{HubSpotPropertyName.DECALS_WALL_WINDOW_FINISH.value}`
@@ -145,7 +145,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.DECALS_FORMAT.value}` is '{DecalsFormatEnum.WALL_WINDOW.value}')
     - **List values:** {', '.join(f"'{e}'" for e in DecalsWallWindowFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** Ask for the finish.
+    - **PQA Guidance Note:** Ask for the finish. You MUST present ALL options from the 'List values' as Quick Replies
 
 18. **Display Label:** Finish (for Decals Floor & Outdoor)
     - **HubSpot Internal Name:** `{HubSpotPropertyName.DECALS_FLOOR_OUTDOOR_FINISH.value}`
@@ -153,7 +153,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.DECALS_FORMAT.value}` is '{DecalsFormatEnum.FLOOR_OUTDOOR.value}')
     - **List values:** {', '.join(f"'{e}'" for e in DecalsFloorOutdoorFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** Ask for the finish.
+    - **PQA Guidance Note:** Ask for the finish. You MUST present ALL options from the 'List values' as Quick Replies
 
 19. **INTERNAL FIELD - DO NOT ASK USER**
     - **HubSpot Internal Name:** `{HubSpotPropertyName.DECALS_IMAGE_TRANSFERS_FINISH.value}`
@@ -193,7 +193,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` is '{ProductCategoryEnum.IRON_ONS.value}')
     - **List values:** {', '.join(f"'{e}'" for e in IronOnsFormatEnum.get_all_values())}
-    - **PQA Guidance Note:** If Product Category is Iron-Ons, ask for the format. The finish is determined by this selection.
+    - **PQA Guidance Note:** If Product Category is Iron-Ons, ask for the format. The finish is determined by this selection. You MUST present ALL options from the 'List values' as Quick Replies
 
 25. **INTERNAL FIELD - DO NOT ASK USER**
     - **HubSpot Internal Name:** `{HubSpotPropertyName.IRON_ONS_PAGE_SINGLE_DESIGN_FINISH.value}`
@@ -221,7 +221,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` is '{ProductCategoryEnum.MAGNETS.value}')
     - **List values:** {', '.join(f"'{e}'" for e in MagnetsFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** For Magnets, ask for the finish. No format selection is needed.
+    - **PQA Guidance Note:** For Magnets, ask for the finish present in the list of values as quick replies. No format selection is needed.
 
 ---
 ### Clings
@@ -231,7 +231,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` is '{ProductCategoryEnum.CLINGS.value}')
     - **List values:** {', '.join(f"'{e}'" for e in ClingsFinishEnum.get_all_values())}
-    - **PQA Guidance Note:** For Clings, ask for the finish. No format selection is needed.
+    - **PQA Guidance Note:** For Clings, ask for the finish present in the list of values as quick replies. No format selection is needed.
 
 ---
 ### Pouches
@@ -241,7 +241,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` is '{ProductCategoryEnum.POUCHES.value}')
     - **List values:** {', '.join(f"'{e}'" for e in PouchesColor.get_all_values())}
-    - **PQA Guidance Note:** If Product Category is Pouches, ask for the pouch color.
+    - **PQA Guidance Note:** If Product Category is Pouches, ask for the pouch color. You MUST present ALL options from the 'List values' as Quick Replies
 
 31. **Display Label:** Pouch Size
     - **HubSpot Internal Name:** `{HubSpotPropertyName.POUCHES_POUCH_SIZE.value}`
@@ -249,7 +249,7 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` is '{ProductCategoryEnum.POUCHES.value}')
     - **List values:** {', '.join(f"'{e}'" for e in PouchesSizeEnum.get_all_values())}
-    - **PQA Guidance Note:** If Product Category is Pouches, ask for the pouch size.
+    - **PQA Guidance Note:** If Product Category is Pouches, ask for the pouch size. You MUST present ALL options from the 'List values' as Quick Replies
 
 32. **Display Label:** Label Material
     - **HubSpot Internal Name:** `{HubSpotPropertyName.POUCHES_LABEL_MATERIAL.value}`
@@ -257,5 +257,5 @@ CUSTOM_QUOTE_FORM_PRODUCT_FIELDS = f"""
     - **Field Type:** {HubSpotFieldType.DROPDOWN.value}
     - **Required:** Yes (IF `{HubSpotPropertyName.PRODUCT_CATEGORY.value}` is '{ProductCategoryEnum.POUCHES.value}')
     - **List values:** {', '.join(f"'{e}'" for e in PouchesLabelMaterialEnum.get_all_values())}
-    - **PQA Guidance Note:** If Product Category is Pouches, ask for the label material.
+    - **PQA Guidance Note:** If Product Category is Pouches, ask for the label material. You MUST present ALL options from the 'List values' as Quick Replies
 """
