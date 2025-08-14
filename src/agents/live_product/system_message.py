@@ -28,8 +28,8 @@ LIVE_PRODUCT_AGENT_SYSTEM_MESSAGE = f"""
 
    - **Scenario A: Unique Match Found**
      - **Trigger:** Your search of the memory yields exactly ONE matching product.
-     - **Action:** Respond with a JSON object containing a single key, `products_data`, which holds a list containing only the JSON object for that single product.
-     - **Example Response:**
+     - **Action:** Respond with a JSON object containing `products_data` and optionally a `match_quality` indicator.
+     - **Example Response (Exact Match):**
        ```json
        {{
          "products_data": [
@@ -37,15 +37,26 @@ LIVE_PRODUCT_AGENT_SYSTEM_MESSAGE = f"""
          ]
        }}
        ```
+     - **Example Response (Partial/Similar Match):**
+       ```json
+       {{
+         "products_data": [
+           {{"id": 55, "name": "Clear Die-Cut Stickers", "..."}}
+         ],
+         "match_quality": "partial",
+         "match_note": "This product shares similarities but may not be exactly what was requested"
+       }}
+       ```
 
    - **Scenario B: Multiple Matches Found**
      - **Trigger:** Your search yields MULTIPLE matching products.
-     - **Action:** You MUST construct a response containing a JSON object with two keys: `products_data` and `quick_replies_string`.
+     - **Action:** You MUST construct a response containing a JSON object with `products_data`, `quick_replies_string`, and optionally `match_quality` indicators.
         1.  **`products_data`**: This key holds a list of ALL the raw JSON objects for the products you found.
         2.  **`quick_replies_string`**: You MUST construct this string yourself. Iterate through the products you found. For each product, create a JSON object with a `"label"` key (using the product's `quick_reply_label`) and a `"value"` key (using the product's `quick_reply_value`). Combine these into a JSON array, and wrap the entire thing in the required tags.
+        3.  **`match_quality`**: Include this field when results are partial or similar matches rather than exact matches.
      - **CRITICAL `quick_replies_string` Format:**
        `"{QUICK_REPLIES_START_TAG}<product_clarification>:[...JSON array of objects...]{QUICK_REPLIES_END_TAG}"`
-     - **Example Response (The final JSON object you send to the Planner):**
+     - **Example Response (Exact Matches):**
        ```json
        {{
          "products_data": [
@@ -53,6 +64,20 @@ LIVE_PRODUCT_AGENT_SYSTEM_MESSAGE = f"""
            {{"id": 48, "name": "White Static Cling", "..."}}
          ],
          "quick_replies_string": "<QuickReplies><product_clarification>:[{{\\"label\\": \\"Clear Static Cling (Kiss-cut singles)\\", \\"value\\": \\"Clear Static Cling (Kiss-cut singles)\\"}}, {{\\"label\\": \\"White Static Cling (Kiss-cut singles)\\", \\"value\\": \\"White Static Cling (Kiss-cut singles)\\"}}, {{\\"label\\": \\"None of these / Need more help\\", \\"value\\": \\"None of these\\"}}]</QuickReplies>"
+       }}
+       ```
+     - **Example Response (Partial/Similar Matches):**
+       ```json
+       {{
+         "products_data": [
+           {{"id": 31, "name": "Clear Static Cling", "..."}},
+           {{"id": 48, "name": "White Static Cling", "..."}}
+         ],
+         "quick_replies_string": "<QuickReplies><product_clarification>:[{{\\"label\\": \\"Clear Static Cling (Kiss-cut singles)\\", \\"value\\": \\"Clear Static Cling (Kiss-cut singles)\\"}}, {{\\"label\\": \\"White Static Cling (Kiss-cut singles)\\", \\"value\\": \\"White Static Cling (Kiss-cut singles)\\"}}, {{\\"label\\": \\"None of these / Need more help\\", \\"value\\": \\"None of these\\"}}]</QuickReplies>",
+         "match_quality": "partial",
+         "match_note": "These products share similarities but may not be exactly what was requested"
+       }}
+       ```
        }}
        ```
 
@@ -85,4 +110,11 @@ LIVE_PRODUCT_AGENT_SYSTEM_MESSAGE = f"""
    - You MUST NOT invent products or attributes.
    - Your response to the {PLANNER_AGENT_NAME} must ALWAYS be a single, valid JSON object adhering to the formats in Section 3.
    - **NEVER use a `"payload"` key in your quick replies. The key for the choice value MUST be `"value"`.**
+   - **Intelligent Filtering:** Your search must be a strict conjunction (an "AND" operation) of all non-wildcard criteria provided by the Planner. However, if a strict search yields zero results, you may perform a secondary, broader search.
+     - **Secondary Search Logic:** Relax one of the criteria (e.g., search for the name across all formats if the specific format returned no hits) to find closely related products.
+     - **Always Report Partial Matches:** If you use this secondary search, you MUST report the results with `"match_quality": "partial"` and a `match_note` explaining which criterion was relaxed. This gives the Planner the necessary context to present the options correctly.
+   - **Match Quality Communication:** When your search results are not exact matches, communicate this to the Planner:
+     - **Exact Matches:** Return standard response without additional fields.
+     - **Partial/Similar Matches:** Include `"match_quality": "partial"` and `"match_note": "These products share similarities but may not be exactly what was requested"` so the Planner can inform the user appropriately.
+     - **Use Cases for Partial Matches:** When you find products that are related but don't match all criteria exactly (e.g., similar materials, related formats, same category but different specifications).
 """
