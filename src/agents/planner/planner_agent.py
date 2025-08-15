@@ -4,6 +4,8 @@
 
 # --- Standard Library Imports ---
 from typing import Optional, List
+from datetime import datetime
+import pytz
 
 # --- Third Party Imports ---
 from autogen_agentchat.agents import AssistantAgent
@@ -16,6 +18,7 @@ from src.agents.planner.system_message import PLANNER_ASSISTANT_SYSTEM_MESSAGE
 # Import Agent Name
 from src.agents.agent_names import PLANNER_AGENT_NAME
 from src.services.time_service import is_business_hours
+from config import DEFAULT_TIMEZONE_CODE
 
 
 # --- Agent Creation Function ---
@@ -49,6 +52,19 @@ async def create_planner_agent(
             content=f"Is_Currently_Business_Hours: {on_business_hours}",
             mime_type=MemoryMimeType.TEXT,
             metadata={"priority": "critical", "source": "system_time"},
+        )
+    )
+
+    # Add current date and time to memory for time-related questions
+    timezone = pytz.timezone(DEFAULT_TIMEZONE_CODE)
+    current_datetime = datetime.now(timezone)
+    formatted_datetime = current_datetime.strftime("%A, %B %d, %Y at %I:%M %p %Z")
+    
+    await memory.add(
+        MemoryContent(
+            content=f"Current_Date_Time: {formatted_datetime}",
+            mime_type=MemoryMimeType.TEXT,
+            metadata={"priority": "high", "source": "system_time"},
         )
     )
 

@@ -14,6 +14,7 @@ SY_PRODUCT_FIRST_LINK = (
 
 SY_USER_HISTORY_LINK = "[User History](https://stickeryou.com/userorderhistory)"
 SY_LOGIN_LINK = "[Login](https://stickeryou.com/account/login)"
+SY_HOMEPAGE_LINK = "[Homepage](https://stickeryou.com)"
 
 SY_KEY_SITE_PAGES_LINKS = f"""
 - **Sticker Maker:** {SY_STICKER_MAKER_LINK}
@@ -22,4 +23,5 @@ SY_KEY_SITE_PAGES_LINKS = f"""
 - **Product First (General Product Selection):** {SY_PRODUCT_FIRST_LINK}
 - **User History:** {SY_USER_HISTORY_LINK}
 - **Login:** {SY_LOGIN_LINK}
+- **Homepage:** {SY_HOMEPAGE_LINK}
 """
